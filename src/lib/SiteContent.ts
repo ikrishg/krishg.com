@@ -7,7 +7,7 @@ import coverReseterLead from "~assets/cover-reseter-lead.webp";
 import coverReseterTile from "~assets/cover-reseter-tile.webp";
 import coverSema from "~assets/cover-sema.webp";
 import coverSudansTech from "~assets/cover-sudans-tech.webp";
-import { description, socials, title } from "~shared";
+import { socials, title } from "~shared";
 
 export type WorkEntry = {
   name: string;
@@ -36,8 +36,6 @@ export type AboutRole = {
 };
 
 export class SiteContent {
-  static readonly tagline = description;
-
   static readonly thesis =
     "I build developer tools and agentic systems — shipped reseter.css at 12, still shipping in public.";
 
@@ -179,10 +177,6 @@ export class SiteContent {
         accent: "lavender",
       },
     ];
-  }
-
-  static formatWorkMeta(entry: WorkEntry): string {
-    return [entry.year, entry.context, entry.role].filter(Boolean).join(" · ");
   }
 
   static formatWorkOutcome(entry: WorkEntry): string {
