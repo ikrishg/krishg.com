@@ -16,16 +16,12 @@ export async function GET() {
     items: articles.map((post) => {
       return {
         title: post.data.title,
-        link: new URL(post.id, site).toString(),
+        link: new URL(`/p/${post.id}`, site).toString(),
         description: post.data.description,
         categories: post.data.tags,
         content: post.rendered?.html,
         pubDate: post.data.date,
         author: 'Krish Gupta',
-        source: {
-          title,
-          url: new URL('rss.xml', site).toString(),
-        },
       };
     }),
   });

@@ -25,8 +25,8 @@ const { Content } = await render(article);
       type: "article",
       image: article.data.cover,
       article: {
-        publishedTime: article.data.date.toDateString(),
-        modifiedTime: article.data.date.toDateString(),
+        publishedTime: article.data.date.toISOString(),
+        modifiedTime: article.data.date.toISOString(),
         tags: article.data.tags ?? [],
       },
     },
