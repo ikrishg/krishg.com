@@ -4,7 +4,6 @@ export const title = "Krish Gupta";
 export const description =
   'Engineer, builder, sidequester. Shipped reseter.css at 12 (~1,240 GitHub stars, ~5M+ jsDelivr requests/year). Started coding at 10. Building agentic AI and developer tooling now.';
 export const site = new URL(base, astroSite) || new URL('https://krishg.com')
-export const author = "Krish Gupta";
 
 export const socials = {
   x: "https://x.com/ikrishg",

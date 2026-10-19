@@ -99,11 +99,6 @@ export class WritingCatalog {
     return pieces.sort((a, b) => b.date.getTime() - a.date.getTime());
   }
 
-  static async recent(limit: number): Promise<WritingPiece[]> {
-    const pieces = await WritingCatalog.load();
-    return pieces.filter((piece) => piece.kind !== "poem").slice(0, limit);
-  }
-
   static async loadByKind(kind: WritingKind): Promise<WritingPiece[]> {
     const pieces = await WritingCatalog.load();
     return pieces.filter((piece) => piece.kind === kind);
@@ -118,11 +113,6 @@ export class WritingCatalog {
       year,
       pieces: pieces.filter((piece) => piece.date.getFullYear() === year),
     }));
-  }
-
-  /** Topic tags only — excludes the piece kind so it is not duplicated beside the kind chip. */
-  static displayTags(piece: WritingPiece): string[] {
-    return piece.tags.filter((tag) => tag !== piece.kind);
   }
 
   /** Subtle accent tint for charcoal poem cards — variety from index, not shared imagery. */
