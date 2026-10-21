@@ -4,7 +4,6 @@ export const title = "Krish Gupta";
 export const description =
   "Builder, creator, and educator. Interactive homepage at krishg.com.";
 export const site = new URL(base, astroSite) || new URL("https://krishg.com");
-export const author = "Krish Gupta";
 
 export const socials = {
   x: "https://x.com/ikrishg",
@@ -12,11 +11,4 @@ export const socials = {
   linkedin: "https://www.linkedin.com/in/ikrishg",
   substack: "https://koldovstvo.substack.com",
   github: "https://github.com/ikrishg",
-  email: "mailto:send@krishg.com",
 } as const;
-
-export const navigations = [
-  { label: "Work", href: "/work" },
-  { label: "Writing", href: "/writing" },
-  { label: "Talks", href: "/talks" },
-] as const;

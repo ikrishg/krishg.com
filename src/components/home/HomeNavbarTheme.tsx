@@ -11,7 +11,7 @@ const THEME_COLOR_META = 'meta[name="theme-color"]';
 
 /**
  * Single pathway for surface accent: set `html[data-page-accent]`.
- * CSS maps that attribute to canvas, navbar tokens, and loader colors.
+ * CSS maps that attribute to canvas, navbar, and loader colors.
  * `theme-color` meta follows so mobile browser chrome matches the band.
  */
 export function setPageAccent(accent: PageAccent) {
@@ -63,35 +63,20 @@ export default function HomeNavbarTheme() {
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>(SECTION_SELECTOR),
     );
-    /* Homepage (and any page with band sections) scrolls the accent. */
-    const scrollable = sections.length > 0;
 
-    /* Stub / fixed-accent pages: attribute is already on <html> from SSR. */
-    if (!scrollable) {
+    if (!sections.length) {
       const fixed = pageAccentFromDom();
       if (fixed) setPageAccent(fixed);
       return;
     }
 
     const pickActive = () => {
-      const footer = document.querySelector<HTMLElement>(".home-footer");
-      if (footer) {
-        const footerRect = footer.getBoundingClientRect();
-        if (footerRect.top <= PROBE_Y + 1) {
-          setPageAccent("footer");
-          return;
-        }
-      }
-
       const topmost = document
         .elementsFromPoint(window.innerWidth / 2, PROBE_Y + 1)
         .map((element) => element.closest<HTMLElement>(SECTION_SELECTOR))
-        .find((section): section is HTMLElement => {
-          if (!section) return false;
-          return section.dataset.homeNavTheme !== "footer";
-        });
+        .find((section): section is HTMLElement => Boolean(section));
       const fromPoint = accentFromSection(topmost);
-      if (fromPoint && fromPoint !== "footer") {
+      if (fromPoint) {
         setPageAccent(fromPoint);
         return;
       }
@@ -100,7 +85,6 @@ export default function HomeNavbarTheme() {
       let bestTop = -Infinity;
 
       for (const section of sections) {
-        if (section.dataset.homeNavTheme === "footer") continue;
         const rect = section.getBoundingClientRect();
         if (rect.top <= PROBE_Y && rect.bottom > PROBE_Y) {
           if (rect.top >= bestTop) {

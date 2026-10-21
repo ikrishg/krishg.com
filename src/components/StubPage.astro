@@ -2,30 +2,12 @@
 export interface Props {
   title: string;
   description?: string;
-  accent?: "builder" | "creator" | "educator";
 }
 
-const { title: pageTitle, description = "Coming soon.", accent = "builder" } =
-  Astro.props;
-
-const accentBg = {
-  builder: "var(--home-builder-bg)",
-  creator: "var(--home-creator-bg)",
-  educator: "var(--home-educator-bg)",
-} as const;
-
-const accentFg = {
-  builder: "var(--home-builder-fg)",
-  creator: "var(--home-creator-fg)",
-  educator: "var(--home-educator-fg)",
-} as const;
+const { title: pageTitle, description = "Coming soon." } = Astro.props;
 ---
 
-<section
-  class="stub-page home-band-min-h"
-  aria-labelledby="stub-title"
-  style={`background:${accentBg[accent]};color:${accentFg[accent]};`}
->
+<section class="stub-page home-band-min-h" aria-labelledby="stub-title">
   <div class="stub-page__inner">
     <p class="stub-page__eyebrow">krishg.com</p>
     <h1 id="stub-title" class="stub-page__title">{pageTitle}</h1>
@@ -35,10 +17,13 @@ const accentFg = {
 </section>
 
 <style>
+  /* Colours come from html[data-page-accent] → --home-canvas / inherited color */
   .stub-page {
     display: grid;
     place-items: center;
     padding: 4rem var(--gutter);
+    background-color: var(--home-canvas);
+    color: var(--home-nav-fg);
   }
 
   .stub-page__inner {

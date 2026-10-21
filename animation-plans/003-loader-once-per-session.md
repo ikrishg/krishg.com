@@ -20,7 +20,7 @@ Measured in Chromium on local builds, time from navigation start until
 | Page | 8d44675 | a1bfa74 |
 | --- | --- | --- |
 | `/` cold | 3076 ms | 2792 ms median of 5 (range 2677–2848) |
-| `/about/` | 2032 ms | 2038 ms after the load event |
+| `/building/` | 2032 ms | 2038 ms after the load event |
 | `/` second visit, same context | 2325 ms | not rerun |
 | `/creating/` | 2027 ms | not rerun |
 
@@ -54,11 +54,10 @@ moment. On the fifth page of a visit it is a 2-second wait.
 ```
 
 `src/layouts/RootLayout.astro:55-61` renders `<HomePageLoader client:load />` whenever `!hideTemplate`.
-That is a wider condition than `seedIntro`. Five stub pages pass
-`homeNav={false}` (`src/pages/about.astro:8`, `articles.astro:11`,
-`talks.astro:8`, `work.astro:8`, `writing.astro:8`). On those pages
-`seedIntro` is false, but the loader still renders and plays. Any skip
-decision has to key on "the loader renders", not on `seedIntro`.
+That is a wider condition than `seedIntro`. Historically, stub pages that
+passed `homeNav={false}` still rendered the loader. Any skip decision has
+to key on "the loader renders", not on `seedIntro`. (Site now always seeds
+intro on every page; deleted stubs redirect home.)
 
 `src/components/home/HomePageLoader.tsx:14-20` (current):
 
@@ -90,7 +89,7 @@ export function introAllowsCopyReveal(): boolean {
   display: grid;
   place-items: center;
   background: var(--home-builder-bg, #f4f0e8);
-  color: var(--home-builder-fg, var(--home-footer-ink));
+  color: var(--home-nav-fg);
   pointer-events: none;
 }
 ```
@@ -308,11 +307,11 @@ and the morph transition.
 - **Mechanical**: `pnpm build` exits 0 and prints `9 page(s) built`. `rg -n "krishg:intro-played" src` shows two matches in `RootLayout.astro`. `rg -n "introSkipped" src` shows 1 match in `homeIntro.ts` (the export), 3 in `HomePageLoader.tsx` (import plus 2 calls), and 2 in `HomeHeroCopyMotion.tsx` (import plus 1 call).
 - **Session probe** (Playwright against `pnpm build && pnpm preview`, reduced motion off, one browser context):
   1. Load `/`. `.home-page-loader` exists and is removed within about 3 s. `sessionStorage.getItem("krishg:intro-played") === "1"`.
-  2. In the same context, load `/about/`. In an init script at `DOMContentLoaded`, `getComputedStyle(document.querySelector(".home-page-loader")).display === "none"` and `document.documentElement.dataset.introPhase === "ready"`. `.home-logo` computes `visibility: visible`.
+  2. In the same context, load `/building/`. In an init script at `DOMContentLoaded`, `getComputedStyle(document.querySelector(".home-page-loader")).display === "none"` and `document.documentElement.dataset.introPhase === "ready"`. `.home-logo` computes `visibility: visible`.
   3. In the same context, load `/`. Sample `#builder-heading` opacity every frame for 1 s from `DOMContentLoaded`. Every sample is 1, and its `.hero-copy` ends with `data-revealed="static"`.
   4. Still on `/`, run the plan 002 flash probe. It still counts 0 frames, and the creator copy ends at `data-revealed="true"`.
   5. Open a new browser context and load `/`. The loader plays again.
-  6. Open a new browser context and load `/about/` first (a `homeNav={false}` page). The loader plays. Then load `/` and `/work/` in the same context. Both report `data-intro-skip="1"` at `DOMContentLoaded`, and `/work/` stub children read `0.85,1,1,1`.
+  6. Open a new browser context and load `/building/` first. The loader plays. Then load `/` and `/creating/` in the same context. Both report `data-intro-skip="1"` at `DOMContentLoaded`, and `/creating/` stub children read `0.85,1,1,1`.
 - **Feel check**: run `pnpm preview`, open `/`, watch the intro once, then click "the makerhouse →" and "← Back home". Confirm:
   - The stub page and the return to `/` appear immediately with no signature screen.
   - On the return to `/`, the builder copy is simply there. The builder artifact fades in over 280 ms as its scene becomes ready.

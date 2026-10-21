@@ -8,8 +8,6 @@ colors:
   creator-fg: "#fff8ea"
   educator-bg: "#d8a12a"
   educator-fg: "#252d45"
-  footer-bg: "#f3f0ea"
-  footer-ink: "#252d45"
 typography:
   display:
     fontFamily: "Inter Tight, Space Grotesk, system-ui, sans-serif"
@@ -47,7 +45,7 @@ Experience-mode portfolio surface. Each viewport band is a single saturated colo
 
 ## Colors
 
-Role bands own background and foreground pairs (`--home-*-bg` / `--home-*-fg`). Footer uses warm neutral `--home-footer-bg` and ink `--home-footer-ink`. No sitewide dark theme; contrast is evaluated per band.
+Role bands own background and foreground pairs (`--home-*-bg` / `--home-*-fg`). Surface accent is driven by `html[data-page-accent]` → `--home-canvas` / `--home-nav-*`. No sitewide dark theme; contrast is evaluated per band.
 
 ## Typography
 
@@ -70,7 +68,7 @@ Sharp editorial layout; artifacts live in rectangular canvas regions with option
 - **Hero section**: grid copy + artifact, per-accent CSS variables `--hero-bg` / `--hero-fg`
 - **Artifact stage**: R3F canvas with orbit controls when engaged
 - **Home loader**: fixed fullscreen signature SVG stroke draw (respects reduced motion)
-- **Navbar**: theme swaps via `data-home-nav-theme`
+- **Navbar**: theme swaps via `data-home-nav-theme` → `html[data-page-accent]`
 
 ## Do's and Don'ts
 

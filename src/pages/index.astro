@@ -1,7 +1,6 @@
 ---
 import RootLayout from "~layouts/RootLayout.astro";
 import HeroSection from "~components/home/HeroSection.astro";
-import HomeFooter from "~components/home/HomeFooter.astro";
 import HomeHeroCopyMotion from "~components/home/HomeHeroCopyMotion.tsx";
 import BuilderArtifact from "~components/home/artifacts/BuilderArtifact.tsx";
 import CreatorArtifact from "~components/home/artifacts/CreatorArtifact.tsx";
@@ -10,7 +9,7 @@ import { description, title } from "~shared";
 import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.tsx";
 ---
 
-<RootLayout head={{ title, description }} homeNav>
+<RootLayout head={{ title, description }}>
   <h1 class="sr-only">Krish Gupta</h1>
   <PreloadHomeHeroGlbs client:load />
   <HomeHeroCopyMotion client:load />
@@ -66,7 +65,5 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
     >
       <EducatorArtifact slot="artifact" client:load />
     </HeroSection>
-
-    <HomeFooter />
   </div>
 </RootLayout>

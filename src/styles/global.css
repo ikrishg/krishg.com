@@ -22,8 +22,6 @@
   --home-educator-bg: #d8a12a;
   --home-educator-fg: #252d45;
   --home-educator-muted: color-mix(in srgb, var(--home-educator-fg) 55%, var(--home-educator-bg));
-  --home-footer-bg: #f3f0ea;
-  --home-footer-ink: #252d45;
 
   /*
    * Surface accent tokens. Driven only by html[data-page-accent].
@@ -227,19 +225,6 @@ html[data-page-accent="educator"] {
     transparent
   );
   color: var(--home-educator-fg);
-}
-
-html[data-page-accent="footer"] {
-  --home-canvas: var(--home-footer-bg);
-  --home-nav-bg: var(--home-footer-bg);
-  --home-nav-fg: var(--home-footer-ink);
-  --home-nav-logo: var(--home-footer-ink);
-  --home-nav-muted: color-mix(
-    in srgb,
-    var(--home-footer-ink) 55%,
-    var(--home-footer-bg)
-  );
-  color: var(--home-footer-ink);
 }
 
 @media (prefers-reduced-motion: no-preference) {
