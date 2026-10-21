@@ -3,12 +3,13 @@
 /* krishg.com — layout tokens */
 
 :root {
-  background-color: var(--home-builder-bg);
   --gutter: 1.5rem;
   --home-content-max: 78rem;
   --home-content-inner: 75rem;
   --home-band-height: 600px;
   --home-nav-height: 4rem;
+  /* Fills any gap below 100svh bands when mobile chrome floats (see html). */
+  --home-canvas: var(--home-builder-bg);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -27,6 +28,16 @@
   --home-footer-ink: #252d45;
 }
 
+/*
+ * Full-bleed sticky bands: size to the large viewport so the band paint
+ * reaches behind iOS Safari’s floating chrome. 100svh alone leaves a gap
+ * when the address bar is retracted/floating and the canvas showed through.
+ */
+.home-band-min-h {
+  min-height: calc(100svh - var(--home-nav-height));
+  min-height: calc(100lvh - var(--home-nav-height));
+}
+
 *,
 *::before,
 *::after {
@@ -38,15 +49,16 @@ html {
   overscroll-behavior-y: none;
   scroll-padding-top: var(--home-nav-height);
   scroll-snap-type: y proximity;
-  background: transparent;
+  background-color: var(--home-canvas);
 }
 
 body.site-body {
   margin: 0;
   min-height: 100svh;
+  min-height: 100lvh;
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
   font-feature-settings: "ss01" on;
-  background: transparent;
+  background-color: var(--home-canvas);
   overscroll-behavior-y: none;
 }
 
@@ -153,19 +165,22 @@ html[data-logo-morph="pending"] .home-navbar .home-logo {
 
 html[data-page-accent="creator"],
 html[data-page-accent="creator"] body.site-page-accent {
-  background-color: var(--home-creator-bg);
+  --home-canvas: var(--home-creator-bg);
+  background-color: var(--home-canvas);
   color: var(--home-creator-fg);
 }
 
 html[data-page-accent="educator"],
 html[data-page-accent="educator"] body.site-page-accent {
-  background-color: var(--home-educator-bg);
+  --home-canvas: var(--home-educator-bg);
+  background-color: var(--home-canvas);
   color: var(--home-educator-fg);
 }
 
 html[data-page-accent="builder"],
 html[data-page-accent="builder"] body.site-page-accent {
-  background-color: var(--home-builder-bg);
+  --home-canvas: var(--home-builder-bg);
+  background-color: var(--home-canvas);
   color: var(--home-builder-fg);
 }
 

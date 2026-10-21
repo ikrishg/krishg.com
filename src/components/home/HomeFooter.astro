@@ -12,7 +12,7 @@ const socialLinks = [
 ] as const;
 ---
 
-<footer class="home-footer snap-start" data-home-nav-theme="footer">
+<footer class="home-footer home-band-min-h snap-start" data-home-nav-theme="footer">
   <div class="home-footer__inner">
     <div class="home-footer__brand">
       <KrishLogo class="home-footer__logo" />
@@ -59,7 +59,6 @@ const socialLinks = [
     padding: 2.5rem var(--gutter) 2.75rem;
     background: var(--home-footer-bg);
     color: var(--home-footer-ink);
-    min-height: calc(100svh - var(--home-nav-height));
     display: flex;
     align-items: flex-end;
   }
