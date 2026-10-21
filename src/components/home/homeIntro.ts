@@ -27,6 +27,10 @@ export function introAllowsCopyReveal(): boolean {
   return getIntroPhase() === "ready";
 }
 
+export function introSkipped(): boolean {
+  return document.documentElement.dataset.introSkip === "1";
+}
+
 export function prefersReducedMotion(): boolean {
   return (
     globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false

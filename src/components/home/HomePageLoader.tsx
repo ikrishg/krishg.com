@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   MORPH_MS,
   STROKE_MS,
+  introSkipped,
   prefersReducedMotion,
   setIntroPhase,
 } from "./homeIntro";
@@ -12,11 +13,16 @@ export default function HomePageLoader() {
   const morphStarted = useRef(false);
 
   useEffect(() => {
+    if (introSkipped()) {
+      setPhase("done");
+      return;
+    }
     setIntroPhase("draw");
     return () => setIntroPhase("ready");
   }, []);
 
   useEffect(() => {
+    if (introSkipped()) return;
     const reduced = prefersReducedMotion();
     let homeReady = document.documentElement.dataset.homeReady === "true";
     let strokeDone = false;
