@@ -28,9 +28,20 @@ const {
 <!doctype html>
 <html lang="en" data-page-accent={pageAccent}>
   <Head {...head} homeNav={homeNav} />
+  <script is:inline>
+    (() => {
+      try {
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document.documentElement.dataset.motionEnhance = "1";
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  </script>
   <body
     class:list={[
-      "m-0 min-h-svh bg-transparent font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[#252d45] [font-feature-settings:'ss01'_on] overscroll-y-none",
+      "site-body m-0 min-h-svh bg-transparent font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[#252d45] [font-feature-settings:'ss01'_on] overscroll-y-none",
       pageAccent && "site-page-accent",
     ]}
     data-page-accent={pageAccent}

@@ -23,6 +23,10 @@ function applyFooterTheme() {
   header.style.setProperty("--home-nav-bg", "var(--home-footer-bg)");
   header.style.setProperty("--home-nav-fg", "var(--home-footer-ink)");
   header.style.setProperty("--home-nav-logo", "var(--home-footer-ink)");
+  header.style.setProperty(
+    "--home-nav-muted",
+    "color-mix(in srgb, var(--home-footer-ink) 55%, var(--home-footer-bg))",
+  );
   header.dataset.navTheme = "footer";
 }
 
@@ -44,21 +48,39 @@ export default function HomeNavbarTheme() {
 
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>(SECTION_SELECTOR),
-    );
+    ).filter((section) => section.dataset.homeNavTheme !== "footer");
     if (!sections.length) return;
 
     const initial = sections[0].dataset.homeNavTheme as HeroAccent | undefined;
     if (initial) applyTheme(initial);
 
     const pickActive = () => {
+      const footer = document.querySelector<HTMLElement>(".home-footer");
+      if (footer) {
+        const footerRect = footer.getBoundingClientRect();
+        if (footerRect.top <= PROBE_Y + 1) {
+          applyFooterTheme();
+          return;
+        }
+      }
+
       const topmost = document
         .elementsFromPoint(window.innerWidth / 2, PROBE_Y + 1)
         .map((element) => element.closest<HTMLElement>(SECTION_SELECTOR))
-        .find((section): section is HTMLElement => section !== null);
+        .find((section): section is HTMLElement => {
+          if (!section) return false;
+          return section.dataset.homeNavTheme !== "footer";
+        });
       if (topmost) {
-        const accent = topmost.dataset.homeNavTheme as HeroAccent | undefined;
-        if (accent) applyTheme(accent);
-        return;
+        const theme = topmost.dataset.homeNavTheme;
+        if (
+          theme === "builder" ||
+          theme === "creator" ||
+          theme === "educator"
+        ) {
+          applyTheme(theme);
+          return;
+        }
       }
 
       let best: HTMLElement | null = null;
@@ -75,23 +97,13 @@ export default function HomeNavbarTheme() {
       }
 
       if (best) {
-        const accent = best.dataset.homeNavTheme as HeroAccent | undefined;
-        if (accent) applyTheme(accent);
-        return;
-      }
-
-      const last = sections[sections.length - 1];
-      const lastRect = last?.getBoundingClientRect();
-      if (lastRect && lastRect.bottom < PROBE_Y) {
-        applyFooterTheme();
-        return;
-      }
-
-      const footer = document.querySelector<HTMLElement>(".home-footer");
-      if (footer) {
-        const rect = footer.getBoundingClientRect();
-        if (rect.top <= PROBE_Y) {
-          applyFooterTheme();
+        const theme = best.dataset.homeNavTheme;
+        if (
+          theme === "builder" ||
+          theme === "creator" ||
+          theme === "educator"
+        ) {
+          applyTheme(theme);
         }
       }
     };
