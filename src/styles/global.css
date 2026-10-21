@@ -50,6 +50,32 @@
   min-height: calc(100lvh - var(--home-nav-height));
 }
 
+/*
+ * Safari 26 Liquid Glass ignores theme-color. It tints the bottom toolbar
+ * from fixed/sticky background-color within ~3px of the bottom edge (≥80%
+ * wide, ≥3px tall). This strip tracks --home-canvas from data-page-accent.
+ * Hidden on non-Safari / large viewports.
+ */
+.safari-toolbar-tint {
+  display: none;
+  pointer-events: none;
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (width < 768px) {
+    .safari-toolbar-tint {
+      display: block;
+      position: fixed;
+      bottom: -8px;
+      left: 0;
+      width: 100%;
+      min-height: 12px;
+      z-index: 60;
+      background-color: var(--home-canvas);
+    }
+  }
+}
+
 *,
 *::before,
 *::after {

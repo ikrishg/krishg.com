@@ -39,14 +39,23 @@ const theme = homeNavThemes[accent];
   style={`--hero-bg:${theme.bg};--hero-fg:${theme.fg};`}
   aria-labelledby={`${id}-heading`}
   class:list={[
-    "home-band-min-h sticky top-[var(--home-nav-height)] isolate snap-start flex items-center justify-center overflow-hidden box-border bg-[var(--hero-bg)] text-[var(--hero-fg)]",
+    /* Sticky parent stays transparent: Safari 26 Liquid Glass samples
+       sticky/fixed background-color near the chrome. Band paint lives on
+       an absolute child so stuck lower bands do not tint the toolbar. */
+    "home-band-min-h sticky top-[var(--home-nav-height)] isolate snap-start flex items-center justify-center overflow-hidden box-border text-[var(--hero-fg)]",
     "py-8 md:py-14",
     "max-md:px-[var(--gutter)]",
   ]}
 >
   <div
+    class="hero-band-paint pointer-events-none absolute inset-0 -z-10"
+    style="background-color: var(--hero-bg);"
+    aria-hidden="true"
+  >
+  </div>
+  <div
     class:list={[
-      "grid w-full max-w-[var(--home-content-max)] mx-auto px-[var(--gutter)] box-border min-w-0 h-full items-center gap-8",
+      "relative z-[1] grid w-full max-w-[var(--home-content-max)] mx-auto px-[var(--gutter)] box-border min-w-0 h-full items-center gap-8",
       "max-md:px-0 max-md:gap-3",
       "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-16",
     ]}
