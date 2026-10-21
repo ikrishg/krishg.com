@@ -164,3 +164,57 @@ html[data-page-accent="builder"] body.site-page-accent {
   background-color: var(--home-builder-bg);
   color: var(--home-builder-fg);
 }
+
+/*
+ * Motion system — compositor-safe opacity/translate only.
+ * Opt-in via prefers-reduced-motion: no-preference (modern-web-guidance).
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hero-copy-rise {
+    from {
+      opacity: 0;
+      translate: 0 1rem;
+    }
+  }
+
+  @keyframes stub-rise {
+    from {
+      opacity: 0;
+      translate: 0 0.85rem;
+    }
+  }
+
+  /* Only hide while JS-enhanced motion is pending (progressive enhancement). */
+  html[data-motion-enhance] .hero-copy:not([data-revealed="true"]) > * {
+    opacity: 0;
+  }
+
+  .hero-copy[data-revealed="true"] > * {
+    animation: hero-copy-rise 0.8s var(--ease-out) both;
+  }
+
+  .hero-copy[data-revealed="true"] > *:nth-child(2) {
+    animation-delay: 0.09s;
+  }
+
+  .hero-copy[data-revealed="true"] > *:nth-child(3) {
+    animation-delay: 0.18s;
+  }
+
+  html[data-motion-enhance] .stub-page__inner > * {
+    opacity: 0;
+    animation: stub-rise 0.75s var(--ease-out) both;
+  }
+
+  html[data-motion-enhance] .stub-page__inner > *:nth-child(2) {
+    animation-delay: 0.08s;
+  }
+
+  html[data-motion-enhance] .stub-page__inner > *:nth-child(3) {
+    animation-delay: 0.16s;
+  }
+
+  html[data-motion-enhance] .stub-page__inner > *:nth-child(4) {
+    animation-delay: 0.24s;
+  }
+}

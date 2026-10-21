@@ -12,7 +12,7 @@ const socialLinks = [
 ] as const;
 ---
 
-<footer class="home-footer">
+<footer class="home-footer snap-start" data-home-nav-theme="footer">
   <div class="home-footer__inner">
     <div class="home-footer__brand">
       <KrishLogo class="home-footer__logo" />
@@ -20,7 +20,15 @@ const socialLinks = [
         {
           socialLinks.map((link) => (
             <li>
-              <a href={link.href} target="_blank" rel="noopener noreferrer">
+              <a
+                href={link.href}
+                target={link.href.startsWith("mailto:") ? undefined : "_blank"}
+                rel={
+                  link.href.startsWith("mailto:")
+                    ? undefined
+                    : "noopener noreferrer"
+                }
+              >
                 {link.label}
               </a>
             </li>
@@ -41,13 +49,23 @@ const socialLinks = [
 
 <style>
   .home-footer {
+    /*
+     * Sticky + higher z-index so this cream band can cover the stacked
+     * hero stickies and hand the navbar its footer theme.
+     */
+    position: sticky;
+    top: var(--home-nav-height);
+    z-index: 2;
     padding: 2.5rem var(--gutter) 2.75rem;
     background: var(--home-footer-bg);
     color: var(--home-footer-ink);
-    min-height: max(185px, calc(100svh - 664px));
+    min-height: calc(100svh - var(--home-nav-height));
+    display: flex;
+    align-items: flex-end;
   }
 
   .home-footer__inner {
+    width: 100%;
     max-width: var(--home-content-max);
     margin-inline: auto;
     display: flex;
@@ -55,6 +73,7 @@ const socialLinks = [
     align-items: flex-start;
     justify-content: space-between;
     gap: 2rem 3rem;
+    padding-bottom: 0.5rem;
   }
 
   .home-footer__brand {
@@ -93,6 +112,17 @@ const socialLinks = [
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 3px;
+    transition: opacity 0.35s var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .home-footer__social a:hover {
+      opacity: 0.72;
+    }
+  }
+
+  .home-footer__social a:active {
+    opacity: 0.85;
   }
 
   .home-footer__copy {
@@ -120,6 +150,30 @@ const socialLinks = [
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 4px;
+    transition:
+      opacity 0.35s var(--ease-out),
+      transform 0.2s var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .home-footer__nav a:hover {
+      opacity: 0.72;
+    }
+  }
+
+  .home-footer__nav a:active {
+    transform: scale(0.98);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-footer__social a,
+    .home-footer__nav a {
+      transition: none;
+    }
+
+    .home-footer__nav a:active {
+      transform: none;
+    }
   }
 
   @media (max-width: 767px) {

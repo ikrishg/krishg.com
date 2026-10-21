@@ -73,11 +73,37 @@ const accentFg = {
   }
 
   .stub-page__back {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
     margin-top: 1.75rem;
+    padding-block: 0.35rem;
     font-weight: 600;
     color: inherit;
     text-decoration: underline;
     text-underline-offset: 0.22em;
+    transition:
+      opacity 0.35s var(--ease-out),
+      transform 0.2s var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .stub-page__back:hover {
+      opacity: 0.85;
+    }
+  }
+
+  .stub-page__back:active {
+    transform: scale(0.98);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stub-page__back {
+      transition: none;
+    }
+
+    .stub-page__back:active {
+      transform: none;
+    }
   }
 </style>
