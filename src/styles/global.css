@@ -165,10 +165,6 @@ html[data-page-accent="builder"] body.site-page-accent {
   color: var(--home-builder-fg);
 }
 
-/*
- * Motion system — compositor-safe opacity/translate only.
- * Opt-in via prefers-reduced-motion: no-preference (modern-web-guidance).
- */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes hero-copy-rise {
     from {
@@ -181,7 +177,7 @@ html[data-page-accent="builder"] body.site-page-accent {
   @keyframes stub-rise {
     from {
       opacity: 0;
-      translate: 0 0.65rem;
+      translate: 0 0.75rem;
       scale: 0.985;
     }
   }
@@ -222,10 +218,10 @@ html[data-page-accent="builder"] body.site-page-accent {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-copy > *,
+  .hero-copy[data-revealed] > *,
   .stub-page__inner > * {
-    animation: none !important;
-    opacity: 1 !important;
+    opacity: 1;
+    animation: none;
     translate: none;
     scale: none;
   }
