@@ -1,57 +1,11 @@
 ---
 import RootLayout from "~layouts/RootLayout.astro";
-import WritingEntry from "~components/WritingEntry.astro";
-import { WritingCatalog } from "~lib/WritingCatalog";
-
-const pieces = await WritingCatalog.load();
-const years = WritingCatalog.groupByYear(pieces);
+import StubPage from "~components/StubPage.astro";
 ---
 
 <RootLayout
-  head={{
-    title: "Writing | Krish Gupta",
-    description:
-      "Articles, essays, and notes by Krish Gupta on DevOps, open source, philosophy, and building.",
-  }}
+  head={{ title: "Writing — Krish Gupta", description: "Poetry and essays — coming soon." }}
+  homeNav={false}
 >
-  <div class="site-shell site-shell--narrow">
-    <header class="space-y-4">
-      <p class="micro-label">Archive</p>
-      <h1 class="display-serif text-5xl md:text-6xl">Writing</h1>
-      <p class="text-lg leading-relaxed text-ink-muted">
-        Articles, essays, and poems — a quiet column.
-      </p>
-      <nav
-        class="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted"
-        aria-label="Writing by form"
-      >
-        <a href="/articles" class="underline-offset-4 slow-hover hover:underline">
-          Articles
-        </a>
-        <span aria-hidden="true" class="text-ink-faint">/</span>
-        <a href="/essays" class="underline-offset-4 slow-hover hover:underline">
-          Essays
-        </a>
-        <span aria-hidden="true" class="text-ink-faint">/</span>
-        <a href="/poems" class="underline-offset-4 slow-hover hover:underline">
-          Poems
-        </a>
-      </nav>
-    </header>
-
-    <div class="mt-16 lg:mt-20">
-      {
-        years.map(({ year, pieces: yearPieces }, yearIndex) => (
-          <section class:list={[yearIndex > 0 && "mt-16"]}>
-            <h2 class="micro-label border-b border-rule pb-3">{year}</h2>
-            <div>
-              {yearPieces.map((piece) => (
-                <WritingEntry piece={piece} />
-              ))}
-            </div>
-          </section>
-        ))
-      }
-    </div>
-  </div>
+  <StubPage title="Writing" />
 </RootLayout>

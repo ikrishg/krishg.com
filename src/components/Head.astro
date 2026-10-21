@@ -1,17 +1,17 @@
 ---
-import { Font } from 'astro:assets';
-import type { ImageMetadata } from 'astro';
-import DefaultOpenGraphImage from '~assets/og-image.webp';
-import * as shared from '~shared';
-import { SiteContent } from '~lib/SiteContent';
+import { Font } from "astro:assets";
+import type { ImageMetadata } from "astro";
+import DefaultOpenGraphImage from "~assets/og-image.webp";
+import { getPersonSchema } from "~lib/person-schema";
+import * as shared from "~shared";
 
 type OpenGraphProtocol =
   | {
-      type: 'website';
+      type: "website";
       image: ImageMetadata;
     }
   | {
-      type: 'article';
+      type: "article";
       image: ImageMetadata;
       article: {
         publishedTime: string;
@@ -27,7 +27,7 @@ export interface HeadProps {
   canonical: string | undefined;
 }
 
-export type Props = Partial<HeadProps>;
+export type Props = Partial<HeadProps> & { homeNav?: boolean };
 
 const siteName = shared.title;
 const siteUrl = shared.site;
@@ -36,12 +36,13 @@ const defaultProps = {
   title: siteName,
   description: shared.description,
   ogp: {
-    type: 'website',
+    type: "website",
     image: DefaultOpenGraphImage,
   },
 } as HeadProps;
 
 const props = Astro.props;
+const homeNav = Astro.props.homeNav ?? false;
 
 const { title, description } = { ...defaultProps, ...props };
 const ogp = { ...defaultProps.ogp, ...props.ogp };
@@ -49,20 +50,15 @@ const { type, image } = ogp;
 const canonicalHref = props.canonical
   ? String(props.canonical)
   : Astro.url.href;
-const personSchema = SiteContent.getPersonSchema(siteUrl.href);
+const personSchema = getPersonSchema(siteUrl.href);
 const xHandle = new URL(shared.socials.x).pathname.replace(/^\//, "");
-const articleOgp = type === 'article' && ogp.type === 'article' ? ogp.article : undefined;
+const articleOgp =
+  type === "article" && ogp.type === "article" ? ogp.article : undefined;
 ---
 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="sitemap" href="/sitemap-index.xml" />
-<link
-	rel="alternate"
-	type="application/rss+xml"
-	title={siteName}
-	href={new URL('rss.xml', siteUrl)}
-/>
 
 <link rel="canonical" href={canonicalHref} />
 
@@ -70,37 +66,37 @@ const articleOgp = type === 'article' && ogp.type === 'article' ? ogp.article : 
 <meta name="title" content={title} />
 <meta name="description" content={description} />
 
-<!-- Favicon -->
-
 <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="shortcut icon" href="/favicon.ico" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-title" content="Krish Gupta" />
 
-<!-- Open Graph / Facebook -->
 <meta property="og:type" content={type} />
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:site_name" content={siteName} />
 <meta property="og:description" content={description} />
-
 <meta property="og:image" content={new URL(image.src, shared.site)} />
 <meta property="og:image:width" content={image.width.toString()} />
 <meta property="og:image:height" content={image.height.toString()} />
 
-{articleOgp && (
-  <>
-    <meta property="article:published_time" content={articleOgp.publishedTime} />
-    <meta property="article:modified_time" content={articleOgp.modifiedTime} />
-    <meta property="article:author" content="Krish Gupta" />
-    {articleOgp.tags.map((tag) => (
-      <meta property="article:tag" content={tag} />
-    ))}
-  </>
-)}
+{
+  articleOgp && (
+    <>
+      <meta
+        property="article:published_time"
+        content={articleOgp.publishedTime}
+      />
+      <meta property="article:modified_time" content={articleOgp.modifiedTime} />
+      <meta property="article:author" content="Krish Gupta" />
+      {articleOgp.tags.map((tag) => (
+        <meta property="article:tag" content={tag} />
+      ))}
+    </>
+  )
+}
 
-<!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:url" content={Astro.url} />
 <meta name="twitter:title" content={title} />
@@ -109,9 +105,7 @@ const articleOgp = type === 'article' && ogp.type === 'article' ? ogp.article : 
 <meta name="twitter:creator" content={`@${xHandle}`} />
 <meta name="twitter:site" content={`@${xHandle}`} />
 
-<!-- Fonts -->
-
-<Font cssVariable='--font-bodoni-moda' />
-<Font cssVariable='--font-space-grotesk' />
+<Font cssVariable="--font-space-grotesk" />
+<Font cssVariable="--font-inter-tight" />
 
 <script type="application/ld+json" set:html={JSON.stringify(personSchema)} />

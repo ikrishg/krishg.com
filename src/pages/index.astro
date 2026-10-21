@@ -1,128 +1,67 @@
 ---
-import { Image } from "astro:assets";
 import RootLayout from "~layouts/RootLayout.astro";
-import WorkTile from "~components/WorkTile.astro";
-import { SiteContent } from "~lib/SiteContent";
-import portrait from "~assets/krish-portrait.jpg";
-import { description, socials, title } from "~shared";
-
-const work = SiteContent.getHomeWork();
-const reseter = work[0];
-const reseterLeadCover = SiteContent.getReseterLeadCover();
-const contact = SiteContent.getContact();
+import HeroSection from "~components/home/HeroSection.astro";
+import BuilderArtifact from "~components/home/artifacts/BuilderArtifact.tsx";
+import CreatorArtifact from "~components/home/artifacts/CreatorArtifact.tsx";
+import EducatorArtifact from "~components/home/artifacts/EducatorArtifact.tsx";
+import { description, title } from "~shared";
+import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.tsx";
 ---
 
-<RootLayout head={{ title, description }}>
-  <div class="site-shell">
-    <header class="max-w-4xl">
-      <p class="display-serif text-4xl md:text-5xl lg:text-[3.25rem]">
-        {SiteContent.thesis}
-      </p>
-    </header>
+<RootLayout head={{ title, description }} homeNav>
+  <h1 class="sr-only">Krish Gupta</h1>
+  <PreloadHomeHeroGlbs client:load />
+  <div class="flex flex-col w-full">
+    <input
+      type="file"
+      id="portrait-file"
+      accept="image/*"
+      class="home-file-input"
+      tabindex="-1"
+      aria-hidden="true"
+    />
+    <input
+      type="file"
+      id="audio-file"
+      accept="audio/*"
+      multiple
+      class="home-file-input"
+      tabindex="-1"
+      aria-hidden="true"
+    />
 
-    <section class="mt-16 lg:mt-24">
-      <div class="grid items-start gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-20">
-        <a
-          href={reseter.href}
-          class="group block"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div class="aspect-[5/4] overflow-hidden bg-rule lg:aspect-[4/3]">
-            <Image
-              src={reseterLeadCover}
-              alt=""
-              width={800}
-              height={640}
-              class="h-full w-full object-cover slow-hover-image group-hover:opacity-92"
-              loading="eager"
-              fetchpriority="high"
-            />
-          </div>
-          <div class="caption-block">
-            <p class="micro-label">Lead project</p>
-            <h2 class="caption-block__title mt-2">
-              <span class="accent-dot accent-dot--cobalt" aria-hidden="true" />
-              {reseter.name}
-            </h2>
-            {
-              reseter.outcome && (
-                <p class="caption-block__outcome">{reseter.outcome}</p>
-              )
-            }
-          </div>
-        </a>
+    <HeroSection
+      id="builder"
+      heading="builder"
+      subtext="Making and hacking. Dabbling with the frontier."
+      accent="builder"
+      ctaLabel="the makerhouse →"
+      ctaHref="/building"
+    >
+      <BuilderArtifact slot="artifact" client:visible />
+    </HeroSection>
 
-        <div class="flex flex-col items-start gap-8 lg:pt-2">
-          <Image
-            src={portrait}
-            alt="Portrait of Krish Gupta"
-            width={240}
-            height={300}
-            class="aspect-[4/5] w-44 object-cover md:w-52"
-            loading="eager"
-          />
-          <div class="max-w-xs space-y-3">
-            <p class="micro-label">{title}</p>
-            <p class="text-base leading-relaxed text-ink-muted">
-              Engineer, builder, sidequester — {SiteContent.age}. Based in {SiteContent.timezone}.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <HeroSection
+      id="creator"
+      heading="creator"
+      subtext="Leaving a poetic imprint."
+      accent="creator"
+      ctaLabel="the atelier →"
+      ctaHref="/creating"
+      artifactFirst
+    >
+      <CreatorArtifact slot="artifact" client:load />
+    </HeroSection>
 
-    <hr class="site-rule mt-20 lg:mt-28" />
-
-    <section class="mt-16 lg:mt-20">
-      <div class="mb-10 flex items-baseline justify-between gap-4">
-        <h2 class="display-serif text-3xl md:text-4xl">Selected work</h2>
-        <a href="/work" class="micro-label slow-hover hover:text-ink">
-          All work →
-        </a>
-      </div>
-
-      <ul
-        class="grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-3"
-        role="list"
-      >
-        {
-          work.map((entry, index) => (
-            <li>
-              <WorkTile entry={entry} priority={index === 0} />
-            </li>
-          ))
-        }
-      </ul>
-    </section>
-
-    <hr class="site-rule mt-20 lg:mt-28" />
-
-    <section class="mt-16 lg:mt-20 max-w-2xl space-y-4" aria-labelledby="contact-heading">
-      <p class="micro-label">Contact</p>
-      <h2 id="contact-heading" class="display-serif text-3xl md:text-4xl">
-        {contact.heading}
-      </h2>
-      <p class="text-lg leading-relaxed text-ink-muted">
-        {contact.body}
-      </p>
-      <p>
-        <a
-          href={contact.href}
-          class="font-serif text-xl font-semibold tracking-tight underline underline-offset-4 slow-hover hover:opacity-70"
-        >
-          {contact.email}
-        </a>
-        <span class="mx-3 text-ink-faint" aria-hidden="true">·</span>
-        <a
-          href={socials.linkedin}
-          class="text-sm underline underline-offset-4 text-ink-muted slow-hover hover:text-ink"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          LinkedIn
-        </a>
-      </p>
-    </section>
+    <HeroSection
+      id="educator"
+      heading="educator"
+      subtext="Presenting talks, workshops, articles and more."
+      accent="educator"
+      ctaLabel="the library →"
+      ctaHref="/educating"
+    >
+      <EducatorArtifact slot="artifact" client:load />
+    </HeroSection>
   </div>
 </RootLayout>

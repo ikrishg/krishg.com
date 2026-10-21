@@ -1,69 +1,52 @@
 // @ts-check
 
-import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import vercel from "@astrojs/vercel";
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, fontProviders } from "astro/config";
-
 import react from "@astrojs/react";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   site: "https://krishg.com",
   output: "static",
-
-  integrations: [sitemap(), mdx(), react()],
-
+  integrations: [sitemap(), react()],
+  vite: {
+    plugins: [tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules/three")) return "three";
+            if (id.includes("node_modules/@react-three")) return "r3f";
+          },
+        },
+      },
+    },
+  },
   adapter: vercel({
     imageService: false,
     devImageService: "sharp",
   }),
-
-  image: {
-    layout: "constrained",
-  },
-
   fonts: [
-    {
-      provider: fontProviders.google(),
-      name: "Bodoni Moda",
-      cssVariable: "--font-bodoni-moda",
-      fallbacks: ["Montserrat", "Poppins", "sans-serif"],
-      weights: ["400 700"],
-      styles: ["normal"],
-      subsets: ["latin"],
-      optimizedFallbacks: false,
-      display: "swap",
-    },
     {
       provider: fontProviders.google(),
       name: "Space Grotesk",
       cssVariable: "--font-space-grotesk",
       fallbacks: ["system-ui", "sans-serif"],
-      weights: ["400 700"],
+      weights: ["400", "500", "600", "700"],
+      styles: ["normal"],
+      subsets: ["latin"],
+      display: "swap",
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Inter Tight",
+      cssVariable: "--font-inter-tight",
+      fallbacks: ["system-ui", "sans-serif"],
+      weights: ["800"],
       styles: ["normal"],
       subsets: ["latin"],
       display: "swap",
     },
   ],
-
-  vite: {
-    plugins: [tailwindcss()],
-    resolve: {
-      noExternal: ["react-tweet"]
-    }
-  },
-
-  redirects: {
-    "/bio": "/about",
-    "/timeline": "/about",
-    "/coverage": "/",
-    "/papers": "/",
-    "/culture": "/writing",
-    "/musings": "/writing",
-  },
-
-  experimental: {
-    contentIntellisense: true,
-  },
 });

@@ -1,27 +1,49 @@
 ---
 import "~styles/global.css";
 import Head, { type HeadProps } from "~components/Head.astro";
-import Header from "~components/Header.astro";
-import Footer from "~components/Footer.astro";
+import HomeNavbar from "~components/home/HomeNavbar.astro";
+import HomePageLoader from "~components/home/HomePageLoader.tsx";
+import HomeReadySignal from "~components/home/HomeReadySignal.tsx";
+import type { HeroAccent } from "~components/home/hero-types";
 
 export interface Props {
   head?: Partial<HeadProps>;
   hideTemplate?: boolean;
+  /** Homepage navbar (logo + search) with per-band colour. */
+  homeNav?: boolean;
+  /** Fixed accent for stub pages (full-page colour + navbar). */
+  pageAccent?: HeroAccent;
   class?: string;
 }
 
-const { head, hideTemplate, class: className } = Astro.props;
-const shellClass = className?.includes("poems-charcoal") ? "poems-charcoal" : undefined;
+const {
+  head,
+  hideTemplate,
+  homeNav = true,
+  pageAccent,
+  class: className,
+} = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" class="antialiased font-body">
-  <Head {...head} />
-  <body class:list={["flex min-h-screen flex-col", shellClass]}>
-    {!hideTemplate && <Header />}
-    <main class:list={["flex-1", className]}>
+<html lang="en" data-page-accent={pageAccent}>
+  <Head {...head} homeNav={homeNav} />
+  <body
+    class:list={[
+      "m-0 min-h-svh bg-transparent font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[#252d45] [font-feature-settings:'ss01'_on] overscroll-y-none",
+      pageAccent && "site-page-accent",
+    ]}
+    data-page-accent={pageAccent}
+  >
+    {!hideTemplate && (
+      <>
+        <HomePageLoader client:load />
+        <HomeReadySignal client:load />
+        <HomeNavbar />
+      </>
+    )}
+    <main class:list={["flex-1 w-full overflow-x-clip", className]}>
       <slot />
     </main>
-    {!hideTemplate && <Footer />}
   </body>
 </html>
