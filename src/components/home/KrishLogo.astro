@@ -1,0 +1,70 @@
+---
+/** Krish autograph — stroke uses currentColor for navbar themes. */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<a
+  href="/"
+  class:list={["home-logo", className]}
+  aria-label="Krish Gupta, home"
+>
+  <svg
+    class="home-logo__svg"
+    viewBox="0 0 440 160"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke-width="3.6" d="M112 12 C121 45 124 91 123 143"></path>
+      <path
+        stroke-width="3.2"
+        d="M197 31 C158 52 112 73 63 90 C48 95 32 100 20 101 C83 91 159 94 222 98 C296 102 365 110 420 119"
+      ></path>
+      <path
+        stroke-width="3.5"
+        d="M165 69 C167 77 169 87 170 94 M168 82 C175 74 180 70 185 70"
+      ></path>
+      <path stroke-width="3.5" d="M200 77 C200 83 201 90 202 96"></path>
+      <path stroke-width="3.8" d="M199 61 L199.5 62"></path>
+      <path
+        stroke-width="3.5"
+        d="M228 73 C224 67 218 71 221 78 C223 83 232 87 232 92 C232 98 221 100 217 94 C215 91 216 88 217 86"
+      ></path>
+      <path
+        stroke-width="3.5"
+        d="M243 53 C247 68 249 83 250 97 C253 83 258 76 264 76 C271 76 274 87 276 99"
+      ></path>
+    </g>
+  </svg>
+</a>
+
+<style>
+  .home-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .home-logo:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+  }
+
+  .home-logo__svg {
+    height: 2.35rem;
+    width: auto;
+  }
+
+  @media (min-width: 768px) {
+    .home-logo__svg {
+      height: 3.1rem;
+    }
+  }
+</style>

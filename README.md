@@ -1,21 +1,32 @@
-# hivemind
+# krishg.com
 
-Source for [krishg.com](https://krishg.com) — Krish Gupta’s personal site: work portfolio, technical articles, essays, and poems.
+Ground-up redesign of [krishg.com](https://krishg.com): a minimal Astro site with three interactive 3D hero bands (Builder, Creator, Educator), vendored from [krish-3d-objects](https://github.com/ikrishg/krish-3d-objects).
 
-Built with [Astro](https://astro.build) (static output), React, MDX content collections, and Tailwind CSS. Deployed via the Vercel adapter.
+## Stack
 
-## Development
+- Astro 7 (static)
+- React 19 + React Three Fiber for homepage artifacts
+- Deployed on Vercel (`hivemind`, team sineveritas)
 
-Requires [pnpm](https://pnpm.io).
+## Develop
 
 ```bash
 pnpm install
-pnpm dev      # local dev server
-pnpm build    # production build to dist/
-pnpm preview  # preview the build
+pnpm dev
 ```
 
-## Content
+```bash
+pnpm build
+pnpm preview
+```
 
-- **Work** — project highlights in `src/lib/SiteContent.ts`
-- **Writing** — articles, essays, and poems under `src/content/`
+Homepage screenshots (1440 / 1024 / 390):
+
+```bash
+pnpm build && pnpm preview
+pnpm screenshots
+```
+
+## License
+
+See [LICENSE](./LICENSE).

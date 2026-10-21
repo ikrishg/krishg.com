@@ -1,55 +1,11 @@
 ---
 import RootLayout from "~layouts/RootLayout.astro";
-import WorkTile from "~components/WorkTile.astro";
-import { SiteContent } from "~lib/SiteContent";
-
-const work = SiteContent.getWorkPage();
+import StubPage from "~components/StubPage.astro";
 ---
 
 <RootLayout
-  head={{
-    title: "Work | Krish Gupta",
-    description:
-      "Shipped work by Krish Gupta — reseter.css, community programs, backend engineering, and DevRel.",
-  }}
+  head={{ title: "Work — Krish Gupta", description: "Projects and builds — coming soon." }}
+  homeNav={false}
 >
-  <div class="site-shell">
-    <header class="max-w-2xl space-y-4">
-      <p class="micro-label">Portfolio</p>
-      <h1 class="display-serif text-5xl md:text-6xl">Work</h1>
-      <p class="text-lg leading-relaxed text-ink-muted">
-        Shipped projects and roles — title, context, role, and one-line outcome
-        under each image.
-      </p>
-    </header>
-
-    <ul
-      class="mt-16 grid gap-x-10 gap-y-16 sm:grid-cols-2 lg:mt-24 lg:grid-cols-3"
-      role="list"
-    >
-      {
-        work.map((entry, index) => (
-          <li class:list={[entry.quiet && "opacity-95"]}>
-            <WorkTile entry={entry} priority={index < 3} />
-            {
-              entry.quiet && (
-                <p class="mt-4 text-sm leading-relaxed text-ink-muted">
-                  Fractional DevRel at{" "}
-                  <a
-                    href="https://devocado.tech"
-                    class="underline underline-offset-4 slow-hover hover:opacity-70"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    devocado.tech
-                  </a>
-                  .
-                </p>
-              )
-            }
-          </li>
-        ))
-      }
-    </ul>
-  </div>
+  <StubPage title="Work" />
 </RootLayout>

@@ -1,0 +1,83 @@
+---
+export interface Props {
+  title: string;
+  description?: string;
+  accent?: "builder" | "creator" | "educator";
+}
+
+const { title: pageTitle, description = "Coming soon.", accent = "builder" } =
+  Astro.props;
+
+const accentBg = {
+  builder: "var(--home-builder-bg)",
+  creator: "var(--home-creator-bg)",
+  educator: "var(--home-educator-bg)",
+} as const;
+
+const accentFg = {
+  builder: "var(--home-builder-fg)",
+  creator: "var(--home-creator-fg)",
+  educator: "var(--home-educator-fg)",
+} as const;
+---
+
+<section
+  class="stub-page"
+  aria-labelledby="stub-title"
+  style={`background:${accentBg[accent]};color:${accentFg[accent]};`}
+>
+  <div class="stub-page__inner">
+    <p class="stub-page__eyebrow">krishg.com</p>
+    <h1 id="stub-title" class="stub-page__title">{pageTitle}</h1>
+    <p class="stub-page__lead">{description}</p>
+    <a class="stub-page__back" href="/">← Back home</a>
+  </div>
+</section>
+
+<style>
+  .stub-page {
+    min-height: calc(100svh - var(--home-nav-height));
+    display: grid;
+    place-items: center;
+    padding: 4rem var(--gutter);
+  }
+
+  .stub-page__inner {
+    max-width: 28rem;
+    text-align: center;
+  }
+
+  .stub-page__eyebrow {
+    margin: 0 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  .stub-page__title {
+    margin: 0;
+    font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
+      sans-serif;
+    font-size: clamp(2.25rem, 8vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+  }
+
+  .stub-page__lead {
+    margin: 1rem 0 0;
+    font-size: 1.125rem;
+    line-height: 1.55;
+  }
+
+  .stub-page__back {
+    display: inline-block;
+    margin-top: 1.75rem;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+  }
+</style>
