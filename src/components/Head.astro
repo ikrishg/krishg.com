@@ -67,6 +67,16 @@ const articleOgp =
   content="width=device-width,initial-scale=1,viewport-fit=cover"
 />
 <meta name="theme-color" content={themeColor} />
+<meta
+  name="theme-color"
+  media="(prefers-color-scheme: light)"
+  content={themeColor}
+/>
+<meta
+  name="theme-color"
+  media="(prefers-color-scheme: dark)"
+  content={themeColor}
+/>
 <link rel="sitemap" href="/sitemap-index.xml" />
 
 <link rel="canonical" href={canonicalHref} />

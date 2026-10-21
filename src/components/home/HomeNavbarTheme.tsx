@@ -24,10 +24,26 @@ export function setPageAccent(accent: PageAccent) {
   syncThemeColor(accent);
 }
 
+/**
+ * WebKit (Safari / Chrome on iOS) often ignores in-place `content` updates on
+ * theme-color. Remove and re-insert so the browser chrome picks up the band.
+ */
 function syncThemeColor(accent: PageAccent) {
   const hex = homeAccentCanvasHex[accent];
   for (const meta of document.querySelectorAll(THEME_COLOR_META)) {
-    meta.setAttribute("content", hex);
+    meta.remove();
+  }
+  const medias = [
+    undefined,
+    "(prefers-color-scheme: light)",
+    "(prefers-color-scheme: dark)",
+  ] as const;
+  for (const media of medias) {
+    const meta = document.createElement("meta");
+    meta.name = "theme-color";
+    meta.content = hex;
+    if (media) meta.media = media;
+    document.head.appendChild(meta);
   }
 }
 
