@@ -28,11 +28,17 @@ const {
 <!doctype html>
 <html lang="en" data-page-accent={pageAccent}>
   <Head {...head} homeNav={homeNav} />
-  <script is:inline>
+  <script is:inline define:vars={{ seedIntro: Boolean(homeNav && !hideTemplate) }}>
     (() => {
       try {
+        const root = document.documentElement;
         if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          document.documentElement.dataset.motionEnhance = "1";
+          root.dataset.motionEnhance = "1";
+        }
+        /* Seed before React hydrates so copy reveal cannot win the race. */
+        if (seedIntro) {
+          root.dataset.logoMorph = "pending";
+          root.dataset.introPhase = "draw";
         }
       } catch {
         /* ignore */

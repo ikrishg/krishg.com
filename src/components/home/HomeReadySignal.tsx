@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ARTIFACT_READY_TIMEOUT_MS } from "./homeIntro";
 
 const HERO_SELECTOR = ".artifact-stage[data-artifact-ready]";
 const VIEW_MARGIN_PX = 80;
@@ -50,8 +51,13 @@ export default function HomeReadySignal() {
       childList: true,
     });
 
+    const timeout = window.setTimeout(finish, ARTIFACT_READY_TIMEOUT_MS);
+
     check();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   return null;
