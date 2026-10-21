@@ -1,71 +1,68 @@
 import { useEffect } from "react";
-import type { HeroAccent } from "./hero-types";
-import { homeNavThemes } from "./hero-types";
+import {
+  homeAccentCanvasHex,
+  isPageAccent,
+  type PageAccent,
+} from "./hero-types";
 
 const SECTION_SELECTOR = "[data-home-nav-theme]";
 const PROBE_Y = 64;
+const THEME_COLOR_META = 'meta[name="theme-color"]';
 
-function setCanvas(background: string) {
-  document.documentElement.style.setProperty("--home-canvas", background);
-}
-
-function applyTheme(accent: HeroAccent) {
-  const theme = homeNavThemes[accent];
-  const header = document.querySelector<HTMLElement>(".home-navbar");
-  if (!header) return;
-
-  header.style.setProperty("--home-nav-bg", theme.bg);
-  header.style.setProperty("--home-nav-fg", theme.fg);
-  header.style.setProperty("--home-nav-logo", theme.logo);
-  header.style.setProperty("--home-nav-muted", theme.muted);
-  header.dataset.navTheme = accent;
-  setCanvas(theme.bg);
-}
-
-function applyFooterTheme() {
-  const header = document.querySelector<HTMLElement>(".home-navbar");
-  if (!header) return;
-  header.style.setProperty("--home-nav-bg", "var(--home-footer-bg)");
-  header.style.setProperty("--home-nav-fg", "var(--home-footer-ink)");
-  header.style.setProperty("--home-nav-logo", "var(--home-footer-ink)");
-  header.style.setProperty(
-    "--home-nav-muted",
-    "color-mix(in srgb, var(--home-footer-ink) 55%, var(--home-footer-bg))",
-  );
-  header.dataset.navTheme = "footer";
-  setCanvas("var(--home-footer-bg)");
-}
-
-function pageAccentFromDom(): HeroAccent | null {
-  const value = document.documentElement.dataset.pageAccent;
-  if (value === "builder" || value === "creator" || value === "educator") {
-    return value;
+/**
+ * Single pathway for surface accent: set `html[data-page-accent]`.
+ * CSS maps that attribute to canvas, navbar tokens, and loader colors.
+ * `theme-color` meta follows so mobile browser chrome matches the band.
+ */
+export function setPageAccent(accent: PageAccent) {
+  const root = document.documentElement;
+  if (root.dataset.pageAccent === accent) {
+    syncThemeColor(accent);
+    return;
   }
-  return null;
+  root.dataset.pageAccent = accent;
+  syncThemeColor(accent);
+}
+
+function syncThemeColor(accent: PageAccent) {
+  const hex = homeAccentCanvasHex[accent];
+  for (const meta of document.querySelectorAll(THEME_COLOR_META)) {
+    meta.setAttribute("content", hex);
+  }
+}
+
+function accentFromSection(section: HTMLElement | null): PageAccent | null {
+  const value = section?.dataset.homeNavTheme;
+  return isPageAccent(value) ? value : null;
+}
+
+function pageAccentFromDom(): PageAccent | null {
+  return isPageAccent(document.documentElement.dataset.pageAccent)
+    ? document.documentElement.dataset.pageAccent
+    : null;
 }
 
 export default function HomeNavbarTheme() {
   useEffect(() => {
-    const fixed = pageAccentFromDom();
-    if (fixed) {
-      applyTheme(fixed);
-      return;
-    }
-
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>(SECTION_SELECTOR),
-    ).filter((section) => section.dataset.homeNavTheme !== "footer");
-    if (!sections.length) return;
+    );
+    /* Homepage (and any page with band sections) scrolls the accent. */
+    const scrollable = sections.length > 0;
 
-    const initial = sections[0].dataset.homeNavTheme as HeroAccent | undefined;
-    if (initial) applyTheme(initial);
+    /* Stub / fixed-accent pages: attribute is already on <html> from SSR. */
+    if (!scrollable) {
+      const fixed = pageAccentFromDom();
+      if (fixed) setPageAccent(fixed);
+      return;
+    }
 
     const pickActive = () => {
       const footer = document.querySelector<HTMLElement>(".home-footer");
       if (footer) {
         const footerRect = footer.getBoundingClientRect();
         if (footerRect.top <= PROBE_Y + 1) {
-          applyFooterTheme();
+          setPageAccent("footer");
           return;
         }
       }
@@ -77,22 +74,17 @@ export default function HomeNavbarTheme() {
           if (!section) return false;
           return section.dataset.homeNavTheme !== "footer";
         });
-      if (topmost) {
-        const theme = topmost.dataset.homeNavTheme;
-        if (
-          theme === "builder" ||
-          theme === "creator" ||
-          theme === "educator"
-        ) {
-          applyTheme(theme);
-          return;
-        }
+      const fromPoint = accentFromSection(topmost);
+      if (fromPoint && fromPoint !== "footer") {
+        setPageAccent(fromPoint);
+        return;
       }
 
       let best: HTMLElement | null = null;
       let bestTop = -Infinity;
 
       for (const section of sections) {
+        if (section.dataset.homeNavTheme === "footer") continue;
         const rect = section.getBoundingClientRect();
         if (rect.top <= PROBE_Y && rect.bottom > PROBE_Y) {
           if (rect.top >= bestTop) {
@@ -102,16 +94,8 @@ export default function HomeNavbarTheme() {
         }
       }
 
-      if (best) {
-        const theme = best.dataset.homeNavTheme;
-        if (
-          theme === "builder" ||
-          theme === "creator" ||
-          theme === "educator"
-        ) {
-          applyTheme(theme);
-        }
-      }
+      const fromBest = accentFromSection(best);
+      if (fromBest) setPageAccent(fromBest);
     };
 
     pickActive();
