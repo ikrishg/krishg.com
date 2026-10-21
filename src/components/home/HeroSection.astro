@@ -1,6 +1,5 @@
 ---
 import type { HeroAccent } from "./hero-types";
-import { homeNavThemes } from "./hero-types";
 
 export interface Props {
   id: string;
@@ -29,14 +28,12 @@ const {
 const ctaRel = ctaExternal ? "noopener noreferrer" : undefined;
 const ctaTarget = ctaExternal ? "_blank" : undefined;
 
-const theme = homeNavThemes[accent];
-
 ---
 
 <section
   id={id}
   data-home-nav-theme={accent}
-  style={`--hero-bg:${theme.bg};--hero-fg:${theme.fg};`}
+  style={`--hero-bg:var(--home-${accent}-bg);--hero-fg:var(--home-${accent}-fg);`}
   aria-labelledby={`${id}-heading`}
   class:list={[
     /* Sticky parent stays transparent: Safari 26 Liquid Glass samples

@@ -9,39 +9,22 @@ import { homeAccentCanvasHex } from "~components/home/hero-types";
 
 export interface Props {
   head?: Partial<HeadProps>;
-  hideTemplate?: boolean;
-  /** Homepage navbar (logo + search) with per-band colour. */
-  homeNav?: boolean;
   /** Fixed accent for stub pages (full-page colour + navbar). */
   pageAccent?: HeroAccent;
   class?: string;
 }
 
-const {
-  head,
-  hideTemplate,
-  homeNav = true,
-  pageAccent,
-  class: className,
-} = Astro.props;
+const { head, pageAccent, class: className } = Astro.props;
 
 /** Homepage scrolls accents; stubs pin one. Default builder before hydrate. */
-const htmlAccent = pageAccent ?? (homeNav && !hideTemplate ? "builder" : undefined);
-const themeColor = htmlAccent
-  ? homeAccentCanvasHex[htmlAccent]
-  : homeAccentCanvasHex.builder;
+const htmlAccent = pageAccent ?? "builder";
+const themeColor = homeAccentCanvasHex[htmlAccent];
 ---
 
 <!doctype html>
 <html lang="en" data-page-accent={htmlAccent}>
-  <Head {...head} homeNav={homeNav} themeColor={themeColor} />
-  <script
-    is:inline
-    define:vars={{
-      hasLoader: !hideTemplate,
-      seedIntro: Boolean(homeNav && !hideTemplate),
-    }}
-  >
+  <Head {...head} themeColor={themeColor} />
+  <script is:inline>
     (() => {
       try {
         const root = document.documentElement;
@@ -49,21 +32,19 @@ const themeColor = htmlAccent
           root.dataset.motionEnhance = "1";
         }
         /* Seed before React hydrates so copy reveal cannot win the race. */
-        if (hasLoader) {
-          let played = false;
-          try {
-            played = sessionStorage.getItem("krishg:intro-played") === "1";
-            if (!played) sessionStorage.setItem("krishg:intro-played", "1");
-          } catch {
-            /* storage blocked: play the intro */
-          }
-          if (played) {
-            root.dataset.introSkip = "1";
-            root.dataset.introPhase = "ready";
-          } else if (seedIntro) {
-            root.dataset.logoMorph = "pending";
-            root.dataset.introPhase = "draw";
-          }
+        let played = false;
+        try {
+          played = sessionStorage.getItem("krishg:intro-played") === "1";
+          if (!played) sessionStorage.setItem("krishg:intro-played", "1");
+        } catch {
+          /* storage blocked: play the intro */
+        }
+        if (played) {
+          root.dataset.introSkip = "1";
+          root.dataset.introPhase = "ready";
+        } else {
+          root.dataset.logoMorph = "pending";
+          root.dataset.introPhase = "draw";
         }
       } catch {
         /* ignore */
@@ -71,17 +52,13 @@ const themeColor = htmlAccent
     })();
   </script>
   <body
-    class="site-body m-0 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[#252d45] [font-feature-settings:'ss01'_on] overscroll-y-none"
+    class="site-body m-0 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] [font-feature-settings:'ss01'_on] overscroll-y-none"
   >
     {/* Safari 26 Liquid Glass bottom-toolbar sample target; see global.css */}
     <div class="safari-toolbar-tint" aria-hidden="true"></div>
-    {!hideTemplate && (
-      <>
-        <HomePageLoader client:load />
-        <HomeReadySignal client:load />
-        <HomeNavbar />
-      </>
-    )}
+    <HomePageLoader client:load />
+    <HomeReadySignal client:load />
+    <HomeNavbar />
     <main class:list={["flex-1 w-full overflow-x-clip", className]}>
       <slot />
     </main>

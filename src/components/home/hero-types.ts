@@ -1,7 +1,7 @@
 export type HeroAccent = "creator" | "builder" | "educator";
 
-/** Active surface accent on `<html data-page-accent>` — heroes plus cream footer. */
-export type PageAccent = HeroAccent | "footer";
+/** Active surface accent on `<html data-page-accent>`. */
+export type PageAccent = HeroAccent;
 
 export const homeGlbPaths = {
   creator: "/home-3d/portrait-frame.glb",
@@ -20,43 +20,10 @@ export const homeAccentCanvasHex: Record<PageAccent, string> = {
   builder: "#398fd0",
   creator: "#b94a3f",
   educator: "#d8a12a",
-  footer: "#f3f0ea",
 };
 
-export function isPageAccent(value: string | undefined | null): value is PageAccent {
-  return (
-    value === "builder" ||
-    value === "creator" ||
-    value === "educator" ||
-    value === "footer"
-  );
+export function isPageAccent(
+  value: string | undefined | null,
+): value is PageAccent {
+  return value === "builder" || value === "creator" || value === "educator";
 }
-
-export type HomeNavTheme = {
-  bg: string;
-  fg: string;
-  logo: string;
-  muted: string;
-};
-
-/** Scene / ink tokens from krish-3d-objects `styles.css` */
-export const homeNavThemes: Record<HeroAccent, HomeNavTheme> = {
-  builder: {
-    bg: "var(--home-builder-bg)",
-    fg: "var(--home-builder-fg)",
-    logo: "var(--home-builder-fg)",
-    muted: "color-mix(in srgb, var(--home-builder-muted) 88%, transparent)",
-  },
-  creator: {
-    bg: "var(--home-creator-bg)",
-    fg: "var(--home-creator-fg)",
-    logo: "var(--home-creator-fg)",
-    muted: "color-mix(in srgb, var(--home-creator-muted) 88%, transparent)",
-  },
-  educator: {
-    bg: "var(--home-educator-bg)",
-    fg: "var(--home-educator-fg)",
-    logo: "var(--home-educator-fg)",
-    muted: "color-mix(in srgb, var(--home-educator-muted) 82%, transparent)",
-  },
-};

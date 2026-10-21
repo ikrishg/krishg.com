@@ -4,7 +4,6 @@ import { Center, ContactShadows, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { attachAppearance } from "~lib/krish-3d/appearance.js";
 import { attachInteractions } from "~lib/krish-3d/interactions.js";
-import type { HeroAccent } from "../hero-types";
 import type { KrishModelKind } from "./artifact-types";
 import { getArtifactTune } from "./heroArtifactTune";
 import { HeroCameraFit } from "./HeroCameraFit";
@@ -268,10 +267,4 @@ export function KrishInteractiveScene({
       />
     </>
   );
-}
-
-export function accentToKind(accent: HeroAccent): KrishModelKind {
-  if (accent === "creator") return "frame";
-  if (accent === "builder") return "computer";
-  return "book";
 }

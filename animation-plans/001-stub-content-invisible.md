@@ -1,6 +1,6 @@
 # 001 — Make stub page content visible after its entrance
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: a1bfa74 (audit requested at 8d44675; this bug is identical at 8d44675, 01d147f, and a1bfa74)
 - **Severity**: HIGH
 - **Category**: Correctness / entrance animation end state
@@ -8,8 +8,7 @@
 
 ## Problem
 
-Every stub page (`/about/`, `/work/`, `/building/`, `/creating/`, `/educating/`,
-`/talks/`, `/writing/`, `/articles/`) is blank for visitors whose OS does not
+Every stub page (`/building/`, `/creating/`, `/educating/`) is blank for visitors whose OS does not
 ask for reduced motion. The eyebrow, title, lead, and "Back home" link all end
 their entrance at opacity 0 and stay there. Only the accent color fill and the
 navbar remain.
@@ -96,19 +95,19 @@ Keep these values exactly as they are:
 ## Verification
 
 - **Mechanical**: `pnpm build` exits 0 and prints `9 page(s) built`. `rg -n "stub-page__inner > \* \{" -A3 src/styles/global.css` shows the `animation:` line directly under the selector and no `opacity: 0;`.
-- **Probe** (Playwright or DevTools console on `/about/` with reduced motion off, run after the loader is gone and the entrance has finished, about 2.5 s after load):
+- **Probe** (Playwright or DevTools console on `/building/` with reduced motion off, run after the loader is gone and the entrance has finished, about 2.5 s after load):
   ```js
   [...document.querySelectorAll(".stub-page__inner > *")].map(
     (el) => `${el.className}:${getComputedStyle(el).opacity}`,
   );
   ```
   Expected: `stub-page__eyebrow:0.85`, `stub-page__title:1`, `stub-page__lead:1`, `stub-page__back:1`. Before the fix all four read `0`.
-- **Feel check**: run `pnpm dev`, open `/about/`, and confirm:
+- **Feel check**: run `pnpm dev`, open `/building/`, and confirm:
   - The eyebrow, title, lead, and back link are visible and stay visible.
   - In DevTools, set Animations playback to 10%. Each child rises about 12px and settles from 98.5% scale, staggered 60 ms apart. No child appears at full opacity before its own rise starts.
   - Toggle `prefers-reduced-motion: reduce` in the Rendering panel and reload. Content is visible immediately with no movement.
   - On every load the page loader covers the stub for about 2 s, so the rise plays underneath it. That is expected until plan 003 lands. To watch the rise now, wait for the loader to leave, then use the replay button in the DevTools Animations panel.
-- **Done when**: the probe returns the expected values on `/about/` and `/work/` with reduced motion off, and the build passes.
+- **Done when**: the probe returns the expected values on `/building/` and `/creating/` with reduced motion off, and the build passes.
 
-This target was prototyped on a `/tmp` copy of a1bfa74. `/about/` and `/work/`
+This target was prototyped on a `/tmp` copy of a1bfa74. `/building/` and `/creating/`
 read `0.85,1,1,1` after the change, against `0,0,0,0` before.

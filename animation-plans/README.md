@@ -13,7 +13,7 @@ and has a drift STOP rule.
 
 ## Execution order
 
-1. **001**. One deleted line. Independent of the others. Restores content on eight stub pages.
+1. **001**. One deleted line. Independent of the others. Restores content on role stub pages (`/building`, `/creating`, `/educating`).
 2. **002**. Fixes a regression from a1bfa74. Must land before 003.
 3. **003**. Largest change. Depends on 002.
 

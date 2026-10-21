@@ -9,6 +9,13 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   site: "https://krishg.com",
   output: "static",
+  redirects: {
+    "/about": "/",
+    "/articles": "/",
+    "/talks": "/",
+    "/work": "/",
+    "/writing": "/",
+  },
   integrations: [sitemap(), react()],
   vite: {
     plugins: [tailwindcss()],
