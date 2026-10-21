@@ -41,7 +41,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
       ctaLabel="the makerhouse →"
       ctaHref="/building"
     >
-      <BuilderArtifact slot="artifact" client:load />
+      <BuilderArtifact slot="artifact" client:visible />
     </HeroSection>
 
     <HeroSection
@@ -53,7 +53,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
       ctaHref="/creating"
       artifactFirst
     >
-      <CreatorArtifact slot="artifact" client:visible />
+      <CreatorArtifact slot="artifact" client:load />
     </HeroSection>
 
     <HeroSection
@@ -64,7 +64,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
       ctaLabel="the library →"
       ctaHref="/educating"
     >
-      <EducatorArtifact slot="artifact" client:visible />
+      <EducatorArtifact slot="artifact" client:load />
     </HeroSection>
 
     <HomeFooter />

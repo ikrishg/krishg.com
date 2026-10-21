@@ -26,24 +26,10 @@ All three were applied together to a `/tmp` copy of a1bfa74 and built with
 `astro build`, and every verification probe in the plans passed in Chromium.
 Nothing in `src/` was changed by the audit.
 
-## Next candidate (HIGH, not yet planned)
+## Rejected candidate
 
-**Hydrate the visible band first.** In `src/pages/index.astro`, the first
-band's artifact uses `client:visible` (line 44). The two offscreen artifacts use
-`client:load` (lines 56 and 67). So WebGL setup for scenes nobody can see
-competes with the loader's 1.4 s signature draw.
-
-Exact change: line 44 `<BuilderArtifact slot="artifact" client:load />`,
-line 56 `<CreatorArtifact slot="artifact" client:visible />`, line 67
-`<EducatorArtifact slot="artifact" client:visible />`.
-
-Measured on this VM with software WebGL, 5 alternating cold pairs at a1bfa74
-and 0 errors:
-
-- Loader removal: median 2792 ms to 2100 ms.
-- Long-task time inside the draw: 1218 ms to 653 ms.
-- Longest task inside the draw: 763 ms to 314 ms.
-
-With step scrolling, the lazily hydrated creator scene was ready 418 to 439 ms
-before its copy revealed (3 runs). Confirm on a real device before relying on
-the magnitude.
+**Hydrate the visible band first** (swap builder to `client:load`, offscreen
+bands to `client:visible`) was measured as a loader win on this VM, but it is
+**rejected**: offscreen GLBs must hydrate on page load so they are ready when
+scrolled to. `client:visible` only mounts once the section is in frame, which
+is the lag this site avoids. Keep creator/educator on `client:load`.
