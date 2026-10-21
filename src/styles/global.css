@@ -83,7 +83,7 @@ body.site-body {
   display: grid;
   place-items: center;
   background: var(--home-builder-bg, #f4f0e8);
-  color: var(--home-builder-fg, #1a1a1a);
+  color: var(--home-builder-fg, var(--home-footer-ink));
   pointer-events: none;
 }
 
@@ -173,14 +173,16 @@ html[data-page-accent="builder"] body.site-page-accent {
   @keyframes hero-copy-rise {
     from {
       opacity: 0;
-      translate: 0 1rem;
+      translate: 0 0.75rem;
+      scale: 0.985;
     }
   }
 
   @keyframes stub-rise {
     from {
       opacity: 0;
-      translate: 0 0.85rem;
+      translate: 0 0.65rem;
+      scale: 0.985;
     }
   }
 
@@ -190,31 +192,41 @@ html[data-page-accent="builder"] body.site-page-accent {
   }
 
   .hero-copy[data-revealed="true"] > * {
-    animation: hero-copy-rise 0.8s var(--ease-out) both;
+    animation: hero-copy-rise 0.55s var(--ease-out) both;
   }
 
   .hero-copy[data-revealed="true"] > *:nth-child(2) {
-    animation-delay: 0.09s;
+    animation-delay: 0.06s;
   }
 
   .hero-copy[data-revealed="true"] > *:nth-child(3) {
-    animation-delay: 0.18s;
+    animation-delay: 0.12s;
   }
 
   html[data-motion-enhance] .stub-page__inner > * {
     opacity: 0;
-    animation: stub-rise 0.75s var(--ease-out) both;
+    animation: stub-rise 0.45s var(--ease-out) both;
   }
 
   html[data-motion-enhance] .stub-page__inner > *:nth-child(2) {
-    animation-delay: 0.08s;
+    animation-delay: 0.06s;
   }
 
   html[data-motion-enhance] .stub-page__inner > *:nth-child(3) {
-    animation-delay: 0.16s;
+    animation-delay: 0.12s;
   }
 
   html[data-motion-enhance] .stub-page__inner > *:nth-child(4) {
-    animation-delay: 0.24s;
+    animation-delay: 0.18s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy > *,
+  .stub-page__inner > * {
+    animation: none !important;
+    opacity: 1 !important;
+    translate: none;
+    scale: none;
   }
 }
