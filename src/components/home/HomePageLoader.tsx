@@ -1,22 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-
-const STROKE_MS = 1400;
-const MORPH_MS = 520;
-
-function prefersReducedMotion(): boolean {
-  return (
-    globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false
-  );
-}
-
-function setLogoMorph(state: "pending" | "done") {
-  const root = document.documentElement;
-  if (state === "pending") {
-    root.dataset.logoMorph = "pending";
-  } else {
-    delete root.dataset.logoMorph;
-  }
-}
+import {
+  MORPH_MS,
+  STROKE_MS,
+  prefersReducedMotion,
+  setIntroPhase,
+} from "./homeIntro";
 
 export default function HomePageLoader() {
   const [phase, setPhase] = useState<"draw" | "morph" | "done">("draw");
@@ -24,8 +12,8 @@ export default function HomePageLoader() {
   const morphStarted = useRef(false);
 
   useEffect(() => {
-    setLogoMorph("pending");
-    return () => setLogoMorph("done");
+    setIntroPhase("draw");
+    return () => setIntroPhase("ready");
   }, []);
 
   useEffect(() => {
@@ -38,10 +26,11 @@ export default function HomePageLoader() {
       if (!homeReady || !strokeDone || morphStarted.current) return;
       morphStarted.current = true;
       if (reduced) {
-        setLogoMorph("done");
+        setIntroPhase("ready");
         setPhase("done");
         return;
       }
+      setIntroPhase("morph");
       setPhase("morph");
     };
 
@@ -86,7 +75,7 @@ export default function HomePageLoader() {
     const root = document.querySelector<HTMLElement>(".home-page-loader");
 
     if (!panel || !target) {
-      setLogoMorph("done");
+      setIntroPhase("ready");
       setPhase("done");
       return;
     }
@@ -122,7 +111,7 @@ export default function HomePageLoader() {
     requestAnimationFrame(() => requestAnimationFrame(run));
 
     const finish = () => {
-      setLogoMorph("done");
+      setIntroPhase("ready");
       setPhase("done");
     };
 

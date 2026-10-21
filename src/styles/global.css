@@ -182,8 +182,17 @@ html[data-page-accent="builder"] body.site-page-accent {
     }
   }
 
-  /* Only hide while JS-enhanced motion is pending (progressive enhancement). */
-  html[data-motion-enhance] .hero-copy:not([data-revealed="true"]) > * {
+  /*
+   * Hide copy only while the intro is in progress. After ready, unrevealed
+   * copy fails open so a missing reveal script cannot leave text invisible.
+   */
+  html[data-motion-enhance]:is(
+      [data-intro-phase="draw"],
+      [data-intro-phase="morph"],
+      [data-logo-morph="pending"]
+    )
+    .hero-copy:not([data-revealed="true"])
+    > * {
     opacity: 0;
   }
 
