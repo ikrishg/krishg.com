@@ -9,19 +9,24 @@ type Props = {
 };
 
 /**
- * Horizontal cursor position drives horizontal yaw only.
+ * Horizontal cursor position drives horizontal yaw only on fine-pointer devices.
  */
 export function HeroCursorTilt({ children }: Props) {
   const shellRef = useArtifactShell();
   const groupRef = useRef<Group>(null);
   const pointerX = useRef(0);
   const reducedMotion = useRef(false);
+  const finePointer = useRef(false);
   const invalidate = useThree((state) => state.invalidate);
 
   useEffect(() => {
     reducedMotion.current = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    const hoverFine = window.matchMedia("(hover: hover) and (pointer: fine)");
+    finePointer.current = hoverFine.matches;
+    if (!hoverFine.matches) return;
+
     const shell = shellRef?.current;
     if (!shell) return;
     const zone = shell.closest("section") ?? shell;
@@ -57,7 +62,7 @@ export function HeroCursorTilt({ children }: Props) {
 
   useFrame((_, delta) => {
     const group = groupRef.current;
-    if (!group || reducedMotion.current) return;
+    if (!group || reducedMotion.current || !finePointer.current) return;
 
     const targetY = pointerX.current * THREE.MathUtils.degToRad(8);
     const damp = 1 - Math.exp(-14 * Math.min(delta, 0.05));

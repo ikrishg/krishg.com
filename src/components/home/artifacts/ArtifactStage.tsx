@@ -116,7 +116,7 @@ export function ArtifactStage({
                 requestRender();
               });
             }}
-            className="block h-full w-full touch-pan-y outline-none [[data-cursor-hint=pointer]_&]:cursor-pointer"
+            className="block h-full w-full touch-pan-y outline-none"
             style={{
               width: "100%",
               height: "100%",
