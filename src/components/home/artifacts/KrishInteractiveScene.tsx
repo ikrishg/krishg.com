@@ -153,7 +153,6 @@ export function KrishInteractiveScene({
       | {
           dragging?: boolean;
           playing?: boolean;
-          impacts?: number;
           closing?: boolean;
         }
       | undefined;
@@ -167,7 +166,6 @@ export function KrishInteractiveScene({
     const live =
       state.dragging ||
       state.playing ||
-      (state.impacts ?? 0) > 0 ||
       state.closing;
     animatingRef.current = Boolean(live);
   });
