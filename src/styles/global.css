@@ -87,6 +87,10 @@ body.site-body {
   pointer-events: none;
 }
 
+html[data-intro-skip] .home-page-loader {
+  display: none;
+}
+
 html[data-page-accent="creator"] .home-page-loader {
   background: var(--home-creator-bg);
   color: var(--home-creator-fg);
@@ -183,15 +187,16 @@ html[data-page-accent="builder"] body.site-page-accent {
   }
 
   /*
-   * Hide copy only while the intro is in progress. After ready, unrevealed
-   * copy fails open so a missing reveal script cannot leave text invisible.
+   * Hide unrevealed copy while the intro runs, and after that only while
+   * HomeHeroCopyMotion is mounted to reveal it. Without it, copy fails open.
    */
   html[data-motion-enhance]:is(
       [data-intro-phase="draw"],
       [data-intro-phase="morph"],
-      [data-logo-morph="pending"]
+      [data-logo-morph="pending"],
+      [data-copy-reveal="armed"]
     )
-    .hero-copy:not([data-revealed="true"])
+    .hero-copy:not([data-revealed])
     > * {
     opacity: 0;
   }
@@ -209,7 +214,6 @@ html[data-page-accent="builder"] body.site-page-accent {
   }
 
   html[data-motion-enhance] .stub-page__inner > * {
-    opacity: 0;
     animation: stub-rise 0.45s var(--ease-out) both;
   }
 

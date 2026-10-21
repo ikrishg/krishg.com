@@ -28,7 +28,13 @@ const {
 <!doctype html>
 <html lang="en" data-page-accent={pageAccent}>
   <Head {...head} homeNav={homeNav} />
-  <script is:inline define:vars={{ seedIntro: Boolean(homeNav && !hideTemplate) }}>
+  <script
+    is:inline
+    define:vars={{
+      hasLoader: !hideTemplate,
+      seedIntro: Boolean(homeNav && !hideTemplate),
+    }}
+  >
     (() => {
       try {
         const root = document.documentElement;
@@ -36,9 +42,21 @@ const {
           root.dataset.motionEnhance = "1";
         }
         /* Seed before React hydrates so copy reveal cannot win the race. */
-        if (seedIntro) {
-          root.dataset.logoMorph = "pending";
-          root.dataset.introPhase = "draw";
+        if (hasLoader) {
+          let played = false;
+          try {
+            played = sessionStorage.getItem("krishg:intro-played") === "1";
+            if (!played) sessionStorage.setItem("krishg:intro-played", "1");
+          } catch {
+            /* storage blocked: play the intro */
+          }
+          if (played) {
+            root.dataset.introSkip = "1";
+            root.dataset.introPhase = "ready";
+          } else if (seedIntro) {
+            root.dataset.logoMorph = "pending";
+            root.dataset.introPhase = "draw";
+          }
         }
       } catch {
         /* ignore */

@@ -1,11 +1,15 @@
 import { useEffect } from "react";
-import { introAllowsCopyReveal, prefersReducedMotion } from "./homeIntro";
+import {
+  introAllowsCopyReveal,
+  introSkipped,
+  prefersReducedMotion,
+} from "./homeIntro";
 
 const SECTION_SELECTOR = "[data-home-nav-theme]";
 const COPY_SELECTOR = ".hero-copy";
 
 function revealCopy(copy: HTMLElement) {
-  if (copy.dataset.revealed === "true") return;
+  if (copy.dataset.revealed) return;
   if (!introAllowsCopyReveal()) return;
   copy.dataset.revealed = "true";
 }
@@ -27,13 +31,29 @@ export default function HomeHeroCopyMotion() {
       return;
     }
 
+    if (introSkipped()) {
+      for (const section of document.querySelectorAll<HTMLElement>(
+        SECTION_SELECTOR,
+      )) {
+        const copy = section.querySelector<HTMLElement>(COPY_SELECTOR);
+        if (!copy) continue;
+        const rect = section.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          copy.dataset.revealed = "static";
+        }
+      }
+    }
+
+    const root = document.documentElement;
+    root.dataset.copyReveal = "armed";
+
     const revealVisible = () => {
       if (!introAllowsCopyReveal()) return;
       for (const section of document.querySelectorAll<HTMLElement>(
         SECTION_SELECTOR,
       )) {
         const copy = section.querySelector<HTMLElement>(COPY_SELECTOR);
-        if (!copy || copy.dataset.revealed === "true") continue;
+        if (!copy || copy.dataset.revealed) continue;
         const rect = section.getBoundingClientRect();
         const mid = window.innerHeight * 0.45;
         if (rect.top <= mid && rect.bottom >= mid) {
@@ -75,6 +95,7 @@ export default function HomeHeroCopyMotion() {
     return () => {
       observer.disconnect();
       phaseObserver.disconnect();
+      delete root.dataset.copyReveal;
     };
   }, []);
 
