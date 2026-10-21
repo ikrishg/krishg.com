@@ -27,7 +27,11 @@ export interface HeadProps {
   canonical: string | undefined;
 }
 
-export type Props = Partial<HeadProps> & { homeNav?: boolean };
+export type Props = Partial<HeadProps> & {
+  homeNav?: boolean;
+  /** Browser chrome / theme-color; kept in sync with html[data-page-accent]. */
+  themeColor?: string;
+};
 
 const siteName = shared.title;
 const siteUrl = shared.site;
@@ -43,6 +47,7 @@ const defaultProps = {
 
 const props = Astro.props;
 const homeNav = Astro.props.homeNav ?? false;
+const themeColor = Astro.props.themeColor ?? "#398fd0";
 
 const { title, description } = { ...defaultProps, ...props };
 const ogp = { ...defaultProps.ogp, ...props.ogp };
@@ -61,6 +66,7 @@ const articleOgp =
   name="viewport"
   content="width=device-width,initial-scale=1,viewport-fit=cover"
 />
+<meta name="theme-color" content={themeColor} />
 <link rel="sitemap" href="/sitemap-index.xml" />
 
 <link rel="canonical" href={canonicalHref} />

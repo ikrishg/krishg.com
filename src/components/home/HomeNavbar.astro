@@ -15,13 +15,11 @@ import HomeNavbarScroll from "./HomeNavbarScroll.tsx";
 </header>
 
 <style>
+  /* Nav colors come from html[data-page-accent] → --home-nav-* */
   .home-navbar {
     position: sticky;
     top: 0;
     z-index: 40;
-    --home-nav-bg: var(--home-builder-bg);
-    --home-nav-fg: var(--home-builder-fg);
-    --home-nav-logo: var(--home-builder-fg);
     background-color: var(--home-nav-bg);
     color: var(--home-nav-fg);
   }

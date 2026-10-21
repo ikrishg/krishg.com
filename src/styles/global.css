@@ -8,8 +8,6 @@
   --home-content-inner: 75rem;
   --home-band-height: 600px;
   --home-nav-height: 4rem;
-  /* Fills any gap below 100svh bands when mobile chrome floats (see html). */
-  --home-canvas: var(--home-builder-bg);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -26,6 +24,20 @@
   --home-educator-muted: color-mix(in srgb, var(--home-educator-fg) 55%, var(--home-educator-bg));
   --home-footer-bg: #f3f0ea;
   --home-footer-ink: #252d45;
+
+  /*
+   * Surface accent tokens. Driven only by html[data-page-accent].
+   * Defaults match builder until the attribute is set.
+   */
+  --home-canvas: var(--home-builder-bg);
+  --home-nav-bg: var(--home-builder-bg);
+  --home-nav-fg: var(--home-builder-fg);
+  --home-nav-logo: var(--home-builder-fg);
+  --home-nav-muted: color-mix(
+    in srgb,
+    var(--home-builder-muted) 88%,
+    transparent
+  );
 }
 
 /*
@@ -94,28 +106,13 @@ body.site-body {
   z-index: 100;
   display: grid;
   place-items: center;
-  background: var(--home-builder-bg, #f4f0e8);
-  color: var(--home-builder-fg, var(--home-footer-ink));
+  background: var(--home-canvas);
+  color: var(--home-nav-fg);
   pointer-events: none;
 }
 
 html[data-intro-skip] .home-page-loader {
   display: none;
-}
-
-html[data-page-accent="creator"] .home-page-loader {
-  background: var(--home-creator-bg);
-  color: var(--home-creator-fg);
-}
-
-html[data-page-accent="educator"] .home-page-loader {
-  background: var(--home-educator-bg);
-  color: var(--home-educator-fg);
-}
-
-html[data-page-accent="builder"] .home-page-loader {
-  background: var(--home-builder-bg);
-  color: var(--home-builder-fg);
 }
 
 .home-page-loader[data-phase="morph"] {
@@ -163,25 +160,60 @@ html[data-logo-morph="pending"] .home-navbar .home-logo {
   }
 }
 
-html[data-page-accent="creator"],
-html[data-page-accent="creator"] body.site-page-accent {
+/*
+ * Unified accent pathway: scroll / SSR set html[data-page-accent].
+ * Canvas, navbar, loader, and body ink all read these tokens.
+ */
+html[data-page-accent="builder"] {
+  --home-canvas: var(--home-builder-bg);
+  --home-nav-bg: var(--home-builder-bg);
+  --home-nav-fg: var(--home-builder-fg);
+  --home-nav-logo: var(--home-builder-fg);
+  --home-nav-muted: color-mix(
+    in srgb,
+    var(--home-builder-muted) 88%,
+    transparent
+  );
+  color: var(--home-builder-fg);
+}
+
+html[data-page-accent="creator"] {
   --home-canvas: var(--home-creator-bg);
-  background-color: var(--home-canvas);
+  --home-nav-bg: var(--home-creator-bg);
+  --home-nav-fg: var(--home-creator-fg);
+  --home-nav-logo: var(--home-creator-fg);
+  --home-nav-muted: color-mix(
+    in srgb,
+    var(--home-creator-muted) 88%,
+    transparent
+  );
   color: var(--home-creator-fg);
 }
 
-html[data-page-accent="educator"],
-html[data-page-accent="educator"] body.site-page-accent {
+html[data-page-accent="educator"] {
   --home-canvas: var(--home-educator-bg);
-  background-color: var(--home-canvas);
+  --home-nav-bg: var(--home-educator-bg);
+  --home-nav-fg: var(--home-educator-fg);
+  --home-nav-logo: var(--home-educator-fg);
+  --home-nav-muted: color-mix(
+    in srgb,
+    var(--home-educator-muted) 82%,
+    transparent
+  );
   color: var(--home-educator-fg);
 }
 
-html[data-page-accent="builder"],
-html[data-page-accent="builder"] body.site-page-accent {
-  --home-canvas: var(--home-builder-bg);
-  background-color: var(--home-canvas);
-  color: var(--home-builder-fg);
+html[data-page-accent="footer"] {
+  --home-canvas: var(--home-footer-bg);
+  --home-nav-bg: var(--home-footer-bg);
+  --home-nav-fg: var(--home-footer-ink);
+  --home-nav-logo: var(--home-footer-ink);
+  --home-nav-muted: color-mix(
+    in srgb,
+    var(--home-footer-ink) 55%,
+    var(--home-footer-bg)
+  );
+  color: var(--home-footer-ink);
 }
 
 @media (prefers-reduced-motion: no-preference) {

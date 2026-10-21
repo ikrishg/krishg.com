@@ -1,5 +1,8 @@
 export type HeroAccent = "creator" | "builder" | "educator";
 
+/** Active surface accent on `<html data-page-accent>` — heroes plus cream footer. */
+export type PageAccent = HeroAccent | "footer";
+
 export const homeGlbPaths = {
   creator: "/home-3d/portrait-frame.glb",
   builder: "/home-3d/computer.glb",
@@ -11,6 +14,23 @@ export const homeTexturePaths = {
   builder: "/home-3d/img/computer.webp",
   educator: "/home-3d/img/book-cover.webp",
 } as const;
+
+/** Resolved canvas / `theme-color` hexes for browser chrome + meta. */
+export const homeAccentCanvasHex: Record<PageAccent, string> = {
+  builder: "#398fd0",
+  creator: "#b94a3f",
+  educator: "#d8a12a",
+  footer: "#f3f0ea",
+};
+
+export function isPageAccent(value: string | undefined | null): value is PageAccent {
+  return (
+    value === "builder" ||
+    value === "creator" ||
+    value === "educator" ||
+    value === "footer"
+  );
+}
 
 export type HomeNavTheme = {
   bg: string;

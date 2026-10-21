@@ -5,6 +5,7 @@ import HomeNavbar from "~components/home/HomeNavbar.astro";
 import HomePageLoader from "~components/home/HomePageLoader.tsx";
 import HomeReadySignal from "~components/home/HomeReadySignal.tsx";
 import type { HeroAccent } from "~components/home/hero-types";
+import { homeAccentCanvasHex } from "~components/home/hero-types";
 
 export interface Props {
   head?: Partial<HeadProps>;
@@ -23,11 +24,17 @@ const {
   pageAccent,
   class: className,
 } = Astro.props;
+
+/** Homepage scrolls accents; stubs pin one. Default builder before hydrate. */
+const htmlAccent = pageAccent ?? (homeNav && !hideTemplate ? "builder" : undefined);
+const themeColor = htmlAccent
+  ? homeAccentCanvasHex[htmlAccent]
+  : homeAccentCanvasHex.builder;
 ---
 
 <!doctype html>
-<html lang="en" data-page-accent={pageAccent}>
-  <Head {...head} homeNav={homeNav} />
+<html lang="en" data-page-accent={htmlAccent}>
+  <Head {...head} homeNav={homeNav} themeColor={themeColor} />
   <script
     is:inline
     define:vars={{
@@ -64,11 +71,7 @@ const {
     })();
   </script>
   <body
-    class:list={[
-      "site-body m-0 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[#252d45] [font-feature-settings:'ss01'_on] overscroll-y-none",
-      pageAccent && "site-page-accent",
-    ]}
-    data-page-accent={pageAccent}
+    class="site-body m-0 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[#252d45] [font-feature-settings:'ss01'_on] overscroll-y-none"
   >
     {!hideTemplate && (
       <>
