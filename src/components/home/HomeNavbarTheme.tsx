@@ -5,6 +5,10 @@ import { homeNavThemes } from "./hero-types";
 const SECTION_SELECTOR = "[data-home-nav-theme]";
 const PROBE_Y = 64;
 
+function setCanvas(background: string) {
+  document.documentElement.style.setProperty("--home-canvas", background);
+}
+
 function applyTheme(accent: HeroAccent) {
   const theme = homeNavThemes[accent];
   const header = document.querySelector<HTMLElement>(".home-navbar");
@@ -15,6 +19,7 @@ function applyTheme(accent: HeroAccent) {
   header.style.setProperty("--home-nav-logo", theme.logo);
   header.style.setProperty("--home-nav-muted", theme.muted);
   header.dataset.navTheme = accent;
+  setCanvas(theme.bg);
 }
 
 function applyFooterTheme() {
@@ -28,6 +33,7 @@ function applyFooterTheme() {
     "color-mix(in srgb, var(--home-footer-ink) 55%, var(--home-footer-bg))",
   );
   header.dataset.navTheme = "footer";
+  setCanvas("var(--home-footer-bg)");
 }
 
 function pageAccentFromDom(): HeroAccent | null {
