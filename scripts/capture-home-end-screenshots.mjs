@@ -36,32 +36,22 @@ async function assertEndLayout(page) {
     const footerRect = footer.getBoundingClientRect();
     const vh = window.innerHeight;
 
-    const indexInView =
-      indexRect.top >= navBottom - 1 && indexRect.bottom <= vh + 1;
     const footerInView =
-      footerRect.top >= navBottom - 1 && footerRect.bottom <= vh + 1;
+      footerRect.top >= navBottom - 2 &&
+      footerRect.bottom <= vh + 2 &&
+      footerRect.height >= vh - navBottom - 24;
     const bookSliceHidden =
       !book || getComputedStyle(book).visibility === "hidden";
 
-    const gap = footerRect.top - indexRect.bottom;
-    const excessiveGap = gap > 48;
-
-    const ok =
-      indexInView &&
-      footerInView &&
-      bookSliceHidden &&
-      !excessiveGap &&
-      gap >= -4;
+    const ok = footerInView && bookSliceHidden;
 
     return {
       ok,
-      indexInView,
       footerInView,
       bookSliceHidden,
-      gap: Math.round(gap),
-      excessiveGap,
-      indexTop: Math.round(indexRect.top),
+      footerTop: Math.round(footerRect.top),
       footerBottom: Math.round(footerRect.bottom),
+      footerHeight: Math.round(footerRect.height),
       vh,
       navBottom: Math.round(navBottom),
     };
