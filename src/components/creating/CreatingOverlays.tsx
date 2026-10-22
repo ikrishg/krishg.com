@@ -1,11 +1,22 @@
-import type { CSSProperties } from "react";
-import type { CreatingCategory, CreatingCategoryFilter, CreatingView } from "~lib/creating/types";
+import {
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import gsap from "gsap";
+import type {
+  CreatingCategory,
+  CreatingCategoryFilter,
+  CreatingView,
+} from "~lib/creating/types";
 import {
   CATEGORY_ACCENT,
   CATEGORY_LABELS,
   VIEW_LABELS,
   VIEW_TINT,
 } from "~lib/creating/types";
+import { useMagnetic } from "./useMagnetic";
 
 type Props = {
   views: CreatingView[];
@@ -16,8 +27,37 @@ type Props = {
   onFilterChange: (filter: CreatingCategoryFilter) => void;
   showTutorial: boolean;
   hoveredTitle: string | null;
-  pointerFine: boolean;
+  reducedMotion: boolean;
 };
+
+function MagneticFilterButton({
+  children,
+  active,
+  onClick,
+  style,
+  reducedMotion,
+}: {
+  children: ReactNode;
+  active?: boolean;
+  onClick: () => void;
+  style?: CSSProperties;
+  reducedMotion: boolean;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useMagnetic(ref, !reducedMotion);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="creating-filter-btn"
+      data-active={active ? "true" : undefined}
+      style={style}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function CreatingOverlays({
   views,
@@ -28,8 +68,39 @@ export function CreatingOverlays({
   onFilterChange,
   showTutorial,
   hoveredTitle,
-  pointerFine,
+  reducedMotion,
 }: Props) {
+  const cursorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+    const label = cursorRef.current;
+    if (!label) return;
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") {
+        label.style.opacity = "0";
+        return;
+      }
+      const overCard = (e.target as Element | null)?.closest(".creating-card");
+      if (!overCard) {
+        gsap.to(label, { opacity: 0, duration: 0.2 });
+        return;
+      }
+      gsap.to(label, {
+        x: e.clientX,
+        y: e.clientY,
+        opacity: 1,
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      label.textContent = hoveredTitle ? `Open — ${hoveredTitle}` : "Explore";
+    };
+
+    window.addEventListener("pointermove", onMove);
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [hoveredTitle, reducedMotion]);
+
   return (
     <>
       <header className="creating-header" aria-label="Gallery controls">
@@ -39,7 +110,6 @@ export function CreatingOverlays({
               key={view}
               type="button"
               className="creating-view-btn"
-              data-no-drag=""
               data-active={view === activeView ? "true" : undefined}
               style={
                 {
@@ -55,23 +125,18 @@ export function CreatingOverlays({
         </div>
         <p className="creating-header__hint">Scroll to explore</p>
         <div className="creating-header__filters">
-          <button
-            type="button"
-            className="creating-filter-btn"
-            data-no-drag=""
-            data-active={filter === "all" ? "true" : undefined}
-            data-filter="all"
+          <MagneticFilterButton
+            active={filter === "all"}
+            reducedMotion={reducedMotion}
             onClick={() => onFilterChange("all")}
           >
             All
-          </button>
+          </MagneticFilterButton>
           {categories.map((cat) => (
-            <button
+            <MagneticFilterButton
               key={cat}
-              type="button"
-              className="creating-filter-btn"
-              data-no-drag=""
-              data-active={filter === cat ? "true" : undefined}
+              active={filter === cat}
+              reducedMotion={reducedMotion}
               style={
                 {
                   "--filter-accent": CATEGORY_ACCENT[cat],
@@ -80,7 +145,7 @@ export function CreatingOverlays({
               onClick={() => onFilterChange(cat)}
             >
               {CATEGORY_LABELS[cat]}
-            </button>
+            </MagneticFilterButton>
           ))}
         </div>
       </header>
@@ -93,8 +158,13 @@ export function CreatingOverlays({
         )}
       </footer>
 
-      {pointerFine && hoveredTitle && (
-        <div className="creating-cursor-label">Explore</div>
+      {!reducedMotion && (
+        <div
+          ref={cursorRef}
+          className="creating-cursor-label"
+          aria-hidden="true"
+          style={{ opacity: 0 }}
+        />
       )}
     </>
   );
