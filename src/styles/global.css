@@ -23,6 +23,13 @@
   --home-educator-fg: #252d45;
   --home-educator-muted: color-mix(in srgb, var(--home-educator-fg) 55%, var(--home-educator-bg));
 
+  /* Closing index splash colours (secondary row) */
+  --home-about-bg: #7a52c4;
+  --home-now-bg: #3a9660;
+  --home-sitemap-bg: #b44787;
+
+  --home-overscroll-pull: 0px;
+
   /*
    * Surface accent tokens. Driven only by html[data-page-accent].
    * Defaults match builder until the attribute is set.
@@ -82,10 +89,15 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
   scroll-padding-top: var(--home-nav-height);
   scroll-snap-type: y proximity;
   background-color: var(--home-canvas);
+  background-image: url("/images/starry-night.webp");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 body.site-body {
@@ -95,7 +107,13 @@ body.site-body {
   font-family: var(--font-space-grotesk), system-ui, sans-serif;
   font-feature-settings: "ss01" on;
   background-color: var(--home-canvas);
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
+  transform: translate3d(0, calc(var(--home-overscroll-pull) * -1), 0);
+  transition: transform 0.18s ease-out;
+}
+
+html[data-overscroll-reveal="true"] body.site-body {
+  transition: none;
 }
 
 .sr-only {

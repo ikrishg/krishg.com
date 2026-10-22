@@ -5,6 +5,9 @@ import HomeHeroCopyMotion from "~components/home/HomeHeroCopyMotion.tsx";
 import BuilderArtifact from "~components/home/artifacts/BuilderArtifact.tsx";
 import CreatorArtifact from "~components/home/artifacts/CreatorArtifact.tsx";
 import EducatorArtifact from "~components/home/artifacts/EducatorArtifact.tsx";
+import HomeClosingIndex from "~components/home/HomeClosingIndex.tsx";
+import HomeFooter from "~components/home/HomeFooter.astro";
+import HomeOverscrollReveal from "~components/home/HomeOverscrollReveal.tsx";
 import { description, title } from "~shared";
 import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.tsx";
 ---
@@ -13,6 +16,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
   <h1 class="sr-only">Krish Gupta</h1>
   <PreloadHomeHeroGlbs client:load />
   <HomeHeroCopyMotion client:load />
+  <HomeOverscrollReveal client:load />
   <div class="flex flex-col w-full">
     <input
       type="file"
@@ -65,5 +69,8 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
     >
       <EducatorArtifact slot="artifact" client:load />
     </HeroSection>
+
+    <HomeClosingIndex client:load />
+    <HomeFooter />
   </div>
 </RootLayout>
