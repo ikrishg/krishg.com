@@ -1,15 +1,18 @@
 import type { CreatingEntry } from "~lib/creating/types";
-import { useCreatingStore } from "./creating-store";
 
 type Props = {
   entries: CreatingEntry[];
   pointerFine: boolean;
   onOpen: (id: string) => void;
+  onHover: (id: string | null) => void;
 };
 
-export function WorksIndexNav({ entries, pointerFine, onOpen }: Props) {
-  const setHoveredId = useCreatingStore((s) => s.setHoveredId);
-
+export function WorksIndexNav({
+  entries,
+  pointerFine,
+  onOpen,
+  onHover,
+}: Props) {
   return (
     <nav className="creating-works-index" aria-label="Works index">
       <p id="creating-works-hint">
@@ -21,8 +24,8 @@ export function WorksIndexNav({ entries, pointerFine, onOpen }: Props) {
             <button
               type="button"
               onClick={() => onOpen(e.id)}
-              onFocus={() => setHoveredId(e.id)}
-              onBlur={() => setHoveredId(null)}
+              onFocus={() => onHover(e.id)}
+              onBlur={() => onHover(null)}
             >
               {e.title}
             </button>

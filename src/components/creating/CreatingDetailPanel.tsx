@@ -8,7 +8,7 @@ import { useFocusTrap } from "./useFocusTrap";
 registerCreatingEasings();
 
 type Props = {
-  entry: CreatingEntry | null;
+  entry: CreatingEntry;
   onClose: () => void;
   returnFocusRef: RefObject<HTMLElement | null>;
   reducedMotion: boolean;
@@ -23,21 +23,19 @@ export function CreatingDetailPanel({
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const tiltRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, px: 0, py: 0 });
 
-  useFocusTrap(panelRef, Boolean(entry));
+  useFocusTrap(panelRef, true);
 
   useEffect(() => {
-    if (!entry) return;
     const panel = panelRef.current;
-    if (!panel) return;
+    if (!panel || reducedMotion) return;
     gsap.fromTo(
       panel,
-      { opacity: 0, y: 24 },
-      { opacity: 1, y: 0, duration: 0.9, ease: "creating.cubicInOut" },
+      { opacity: 0, y: 28 },
+      { opacity: 1, y: 0, duration: 0.65, ease: "creating.cubicOut" },
     );
     closeRef.current?.focus();
-  }, [entry]);
+  }, [entry.id, reducedMotion]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -56,53 +54,26 @@ export function CreatingDetailPanel({
   useEffect(() => {
     const panel = panelRef.current;
     const body = bodyRef.current;
-    if (!panel || !body) return;
+    if (!panel || !body || reducedMotion) return;
 
     const onPointer = (e: PointerEvent) => {
-      if (reducedMotion) return;
       const r = panel.getBoundingClientRect();
-      tiltRef.current.px = ((e.clientX - r.left) / r.width - 0.5) * 2;
-      tiltRef.current.py = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      const px = ((e.clientX - r.left) / r.width - 0.5) * 2;
+      const py = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      body.style.transform = `perspective(900px) rotateX(${(-py * 4).toFixed(2)}deg) rotateY(${(px * 5).toFixed(2)}deg)`;
     };
-
-    const onWheel = (e: WheelEvent) => {
-      if (reducedMotion) return;
-      e.preventDefault();
-      tiltRef.current.vx += e.deltaY * 0.0035;
-      tiltRef.current.vy += e.deltaX * 0.0025;
+    const onLeave = () => {
+      body.style.transform = "";
     };
 
     panel.addEventListener("pointermove", onPointer);
-    panel.addEventListener("pointerdown", onPointer);
-    panel.addEventListener("wheel", onWheel, { passive: false });
-    let raf = 0;
-    const tick = () => {
-      const t = tiltRef.current;
-      const targetX = reducedMotion ? 0 : t.py * 5.5;
-      const targetY = reducedMotion ? 0 : -t.px * 5.5;
-      t.x += (targetX + t.vx * 14 - t.x) * 0.1;
-      t.y += (targetY + t.vy * 10 - t.y) * 0.1;
-      t.vx *= 0.82;
-      t.vy *= 0.82;
-      body.style.transform = `perspective(1100px) rotateX(${t.x.toFixed(2)}deg) rotateY(${t.y.toFixed(2)}deg)`;
-      body.dataset.tiltX = t.x.toFixed(2);
-      body.dataset.tiltY = t.y.toFixed(2);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-
+    panel.addEventListener("pointerleave", onLeave);
     return () => {
       panel.removeEventListener("pointermove", onPointer);
-      panel.removeEventListener("pointerdown", onPointer);
-      panel.removeEventListener("wheel", onWheel);
-      cancelAnimationFrame(raf);
+      panel.removeEventListener("pointerleave", onLeave);
       body.style.transform = "";
-      delete body.dataset.tiltX;
-      delete body.dataset.tiltY;
     };
-  }, [entry, reducedMotion]);
-
-  if (!entry) return null;
+  }, [entry.id, reducedMotion]);
 
   const accent = CATEGORY_ACCENT[entry.category];
 
@@ -118,7 +89,6 @@ export function CreatingDetailPanel({
         ref={closeRef}
         type="button"
         className="creating-detail__close"
-        data-no-drag=""
         onClick={onClose}
       >
         Close
@@ -130,7 +100,10 @@ export function CreatingDetailPanel({
           alt=""
           width={512}
           height={640}
-          style={{ borderColor: accent }}
+          style={{
+            borderColor: accent,
+            viewTransitionName: `creating-entry-${entry.id}`,
+          }}
         />
       </div>
       <div className="creating-detail__copy">
