@@ -77,7 +77,7 @@ export default function HomeClosingIndex() {
       ref={sectionRef}
       id="home-closing-index"
       data-home-nav-theme="educator"
-      className="home-closing-index relative z-[39] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] py-16 text-[var(--home-educator-fg)] md:py-20"
+      className="home-closing-index relative z-[39] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] py-8 text-[var(--home-educator-fg)] md:py-12"
       aria-label="Site index"
     >
       <div className="relative z-[40] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center gap-6 md:gap-8">
