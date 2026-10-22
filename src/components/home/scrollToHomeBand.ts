@@ -13,20 +13,33 @@ function bandIndex(bandId: string): number {
   return HOME_BAND_IDS.indexOf(bandId as (typeof HOME_BAND_IDS)[number]);
 }
 
-/**
- * Scroll to sticky band i using the homepage scroll-surface origin and
- * viewport-sized band steps (not section offsetTop while stuck).
- */
-export function scrollToHomeBand(bandId: string) {
+function priorBandsOffsetHeight(bandIndex: number): number {
+  let sum = 0;
+  for (let j = 0; j < bandIndex; j++) {
+    const band = document.getElementById(HOME_BAND_IDS[j]);
+    if (band) sum += band.offsetHeight;
+  }
+  return sum;
+}
+
+/** Scroll offset where sticky band `bandId` sits flush under the navbar. */
+export function homeBandScrollTarget(bandId: string): number {
   const i = bandIndex(bandId);
-  if (i < 0) return;
+  if (i < 0) return 0;
 
   const surface = document.querySelector<HTMLElement>(SURFACE_SELECTOR);
-  if (!surface) return;
+  if (!surface) return 0;
 
   const navH = homeNavHeightPx();
-  const step = window.innerHeight - navH;
-  const target = surface.offsetTop - navH + i * step;
+  return Math.max(0, surface.offsetTop - navH + priorBandsOffsetHeight(i));
+}
+
+/**
+ * Scroll to sticky band using measured band heights (not viewport steps).
+ */
+export function scrollToHomeBand(bandId: string) {
+  const target = homeBandScrollTarget(bandId);
+  if (bandIndex(bandId) < 0) return;
 
   const root = document.documentElement;
   const prevSnap = root.style.scrollSnapType;
@@ -39,7 +52,7 @@ export function scrollToHomeBand(bandId: string) {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   window.scrollTo({
-    top: Math.max(0, target),
+    top: target,
     behavior: reduced ? "auto" : "smooth",
   });
 
