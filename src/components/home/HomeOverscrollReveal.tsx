@@ -20,7 +20,8 @@ import {
 
 const SURFACE_SELECTOR = ".home-scroll-surface";
 const PIN_PULL_THRESHOLD = 0.5;
-const RELEASE_DELAY_MS = 150;
+/** Idle gap between wheel notches before spring-back (hold pull through detents). */
+const RELEASE_DELAY_MS = 280;
 const MAX_PULL_VH = 0.3;
 const PEAK_PULL_VH = 0.25;
 /** Wheel gain at 25vh peak / 30vh cap (scaled from 0.54). */

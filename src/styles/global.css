@@ -146,7 +146,8 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 .home-overscroll-painting {
   position: fixed;
-  inset: 0;
+  inset: auto 0 0;
+  height: var(--home-overscroll-max-pull, 30vh);
   z-index: 0;
   pointer-events: none;
   visibility: hidden;
@@ -162,7 +163,8 @@ html[data-overscroll-reveal="true"] body.site-body {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: clamp(20px, 4vw, 48px);
+  padding: clamp(12px, 2vw, 24px) clamp(20px, 4vw, 48px)
+    clamp(20px, 4vw, 48px);
   background-color: #e7ddcc;
 }
 
@@ -185,7 +187,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   border-radius: inherit;
   background-color: #0a1628;
   background-size: cover;
-  background-position: center top;
+  background-position: center 35%;
   background-repeat: no-repeat;
   opacity: var(--home-overscroll-art-opacity, 0);
   transition: opacity 80ms linear;
@@ -249,8 +251,7 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 .home-footer {
   position: relative;
-  min-height: calc(100svh - var(--home-nav-height));
-  min-height: calc(100lvh - var(--home-nav-height));
+  min-height: 0;
 }
 
 .home-footer__layout {
@@ -258,13 +259,12 @@ html[data-overscroll-reveal="true"] body.site-body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  min-height: inherit;
+  justify-content: center;
+  min-height: 0;
   width: 100%;
   max-width: var(--home-content-max);
   margin-inline: auto;
-  padding-block: clamp(1rem, 3vh, 1.75rem)
-    clamp(1.25rem, 4vh, 2rem);
+  padding-block: 56px 52px;
   box-sizing: border-box;
 }
 
@@ -272,13 +272,14 @@ html[data-overscroll-reveal="true"] body.site-body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(0.5rem, 1.2vh, 0.75rem);
+  gap: 20px;
   width: 100%;
   max-width: 100%;
 }
 
 .home-footer__email {
   display: inline-flex;
+  min-height: 2.75rem;
   max-width: 100%;
   flex-direction: row;
   align-items: center;
@@ -291,7 +292,7 @@ html[data-overscroll-reveal="true"] body.site-body {
 }
 
 .home-footer__email:focus-visible {
-  outline: 2px solid var(--home-closing-fg);
+  outline: 3px solid var(--home-closing-fg);
   outline-offset: 4px;
 }
 
@@ -300,13 +301,9 @@ html[data-overscroll-reveal="true"] body.site-body {
     opacity: 0.82;
   }
 
-  .home-footer__email:hover .home-footer__email-text {
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
-  }
-
   .home-footer__social-pill:hover {
-    background-color: color-mix(in srgb, var(--home-closing-fg) 6%, transparent);
+    background-color: var(--home-closing-fg);
+    color: var(--home-closing-bg);
   }
 }
 
@@ -314,11 +311,15 @@ html[data-overscroll-reveal="true"] body.site-body {
   font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
     sans-serif;
   font-size: clamp(28px, 3.5vw, 50px);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.05;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
   word-break: break-word;
   text-align: center;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 0.16em;
 }
 
 .home-footer__social {
@@ -335,7 +336,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   margin: 0 auto;
   list-style: none;
   padding: 0;
-  gap: 0.5rem 0.625rem;
+  gap: 12px;
   justify-content: center;
   align-items: center;
 }
@@ -347,31 +348,31 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 .home-footer__social-pill {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 3.25rem;
   min-width: 2.75rem;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.95rem;
-  border: 1px solid color-mix(in srgb, var(--home-closing-fg) 88%, transparent);
+  gap: 10px;
+  padding: 0 20px 0 18px;
+  border: 2px solid currentColor;
   border-radius: 9999px;
   color: var(--home-closing-fg);
-  font-family: var(--font-inter), var(--font-space-grotesk), system-ui,
+  font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
     sans-serif;
-  font-size: clamp(0.875rem, 1.05vw, 1rem);
-  font-weight: 500;
+  font-size: 19px;
+  font-weight: 700;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   text-decoration: none;
   white-space: nowrap;
   transition:
     background-color 0.2s ease,
-    border-color 0.2s ease;
+    color 0.2s ease;
 }
 
 .home-footer__social-pill:focus-visible {
-  outline: 2px solid var(--home-closing-fg);
-  outline-offset: 3px;
+  outline: 3px solid var(--home-closing-fg);
+  outline-offset: 4px;
 }
 
 .home-footer__social-pill-label {
@@ -381,32 +382,32 @@ html[data-overscroll-reveal="true"] body.site-body {
 .home-footer__social-icon {
   display: inline-flex;
   flex-shrink: 0;
-  width: 1.125em;
-  height: 1.125em;
+  width: 22px;
+  height: 22px;
   align-items: center;
   justify-content: center;
 }
 
 .home-footer__social-icon .site-icon {
   display: block;
-  width: 1.125em;
-  height: 1.125em;
+  width: 22px;
+  height: 22px;
 }
 
 .home-footer__social-pill-external {
   display: inline-flex;
   flex-shrink: 0;
-  width: 0.95em;
-  height: 0.95em;
+  width: 16px;
+  height: 16px;
   align-items: center;
   justify-content: center;
-  opacity: 0.92;
+  opacity: 1;
 }
 
 .home-footer__social-pill-external .site-icon {
   display: block;
-  width: 0.95em;
-  height: 0.95em;
+  width: 16px;
+  height: 16px;
 }
 
 .home-navbar-search__icon {
@@ -415,15 +416,32 @@ html[data-overscroll-reveal="true"] body.site-body {
   font-size: inherit;
 }
 
+@media (width < 640px) {
+  .home-footer__layout {
+    padding-block: 36px;
+  }
+
+  .home-footer__social-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 100%;
+  }
+
+  .home-footer__social-item,
+  .home-footer__social-pill {
+    width: 100%;
+  }
+
+  .home-footer__social-pill {
+    padding: 0 12px;
+  }
+}
+
 @media (width < 768px) {
   .home-footer__email-text {
     max-width: 100%;
     padding-inline: 0.25rem;
-  }
-
-  .home-footer__social-pill {
-    padding-inline: 0.75rem;
-    gap: 0.35rem;
   }
 }
 
