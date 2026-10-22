@@ -201,6 +201,61 @@ async function assertDesktopHoverSplash(page) {
   };
 }
 
+async function recordDriftingCursors(browser, width, height, name) {
+  const ctx = await browser.newContext({
+    recordVideo: { dir: video, size: { width, height } },
+  });
+  const page = await ctx.newPage();
+  await page.setViewportSize({ width, height });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.locator("#home-closing-index").scrollIntoViewIfNeeded();
+  await page.waitForSelector(".home-drifting-cursors", {
+    timeout: 60_000,
+    state: "attached",
+  });
+  await page.waitForTimeout(9000);
+  await ctx.close();
+  const raw = await page.video()?.path();
+  const out = path.join(video, name);
+  if (raw) {
+    const { rename } = await import("node:fs/promises");
+    await rename(raw, out).catch(() => {});
+  }
+  return out;
+}
+
+async function cursorTagCloseup(page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.locator("#home-closing-index").scrollIntoViewIfNeeded();
+  await page.waitForSelector(".home-drifting-cursors", {
+    timeout: 60_000,
+    state: "attached",
+  });
+  await page.waitForTimeout(2500);
+  const tag = page.locator(".home-drifting-cursors span").first();
+  await tag.waitFor({ state: "visible", timeout: 15_000 });
+  const box = await tag.boundingBox();
+  const out = path.join(shots, "14-cursor-name-tag-closeup-1440.png");
+  if (box) {
+    await page.screenshot({
+      path: out,
+      clip: {
+        x: Math.max(0, box.x - 28),
+        y: Math.max(0, box.y - 24),
+        width: Math.min(320, box.width + 56),
+        height: Math.min(120, box.height + 48),
+      },
+    });
+  } else {
+    await page.screenshot({ path: out });
+  }
+  const label = await tag.textContent();
+  return { out, label: label?.trim() ?? null };
+}
+
 async function recordScrollPastIndex(browser) {
   const ctx = await browser.newContext({
     recordVideo: { dir: video, size: { width: 1440, height: 900 } },
@@ -275,6 +330,19 @@ async function main() {
       "13-footer-email-390.png",
     ),
     mobileTapNoSplash: await assertMobileTapNoSplash(browser),
+    driftingCursors1440: await recordDriftingCursors(
+      browser,
+      1440,
+      900,
+      "14-drifting-cursors-1440.webm",
+    ),
+    driftingCursors390: await recordDriftingCursors(
+      browser,
+      390,
+      844,
+      "14-drifting-cursors-390.webm",
+    ),
+    cursorTagCloseup: await cursorTagCloseup(page),
   };
   await page.close();
   await browser.close();

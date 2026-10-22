@@ -1,58 +1,195 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTempus } from "tempus/react";
 
-type CursorSpec = {
-  id: number;
+type CursorTheme = {
   color: string;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  rot: number;
+  label: string;
+  ink: string;
 };
 
-const CURSOR_COLORS = [
-  "#398fd0",
-  "#b94a3f",
-  "#7459bd",
-  "#1f8254",
-  "#a8488d",
-  "#252d45",
+const CURSOR_THEMES: CursorTheme[] = [
+  { color: "#398fd0", label: "builder", ink: "#141a2b" },
+  { color: "#b94a3f", label: "creator", ink: "#fff8ea" },
+  { color: "#d8a12a", label: "educator", ink: "#141a2b" },
+  { color: "#7459bd", label: "about", ink: "#fff9ec" },
+  { color: "#1f8254", label: "now", ink: "#fff9ec" },
+  { color: "#a8488d", label: "sitemap", ink: "#fff9ec" },
 ];
 
-const CURSOR_COUNT = 5;
+type DriftCursor = {
+  id: number;
+  color: string;
+  label: string;
+  ink: string;
+  x: number;
+  y: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  ctrlX: number;
+  ctrlY: number;
+  progress: number;
+  duration: number;
+  pauseLeft: number;
+};
 
-function PointerGlyph({ color }: { color: string }) {
+function easeInOutSine(t: number) {
+  return -(Math.cos(Math.PI * t) - 1) / 2;
+}
+
+function quadPoint(
+  fromX: number,
+  fromY: number,
+  ctrlX: number,
+  ctrlY: number,
+  toX: number,
+  toY: number,
+  t: number,
+) {
+  const u = 1 - t;
+  return {
+    x: u * u * fromX + 2 * u * t * ctrlX + t * t * toX,
+    y: u * u * fromY + 2 * u * t * ctrlY + t * t * toY,
+  };
+}
+
+function randomBetween(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function pickTarget(w: number, h: number, pad: number) {
+  return {
+    x: randomBetween(pad, w - pad),
+    y: randomBetween(pad, h - pad),
+  };
+}
+
+function pickControl(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  w: number,
+  h: number,
+) {
+  const midX = (fromX + toX) / 2;
+  const midY = (fromY + toY) / 2;
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const len = Math.hypot(dx, dy) || 1;
+  const bend = randomBetween(0.22, 0.48) * Math.min(w, h);
+  const side = Math.random() > 0.5 ? 1 : -1;
+  return {
+    ctrlX: midX + (-dy / len) * bend * side,
+    ctrlY: midY + (dx / len) * bend * side,
+  };
+}
+
+function beginSegment(
+  cursor: DriftCursor,
+  w: number,
+  h: number,
+  pad: number,
+): DriftCursor {
+  const target = pickTarget(w, h, pad);
+  const { ctrlX, ctrlY } = pickControl(
+    cursor.x,
+    cursor.y,
+    target.x,
+    target.y,
+    w,
+    h,
+  );
+  const distance = Math.hypot(target.x - cursor.x, target.y - cursor.y);
+  const duration = randomBetween(2.8, 5.6) + distance / Math.max(w, h) * 2.2;
+  return {
+    ...cursor,
+    fromX: cursor.x,
+    fromY: cursor.y,
+    toX: target.x,
+    toY: target.y,
+    ctrlX,
+    ctrlY,
+    progress: 0,
+    duration,
+    pauseLeft: 0,
+  };
+}
+
+function seedCursors(w: number, h: number): DriftCursor[] {
+  const pad = 36;
+  return CURSOR_THEMES.map((theme, id) => {
+    const x = randomBetween(pad, w - pad);
+    const y = randomBetween(pad, h - pad);
+    const base: DriftCursor = {
+      id,
+      color: theme.color,
+      label: theme.label,
+      ink: theme.ink,
+      x,
+      y,
+      fromX: x,
+      fromY: y,
+      toX: x,
+      toY: y,
+      ctrlX: x,
+      ctrlY: y,
+      progress: 1,
+      duration: 1,
+      pauseLeft: randomBetween(0.2, 1.4),
+    };
+    return beginSegment(base, w, h, pad);
+  });
+}
+
+function ModernPointer({ color }: { color: string }) {
   return (
     <svg
-      width="22"
-      height="26"
-      viewBox="0 0 22 26"
+      width="26"
+      height="30"
+      viewBox="0 0 26 30"
       fill="none"
       aria-hidden="true"
-      className="block drop-shadow-[0_1px_2px_rgba(20,26,43,0.22)]"
+      className="block"
+      style={{
+        filter: "drop-shadow(0 1px 1px rgba(20, 26, 43, 0.18))",
+      }}
     >
       <path
-        d="M3.2 2.4L3.2 21.8L8.4 16.2L12.1 23.4L15.2 21.8L11.5 14.6L18.6 14.2L3.2 2.4Z"
+        d="M5.4 4.2c-.5-.42-1.2-.02-1.2.58v14.9c0 .58.68.9 1.14.52l3.72-3.1 1.42 4.85c.21.72 1.14.72 1.38.04l4.55-9.55c.22-.48-.08-1.02-.62-1.02h-4.38L5.4 4.2Z"
         fill={color}
-        stroke="#141a2b"
-        strokeWidth="1.2"
+        stroke="rgba(255, 255, 255, 0.9)"
+        strokeWidth="1.1"
         strokeLinejoin="round"
+        strokeLinecap="round"
       />
     </svg>
   );
 }
 
-function seedCursors(width: number, height: number): CursorSpec[] {
-  return Array.from({ length: CURSOR_COUNT }, (_, id) => ({
-    id,
-    color: CURSOR_COLORS[id % CURSOR_COLORS.length],
-    x: width * (0.12 + id * 0.16),
-    y: height * (0.2 + (id % 3) * 0.22),
-    vx: (id % 2 === 0 ? 1 : -1) * (18 + id * 4),
-    vy: (id % 3 === 0 ? 1 : -1) * (14 + id * 3),
-    rot: -18 + id * 7,
-  }));
+function NameTag({
+  label,
+  color,
+  ink,
+}: {
+  label: string;
+  color: string;
+  ink: string;
+}) {
+  return (
+    <span
+      className="pointer-events-none absolute left-[15px] top-[13px] whitespace-nowrap rounded-full px-2 py-[3px] text-[11px] font-semibold leading-none tracking-[-0.02em] shadow-[0_1px_3px_rgba(20,26,43,0.14)]"
+      style={{
+        backgroundColor: color,
+        color: ink,
+        fontFamily:
+          "var(--font-inter-tight), var(--font-space-grotesk), system-ui, sans-serif",
+      }}
+    >
+      {label}
+    </span>
+  );
 }
 
 type Props = {
@@ -64,9 +201,12 @@ export default function HomeDriftingCursors({ className }: Props) {
   const inViewRef = useRef(false);
   const reducedMotionRef = useRef(false);
   const sizeRef = useRef({ w: 1, h: 1 });
-  const cursorsRef = useRef<CursorSpec[]>([]);
-  const [renderCursors, setRenderCursors] = useState<CursorSpec[]>([]);
-  const [active, setActive] = useState(false);
+  const cursorsRef = useRef<DriftCursor[]>([]);
+  const [renderCursors, setRenderCursors] = useState<DriftCursor[]>([]);
+  const [active, setActive] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
 
   const rootClassName = useMemo(
     () =>
@@ -122,37 +262,62 @@ export default function HomeDriftingCursors({ className }: Props) {
   }, []);
 
   useTempus(
-    ({ delta }) => {
+    ({ deltaTime }) => {
       if (!active || !inViewRef.current || reducedMotionRef.current) return;
+      if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
+
       const { w, h } = sizeRef.current;
       if (w <= 1 || h <= 1) return;
 
-      const pad = 28;
-      const dt = Math.min(delta, 0.05);
+      const pad = 40;
+      const dt = Math.min(deltaTime / 1000, 0.05);
+
       const next = cursorsRef.current.map((cursor) => {
-        let { x, y, vx, vy, rot } = cursor;
-        x += vx * dt;
-        y += vy * dt;
+        let state = cursor;
 
-        if (x < pad) {
-          x = pad;
-          vx = Math.abs(vx);
-        } else if (x > w - pad) {
-          x = w - pad;
-          vx = -Math.abs(vx);
+        if (state.pauseLeft > 0) {
+          return { ...state, pauseLeft: Math.max(0, state.pauseLeft - dt) };
         }
 
-        if (y < pad) {
-          y = pad;
-          vy = Math.abs(vy);
-        } else if (y > h - pad) {
-          y = h - pad;
-          vy = -Math.abs(vy);
+        let progress = state.progress + dt / state.duration;
+        if (progress >= 1) {
+          const landed = quadPoint(
+            state.fromX,
+            state.fromY,
+            state.ctrlX,
+            state.ctrlY,
+            state.toX,
+            state.toY,
+            1,
+          );
+          state = {
+            ...state,
+            x: landed.x,
+            y: landed.y,
+            progress: 1,
+            pauseLeft: Math.random() < 0.38 ? randomBetween(0.35, 1.6) : 0,
+          };
+          if (state.pauseLeft > 0) return state;
+          return beginSegment(state, w, h, pad);
         }
 
-        rot += vx * 0.04 * dt;
+        const eased = easeInOutSine(progress);
+        const point = quadPoint(
+          state.fromX,
+          state.fromY,
+          state.ctrlX,
+          state.ctrlY,
+          state.toX,
+          state.toY,
+          eased,
+        );
 
-        return { ...cursor, x, y, vx, vy, rot };
+        return {
+          ...state,
+          progress,
+          x: point.x,
+          y: point.y,
+        };
       });
 
       cursorsRef.current = next;
@@ -161,21 +326,23 @@ export default function HomeDriftingCursors({ className }: Props) {
     { order: 0, label: "drifting-cursors" },
   );
 
-  if (!active) return null;
-
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
-      {renderCursors.map((cursor) => (
+      {active &&
+        renderCursors.map((cursor) => (
         <div
           key={cursor.id}
           className="absolute will-change-transform"
           style={{
-            transform: `translate3d(${cursor.x}px, ${cursor.y}px, 0) rotate(${cursor.rot}deg)`,
+            transform: `translate3d(${cursor.x}px, ${cursor.y}px, 0)`,
           }}
         >
-          <PointerGlyph color={cursor.color} />
+          <div className="relative">
+            <ModernPointer color={cursor.color} />
+            <NameTag label={cursor.label} color={cursor.color} ink={cursor.ink} />
+          </div>
         </div>
-      ))}
+        ))}
     </div>
   );
 }
