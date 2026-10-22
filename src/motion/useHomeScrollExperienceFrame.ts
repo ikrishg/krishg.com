@@ -64,6 +64,7 @@ export function useHomeScrollExperienceFrame() {
   const bandsRef = useRef<HTMLElement[]>([]);
   const linksRef = useRef<HTMLElement[]>([]);
   const closingRef = useRef<HTMLElement | null>(null);
+  const lastScrollRef = useRef(0);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -89,6 +90,15 @@ export function useHomeScrollExperienceFrame() {
     const lenis = getLenis();
     if (!lenis) return;
 
+    const scrollY = lenis.scroll;
+    if (
+      Math.abs(lenis.velocity) < 0.02 &&
+      Math.abs(scrollY - lastScrollRef.current) < 0.25
+    ) {
+      return;
+    }
+    lastScrollRef.current = scrollY;
+
     const vh = window.innerHeight;
 
     if (bandsRef.current.length === 0) {
@@ -107,8 +117,8 @@ export function useHomeScrollExperienceFrame() {
       if (rect.bottom < 0 || rect.top > vh) continue;
 
       const progress = bandProgress(rect, vh);
-      const parallax = (1 - progress) * 28;
-      const artifactShift = (1 - progress) * -16;
+      const parallax = Math.round((1 - progress) * 28);
+      const artifactShift = Math.round((1 - progress) * -16);
 
       const prev = bandCacheRef.current.get(band);
       if (
@@ -162,13 +172,10 @@ export function useHomeScrollExperienceFrame() {
         artifact: sample.artifact,
       });
       sample.el.style.setProperty("--band-progress", sample.progress.toFixed(4));
-      sample.el.style.setProperty(
-        "--band-parallax",
-        `${sample.parallax.toFixed(2)}px`,
-      );
+      sample.el.style.setProperty("--band-parallax", `${sample.parallax}px`);
       sample.el.style.setProperty(
         "--artifact-parallax",
-        `${sample.artifact.toFixed(2)}px`,
+        `${sample.artifact}px`,
       );
     }
 

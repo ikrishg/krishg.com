@@ -58,6 +58,7 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
     shell.dataset.artifactReady = "false";
     const observer = new IntersectionObserver(
       ([entry]) => {
+        if (!entry) return;
         if (entry.isIntersecting) invalidate();
       },
       { threshold: 0.08, rootMargin: "80px 0px" },
@@ -150,7 +151,9 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
       <HeroCameraFit
         kind="book"
         modelRoot={root}
-        viewDirection={tune.viewDirection}
+        {...(tune.viewDirection
+          ? { viewDirection: tune.viewDirection }
+          : {})}
         onFitted={onFitted}
         fitRef={fitAgainRef}
       >

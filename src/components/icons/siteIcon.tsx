@@ -35,10 +35,10 @@ export function SiteIcon({
   const IconComponent = ICONS[name];
   return createElement(IconComponent, {
     weight: weight as IconWeight,
-    size,
-    className,
     color: "currentColor",
     "aria-hidden": true,
+    ...(className !== undefined ? { className } : {}),
+    ...(size !== undefined ? { size } : {}),
   });
 }
 
@@ -55,8 +55,10 @@ export function renderSiteIcon(
     <SiteIcon
       name={name}
       weight={options.weight ?? "bold"}
-      className={options.className}
-      size={options.size}
+      {...(options.className !== undefined
+        ? { className: options.className }
+        : {})}
+      {...(options.size !== undefined ? { size: options.size } : {})}
     />,
   );
 }

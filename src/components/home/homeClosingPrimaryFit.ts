@@ -91,7 +91,7 @@ function textWidthAtFontSize(
 }
 
 function measureOverflowPx(
-  span: HTMLElement,
+  _span: HTMLElement,
   anchor: HTMLElement,
   handle: FitHandle,
   fontSizePx: number,
@@ -127,13 +127,15 @@ export function measureSharedPrimaryFontSize(
 
   for (let i = 0; i < links.length; i += 1) {
     const anchor = anchors[i];
+    const link = links[i];
+    if (!anchor || !link) continue;
     const span = anchor.querySelector<HTMLElement>("span");
     if (!span) continue;
 
     const width = anchor.getBoundingClientRect().width;
     if (width <= 0) continue;
 
-    const label = links[i].label;
+    const label = link.label;
     const charCount = label.length;
     const letterSpacingEmValue = letterSpacingEm(span);
     const handle = prepare(label, canvasFontFromSpan(span));
