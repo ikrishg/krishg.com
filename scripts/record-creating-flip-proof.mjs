@@ -33,6 +33,13 @@ async function recordViewport({ name, width, height, touch }) {
   };
 
   await click(/^Poetry$/i);
+  await page.waitForFunction(() => {
+    const media = document.querySelectorAll(
+      ".creating-flip-root .creating-card__media",
+    );
+    if (media.length === 0) return false;
+    return [...media].every((el) => parseFloat(getComputedStyle(el).opacity) > 0.95);
+  });
   await page.screenshot({
     path: path.join(framesDir, `${name}-after-poetry.png`),
   });

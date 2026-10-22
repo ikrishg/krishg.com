@@ -82,6 +82,7 @@ export function CreatingWorkCard({
         <div
           ref={mediaRef}
           className="creating-card__media"
+          data-flip-id={`${entry.id}--media`}
           data-text-card={textCard ? "true" : undefined}
         >
           {variant === "listicle" ? (
@@ -103,6 +104,7 @@ export function CreatingWorkCard({
                 height={72}
                 loading="lazy"
                 decoding="async"
+                draggable={false}
                 className="creating-card__image creating-card__image--thumb"
               />
             )
@@ -118,6 +120,7 @@ export function CreatingWorkCard({
               height={500}
               loading="lazy"
               decoding="async"
+              draggable={false}
               className="creating-card__image"
             />
           )}

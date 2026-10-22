@@ -65,7 +65,7 @@ async function runSuite(context, tag, { touch }) {
   });
 
   const domStats = await page.evaluate(() => ({
-    cards: document.querySelectorAll("[data-flip-id]").length,
+    cards: document.querySelectorAll("[data-entry-id]").length,
     hasCanvas: Boolean(document.querySelector(".creating-canvas-wrap canvas")),
     verify: window.__creatingVerify?.(),
   }));
@@ -129,12 +129,14 @@ async function runSuite(context, tag, { touch }) {
   await page.getByRole("button", { name: /^Poetry$/i }).click();
   await page.waitForFunction(
     () =>
-      document.querySelectorAll(".creating-flip-root .creating-card").length ===
-      6,
+      document.querySelectorAll(".creating-flip-root .creating-card[data-flip-id]")
+        .length === 6,
     { timeout: 8000 },
   );
   const poetryCount = await page.evaluate(
-    () => document.querySelectorAll(".creating-flip-root .creating-card").length,
+    () =>
+      document.querySelectorAll(".creating-flip-root .creating-card[data-flip-id]")
+        .length,
   );
   checks.push({
     name: "filter-poetry",
