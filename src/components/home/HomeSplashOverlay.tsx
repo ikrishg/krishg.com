@@ -214,9 +214,9 @@ export default function HomeSplashOverlay() {
 
   const markFull = useCallback((id: number) => {
     setLayers((prev) => {
-      const target = prev.find((layer) => layer.id === id);
-      if (!target) return prev;
-      return [{ ...target, phase: "full" as const }];
+      const i = prev.findIndex((l) => l.id === id);
+      if (i < 0) return prev;
+      return [{ ...prev[i], phase: "full" as const }, ...prev.slice(i + 1)];
     });
   }, []);
 
