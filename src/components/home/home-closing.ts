@@ -12,7 +12,7 @@ export type ClosingSplashKey =
 export const closingSplashHex: Record<ClosingSplashKey, string> = {
   building: "#398fd0",
   creating: "#b94a3f",
-  educating: "#c99220",
+  educating: "#b8841a",
   about: "#7459bd",
   now: "#1f8254",
   sitemap: "#a8488d",
@@ -22,7 +22,7 @@ export const closingSplashHex: Record<ClosingSplashKey, string> = {
 export const closingSplashInkHex: Record<ClosingSplashKey, string> = {
   building: "#141a2b",
   creating: "#fff9ec",
-  educating: "#252d45",
+  educating: "#141a2b",
   about: "#fff9ec",
   now: "#fff9ec",
   sitemap: "#fff9ec",
