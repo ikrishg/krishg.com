@@ -24,6 +24,7 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 .playwright-mcp/
+scripts/dev/out/
 
 .impeccable/live/server.json
 

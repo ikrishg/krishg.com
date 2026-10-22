@@ -5,13 +5,19 @@
 import { chromium } from "playwright";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
+
+const DEV_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const OUT =
-  process.env.SCREENSHOT_DIR || "/opt/cursor/artifacts/screenshots";
+  process.env.SCREENSHOT_DIR ||
+  path.join(DEV_ROOT, "out", "screenshots");
 const VIEWPORTS = [
   { width: 1440, height: 900, label: "1440" },
+  { width: 1024, height: 776, label: "1024" },
   { width: 820, height: 1180, label: "820" },
+  { width: 768, height: 1024, label: "768" },
   { width: 390, height: 844, label: "390" },
 ];
 
@@ -51,19 +57,31 @@ async function readPullState(page) {
       parseFloat(
         getComputedStyle(root).getPropertyValue("--home-overscroll-pull"),
       ) || 0;
-    const paints = [
-      ...document.querySelectorAll("[data-home-scroll-band] .hero-band-paint"),
-    ];
-    const hidden = paints.every(
-      (el) => getComputedStyle(el).visibility === "hidden",
-    );
+    const educatorPaint = document.querySelector("#educator .hero-band-paint");
+    const educatorScale = educatorPaint
+      ? getComputedStyle(educatorPaint).transform
+      : "";
     const pulling =
       root.dataset.overscrollPulling === "true" ||
       root.dataset.overscrollReveal === "true";
+    const footer = document.querySelector(".home-footer");
+    const seamOk = (() => {
+      if (!footer || pull < 20) return false;
+      const rect = footer.getBoundingClientRect();
+      const y = Math.max(0, Math.floor(rect.top) - 3);
+      const x = Math.floor(rect.left + rect.width / 2);
+      const hit = document.elementFromPoint(x, y);
+      if (!hit) return true;
+      const band = hit.closest("[data-home-scroll-band]");
+      if (!band || band.id === "educator") return true;
+      const bg = getComputedStyle(hit).backgroundColor;
+      return !bg.includes("216, 161, 42") && !bg.includes("d8a12a");
+    })();
     return {
-      ok: pull > 20 && pulling && hidden,
+      ok: pull > 20 && pulling && seamOk,
       pullPx: pull,
-      bandPaintHidden: hidden,
+      educatorTransform: educatorScale,
+      seamOk,
       pulling,
     };
   });
