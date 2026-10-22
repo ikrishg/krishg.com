@@ -1,7 +1,12 @@
 ---
 import HomeDriftingCursors from "~components/home/HomeDriftingCursors";
-import { renderSiteSocialIcon } from "~components/icons/siteIcon";
+import {
+  renderSiteSocialExternalIcon,
+  renderSiteSocialIcon,
+} from "~components/icons/siteIcon";
 import { contactEmail, footerSocials } from "~site-links";
+
+const externalIconHtml = renderSiteSocialExternalIcon();
 ---
 
 <footer
@@ -10,37 +15,43 @@ import { contactEmail, footerSocials } from "~site-links";
 >
   <HomeDriftingCursors client:visible />
   <div class="home-footer__layout relative z-[46] px-[var(--gutter)]">
-    <a
-      class="home-footer__email group"
-      href={`mailto:${contactEmail}`}
-    >
-      <span class="home-footer__email-text">{contactEmail}</span>
-    </a>
+    <div class="home-footer__contact">
+      <a
+        class="home-footer__email group"
+        href={`mailto:${contactEmail}`}
+      >
+        <span class="home-footer__email-text">{contactEmail}</span>
+      </a>
 
-    <nav aria-label="Social links" class="home-footer__social">
-      <ul class="home-footer__social-list">
-        {
-          footerSocials.map((social) => {
-            const iconHtml =
-              social.id === "x" || social.id === "linkedin"
-                ? renderSiteSocialIcon(social.id)
-                : "";
-            return (
-              <li>
-                <a
-                  class="home-footer__social-link"
-                  href={social.href}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                  aria-label={`${social.label} (opens in new tab)`}
-                >
-                  <Fragment set:html={iconHtml} />
-                </a>
-              </li>
-            );
-          })
-        }
-      </ul>
-    </nav>
+      <nav aria-label="Social links" class="home-footer__social">
+        <ul class="home-footer__social-list">
+          {
+            footerSocials.map((social) => {
+              const iconHtml =
+                social.id === "x" || social.id === "linkedin"
+                  ? renderSiteSocialIcon(social.id)
+                  : "";
+              return (
+                <li class="home-footer__social-item">
+                  <a
+                    class="home-footer__social-pill"
+                    href={social.href}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Fragment set:html={iconHtml} />
+                    <span class="home-footer__social-pill-label">
+                      {social.pillLabel}
+                    </span>
+                    <Fragment set:html={externalIconHtml} />
+                    <span class="sr-only"> (opens in new tab)</span>
+                  </a>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </nav>
+    </div>
   </div>
 </footer>

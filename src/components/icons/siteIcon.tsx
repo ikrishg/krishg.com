@@ -1,4 +1,5 @@
 import {
+  ArrowUpRight,
   Asterisk,
   LinkedinLogo,
   MagnifyingGlass,
@@ -10,7 +11,12 @@ import type { ReactNode } from "react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-export type SiteIconName = "x" | "linkedin" | "search" | "asterisk";
+export type SiteIconName =
+  | "x"
+  | "linkedin"
+  | "search"
+  | "asterisk"
+  | "arrow-up-right";
 
 export type SiteIconWeight = "bold" | "fill";
 
@@ -19,6 +25,7 @@ const ICONS: Record<SiteIconName, Icon> = {
   linkedin: LinkedinLogo,
   search: MagnifyingGlass,
   asterisk: Asterisk,
+  "arrow-up-right": ArrowUpRight,
 };
 
 export function SiteIcon({
@@ -72,4 +79,12 @@ export function renderSiteSocialIcon(
     className: "site-icon",
   });
   return `<span class="home-footer__social-icon" aria-hidden="true">${icon}</span>`;
+}
+
+export function renderSiteSocialExternalIcon(): string {
+  const icon = renderSiteIcon("arrow-up-right", {
+    weight: "bold",
+    className: "site-icon home-footer__social-pill-arrow",
+  });
+  return `<span class="home-footer__social-pill-external" aria-hidden="true">${icon}</span>`;
 }
