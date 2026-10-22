@@ -55,7 +55,7 @@ export const closingMobileLinks: ClosingLink[] = [
 
 /** Static ink on mobile colour blocks (no hover splash). */
 export const closingMobileInkHex: Record<ClosingSplashKey, string> = {
-  building: "#fff9ec",
+  building: "#141a2b",
   creating: "#fff9ec",
   educating: "#141a2b",
   about: "#fff9ec",
