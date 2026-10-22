@@ -1,10 +1,12 @@
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const baseUrl = process.env.PREVIEW_URL ?? "http://127.0.0.1:4321";
+const devRoot = path.dirname(fileURLToPath(import.meta.url));
 const outDir =
-  process.env.SCREENSHOT_DIR ?? "/opt/cursor/artifacts/screenshots";
+  process.env.SCREENSHOT_DIR ?? path.join(devRoot, "out", "screenshots");
 
 const viewports = [
   { width: 1440, height: 900, label: "desktop" },

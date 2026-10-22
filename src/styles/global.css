@@ -573,14 +573,13 @@ html[data-page-accent="closing"] {
   color: var(--home-closing-fg);
 }
 
-html[data-overscroll-pulling="true"] [data-home-scroll-band] .hero-band-paint,
-html[data-overscroll-reveal="true"] [data-home-scroll-band] .hero-band-paint {
-  visibility: hidden;
-}
-
 @media (prefers-reduced-motion: no-preference) {
   html[data-motion-enhance] [data-home-scroll-band] .hero-band-paint {
     transform: translate3d(0, var(--band-parallax, 0px), 0) scale(1.015);
+  }
+
+  html[data-motion-enhance] #educator .hero-band-paint {
+    transform: translate3d(0, var(--band-parallax, 0px), 0);
   }
 
   html[data-motion-enhance] [data-home-scroll-band] .artifact-stage__parallax {

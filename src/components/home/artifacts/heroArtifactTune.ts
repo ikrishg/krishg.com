@@ -10,7 +10,7 @@ export type ArtifactTune = {
 export function getArtifactTune(kind: KrishModelKind): ArtifactTune {
   if (kind === "computer") {
     return {
-      groupPosition: [0, -0.02, 0],
+      groupPosition: [0.035, -0.055, 0],
       groupRotation: [0.06, -0.26, 0],
       viewDirection: [0, 0.14, 1],
     };

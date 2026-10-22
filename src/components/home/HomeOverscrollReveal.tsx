@@ -98,12 +98,10 @@ export default function HomeOverscrollReveal() {
       if (window.scrollY !== y) window.scrollTo(0, y);
     };
 
-    const scheduleRelease = (opts: {
+    const finishRelease = (opts: {
       fromWheel?: boolean;
       bottomTouch?: boolean;
     } = {}) => {
-      if (releaseTimer) clearTimeout(releaseTimer);
-
       const allowPin = Boolean(opts.fromWheel || opts.bottomTouch);
       if (!allowPin || (!pullEngaged && !isOverscrollPullActive())) {
         pulling = false;
@@ -112,19 +110,25 @@ export default function HomeOverscrollReveal() {
         return;
       }
 
-      const delay =
-        opts.fromWheel && !isOverscrollPullActive() ? 0 : RELEASE_DELAY_MS;
+      const peakPull = getOverscrollPull();
+      const shouldPin =
+        allowPin &&
+        (pullEngaged || peakPull > PIN_PULL_THRESHOLD || isOverscrollPullActive());
+      releaseOverscrollTarget();
+      if (shouldPin) pinScrollToBottom();
+      pulling = false;
+      pullEngaged = false;
+    };
 
+    const scheduleWheelRelease = () => {
+      if (releaseTimer) clearTimeout(releaseTimer);
+      if (!pullEngaged && !isOverscrollPullActive()) {
+        finishRelease({ fromWheel: true });
+        return;
+      }
       releaseTimer = setTimeout(() => {
-        const peakPull = getOverscrollPull();
-        const shouldPin =
-          allowPin &&
-          (pullEngaged || peakPull > PIN_PULL_THRESHOLD || isOverscrollPullActive());
-        releaseOverscrollTarget();
-        if (shouldPin) pinScrollToBottom();
-        pulling = false;
-        pullEngaged = false;
-      }, delay);
+        finishRelease({ fromWheel: true });
+      }, RELEASE_DELAY_MS);
     };
 
     const processWheelDelta = (deltaY: number) => {
@@ -137,7 +141,7 @@ export default function HomeOverscrollReveal() {
         pullEngaged = true;
         nudgeOverscrollTarget(deltaY);
         pinScrollToBottom();
-        scheduleRelease({ fromWheel: true });
+        scheduleWheelRelease();
         return;
       }
 
@@ -190,7 +194,8 @@ export default function HomeOverscrollReveal() {
       }
 
       if (pullEngaged || isOverscrollPullActive()) {
-        scheduleRelease({ bottomTouch: true });
+        if (releaseTimer) clearTimeout(releaseTimer);
+        finishRelease({ bottomTouch: true });
       } else {
         pulling = false;
       }
