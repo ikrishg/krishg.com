@@ -20,10 +20,16 @@ async function recordViewport({ name, width, height, touch }) {
     recordVideo: { dir: videoDir, size: { width, height } },
   });
   const page = await context.newPage();
-  const url = `${preview.replace(/\/$/, "")}/creating`;
-  await page.goto(url, { waitUntil: "networkidle", timeout: 120_000 });
-  await page.waitForSelector(".creating-surface", { timeout: 30_000 });
-  await page.waitForTimeout(700);
+  const url = preview.includes("/creating")
+    ? preview.replace(/\/$/, "")
+    : `${preview.replace(/\/$/, "")}/creating`;
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  await page.waitForSelector(".creating-page", { timeout: 90_000 });
+  await page.waitForFunction(
+    () => document.querySelectorAll(".creating-card").length > 0,
+    { timeout: 90_000 },
+  );
+  await page.waitForTimeout(1200);
 
   const click = async (label) => {
     await page.getByRole("button", { name: label }).click();
