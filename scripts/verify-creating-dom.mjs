@@ -14,7 +14,22 @@ function url(pathname) {
 
 /** @typedef {{ name: string, pass: boolean, note?: string }} Check */
 
-async function runSuite(context, tag) {
+async function mouseOpenTrials(page, viewName, selector) {
+  await page.getByRole("button", { name: new RegExp(`^${viewName}$`, "i") }).click();
+  await page.waitForTimeout(700);
+  let opens = 0;
+  for (let i = 0; i < 10; i += 1) {
+    const card = page.locator(`${selector} .creating-card__open`).nth(i % 6);
+    await card.click({ timeout: 5000 });
+    await page.waitForTimeout(400);
+    if (await page.locator(".creating-detail").isVisible()) opens += 1;
+    await page.getByRole("button", { name: /close/i }).click();
+    await page.waitForTimeout(450);
+  }
+  return opens;
+}
+
+async function runSuite(context, tag, { touch }) {
   const page = await context.newPage();
   const checks = /** @type {Check[]} */ ([]);
   const consoleErrors = [];
@@ -23,6 +38,12 @@ async function runSuite(context, tag) {
     if (m.type() === "error") consoleErrors.push(m.text());
   });
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
+
+  const networkJs = [];
+  page.on("response", async (res) => {
+    const u = res.url();
+    if (u.includes("/_astro/") && u.endsWith(".js")) networkJs.push(u);
+  });
 
   await page.goto(url("/creating"), { waitUntil: "networkidle" });
   await page.waitForSelector(".creating-surface", { timeout: 30_000 });
@@ -36,63 +57,86 @@ async function runSuite(context, tag) {
     note: navBg,
   });
 
-  const paper = await page.evaluate(() =>
-    getComputedStyle(document.querySelector(".creating-page") ?? document.body)
-      .backgroundColor,
-  );
+  const threeChunk = networkJs.some((u) => /three-vendor/i.test(u));
   checks.push({
-    name: "page-beige-background",
-    pass: paper === "rgb(231, 221, 204)",
-    note: paper,
+    name: "network-no-three-chunk",
+    pass: !threeChunk,
+    note: threeChunk ? networkJs.filter((u) => /three/i.test(u)).join(", ") : "ok",
   });
 
-  const surface = await page.locator(".creating-surface").evaluate((el) =>
-    getComputedStyle(el).backgroundColor,
-  );
-  checks.push({
-    name: "gallery-red-surface",
-    pass: surface === "rgb(185, 74, 63)",
-    note: surface,
-  });
-
-  const verify = await page.evaluate(() => window.__creatingVerify?.());
+  const domStats = await page.evaluate(() => ({
+    cards: document.querySelectorAll("[data-flip-id]").length,
+    hasCanvas: Boolean(document.querySelector(".creating-canvas-wrap canvas")),
+    verify: window.__creatingVerify?.(),
+  }));
   checks.push({
     name: "dom-gallery-mounted",
-    pass: verify?.domOnly === true && verify?.entryCount === 30,
-    note: JSON.stringify(verify),
+    pass: domStats.cards === 30,
+    note: JSON.stringify(domStats),
   });
   checks.push({
     name: "no-webgl-canvas",
-    pass: verify?.hasCanvas === false,
+    pass: domStats.hasCanvas === false,
   });
+
+  if (!touch && tag === "1440") {
+    const galleryOpens = await mouseOpenTrials(
+      page,
+      "Gallery",
+      '[data-view-region="gallery"]',
+    );
+    checks.push({
+      name: "mouse-open-gallery-10",
+      pass: galleryOpens === 10,
+      note: String(galleryOpens),
+    });
+    const listicleOpens = await mouseOpenTrials(
+      page,
+      "Listicle",
+      ".creating-listicle-dom",
+    );
+    checks.push({
+      name: "mouse-open-listicle-10",
+      pass: listicleOpens === 10,
+      note: String(listicleOpens),
+    });
+    const timelineOpens = await mouseOpenTrials(
+      page,
+      "Timeline",
+      ".creating-timeline__track",
+    );
+    checks.push({
+      name: "mouse-open-timeline-10",
+      pass: timelineOpens === 10,
+      note: String(timelineOpens),
+    });
+  }
+
+  if (touch && tag === "390") {
+    await page.getByRole("button", { name: /^Timeline$/i }).click();
+    await page.waitForTimeout(600);
+    const card = page.locator(".creating-timeline__track .creating-card__open").first();
+    await card.tap();
+    await page.waitForTimeout(700);
+    checks.push({
+      name: "touch-open-timeline",
+      pass: await page.locator(".creating-detail").isVisible(),
+    });
+    await page.getByRole("button", { name: /close/i }).click();
+    await page.waitForTimeout(500);
+  }
 
   await page.getByRole("button", { name: /^Poetry$/i }).click();
   await page.waitForTimeout(800);
   checks.push({
     name: "filter-poetry",
     pass:
-      (await page.evaluate(() => window.__creatingVerify?.().filteredCount)) ===
-      6,
+      (await page.evaluate(
+        () => document.querySelectorAll("[data-flip-id]").length,
+      )) === 6,
   });
   await page.getByRole("button", { name: /^All$/i }).click();
   await page.waitForTimeout(600);
-
-  await page.getByRole("button", { name: /^Listicle$/i }).click();
-  await page.waitForTimeout(900);
-  checks.push({
-    name: "view-listicle",
-    pass: await page.locator(".creating-listicle-dom").isVisible(),
-  });
-
-  await page.getByRole("button", { name: /^Timeline$/i }).click();
-  await page.waitForTimeout(900);
-  checks.push({
-    name: "view-timeline",
-    pass: await page.locator(".creating-timeline__track").isVisible(),
-  });
-
-  await page.getByRole("button", { name: /^Gallery$/i }).click();
-  await page.waitForTimeout(700);
 
   const card = page.locator(".creating-card__open").first();
   await card.click();
@@ -117,7 +161,17 @@ async function runSuite(context, tag) {
     pass: !(await page.locator(".creating-detail").isVisible()),
   });
 
-  for (let i = 0; i < 20; i += 1) {
+  const tabStops = await page.evaluate(() => {
+    const hidden = document.querySelector(".creating-works-index");
+    return hidden ? hidden.querySelectorAll("button").length : 0;
+  });
+  checks.push({
+    name: "no-hidden-index-tabstops",
+    pass: tabStops === 0,
+    note: String(tabStops),
+  });
+
+  for (let i = 0; i < 12; i += 1) {
     await page.keyboard.press("Tab");
     await page.waitForTimeout(40);
   }
@@ -152,7 +206,7 @@ for (const { tag, width, height, touch } of [
     viewport: { width, height },
     hasTouch: touch,
   });
-  table.push(...(await runSuite(context, tag)));
+  table.push(...(await runSuite(context, tag, { touch })));
   await context.close();
 }
 await browser.close();

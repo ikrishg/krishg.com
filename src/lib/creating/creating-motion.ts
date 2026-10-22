@@ -10,6 +10,16 @@ export function captureFlipTargets(root: ParentNode | null): Element[] {
   return [...root.querySelectorAll("[data-flip-id]")];
 }
 
+export function captureFlipState(root: ParentNode | null) {
+  const targets = captureFlipTargets(root);
+  if (targets.length === 0) return null;
+  return Flip.getState(targets, {
+    props: "transform,opacity",
+    nested: true,
+    scale: true,
+  });
+}
+
 export function runFlipFrom(
   state: Flip.FlipState,
   reducedMotion: boolean,
@@ -20,6 +30,8 @@ export function runFlipFrom(
     duration: options?.duration ?? 0.72,
     ease: "creating.cubicInOut",
     stagger: options?.stagger ?? 0.035,
+    nested: true,
+    scale: true,
     absolute: true,
     prune: true,
     onEnter: (els) => {

@@ -15,6 +15,7 @@ type Props = {
   onHover?: (id: string | null) => void;
   parallaxY?: number;
   reducedMotion: boolean;
+  transitionEntryId?: string | null;
 };
 
 export function CreatingWorkCard({
@@ -24,10 +25,15 @@ export function CreatingWorkCard({
   onHover,
   parallaxY = 0,
   reducedMotion,
+  transitionEntryId = null,
 }: Props) {
   const mediaRef = useRef<HTMLDivElement>(null);
   const accent = CATEGORY_ACCENT[entry.category];
   const textCard = isTextForwardCategory(entry.category);
+  const vtName =
+    transitionEntryId === entry.id
+      ? (`creating-entry-${entry.id}` as const)
+      : undefined;
 
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
     if (reducedMotion) return;
@@ -50,8 +56,10 @@ export function CreatingWorkCard({
   const style = {
     "--card-accent": accent,
     "--card-parallax": reducedMotion ? "0px" : `${parallaxY}px`,
-    viewTransitionName: `creating-entry-${entry.id}`,
+    viewTransitionName: vtName,
   } as CSSProperties;
+
+  const listicleExcerpt = entry.body.replace(/\s+/g, " ").trim();
 
   return (
     <article
@@ -76,7 +84,25 @@ export function CreatingWorkCard({
           className="creating-card__media"
           data-text-card={textCard ? "true" : undefined}
         >
-          {textCard ? (
+          {variant === "listicle" ? (
+            textCard ? (
+              <span
+                className="creating-card__swatch"
+                style={{ background: accent }}
+                aria-hidden="true"
+              />
+            ) : (
+              <img
+                src={entry.cover}
+                alt=""
+                width={72}
+                height={72}
+                loading="lazy"
+                decoding="async"
+                className="creating-card__image creating-card__image--thumb"
+              />
+            )
+          ) : textCard ? (
             <div className="creating-card__typography" aria-hidden="true">
               <p className="creating-card__excerpt">{entry.body.slice(0, 120)}…</p>
             </div>
@@ -97,6 +123,9 @@ export function CreatingWorkCard({
         </div>
         <div className="creating-card__meta">
           <h3 className="creating-card__title">{entry.title}</h3>
+          {variant === "listicle" && (
+            <p className="creating-card__listicle-excerpt">{listicleExcerpt}</p>
+          )}
           <p className="creating-card__subtitle">
             {CATEGORY_LABELS[entry.category]}
             <span aria-hidden="true"> · </span>

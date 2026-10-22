@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { CreatingEntry } from "~lib/creating/types";
 import { CreatingWorkCard } from "./CreatingWorkCard";
 
 type Props = {
   entries: CreatingEntry[];
   reducedMotion: boolean;
+  transitionEntryId: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
   onHover: (id: string | null) => void;
 };
@@ -12,21 +13,20 @@ type Props = {
 export function CreatingGalleryGrid({
   entries,
   reducedMotion,
+  transitionEntryId,
   onOpen,
   onHover,
 }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const parallaxRef = useRef<Map<string, number>>(new Map());
-
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root || reducedMotion) return;
+    const root = document.querySelector(
+      '[data-view-region="gallery"]',
+    );
+    if (!(root instanceof HTMLElement) || reducedMotion) return;
 
     let ticking = false;
     const update = () => {
       ticking = false;
       const cards = root.querySelectorAll<HTMLElement>("[data-entry-id]");
-      const viewportMid = root.scrollTop + root.clientHeight / 2;
       cards.forEach((card) => {
         const rect = card.getBoundingClientRect();
         const cardMid = rect.top + rect.height / 2;
@@ -49,11 +49,7 @@ export function CreatingGalleryGrid({
   }, [entries, reducedMotion]);
 
   return (
-    <div
-      ref={scrollRef}
-      className="creating-gallery-scroll"
-      data-view-region="gallery"
-    >
+    <div className="creating-gallery-grid-wrap" data-view-region="gallery">
       <div className="creating-gallery-grid" role="list">
         {entries.map((entry) => (
           <CreatingWorkCard
@@ -61,9 +57,9 @@ export function CreatingGalleryGrid({
             entry={entry}
             variant="gallery"
             reducedMotion={reducedMotion}
+            transitionEntryId={transitionEntryId}
             onOpen={onOpen}
             onHover={onHover}
-            parallaxY={parallaxRef.current.get(entry.id) ?? 0}
           />
         ))}
       </div>
