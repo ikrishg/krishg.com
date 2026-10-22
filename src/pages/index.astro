@@ -9,6 +9,7 @@ import HomeClosingIndex from "~components/home/HomeClosingIndex.tsx";
 import HomeFooter from "~components/home/HomeFooter.astro";
 import HomeOverscrollPainting from "~components/home/HomeOverscrollPainting.tsx";
 import HomeOverscrollReveal from "~components/home/HomeOverscrollReveal.tsx";
+import HomeBandHashScroll from "~components/home/HomeBandHashScroll.tsx";
 import HomeSplashOverlay from "~components/home/HomeSplashOverlay.tsx";
 import { description, title } from "~shared";
 import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.tsx";
@@ -18,6 +19,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
   <h1 class="sr-only">Krish Gupta</h1>
   <HomeOverscrollPainting client:load />
   <HomeOverscrollReveal client:load />
+  <HomeBandHashScroll client:load />
   <PreloadHomeHeroGlbs client:load />
   <HomeHeroCopyMotion client:load />
   <div class="home-scroll-surface flex flex-col w-full">

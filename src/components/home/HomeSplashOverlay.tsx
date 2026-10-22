@@ -188,11 +188,11 @@ export default function HomeSplashOverlay() {
     backgroundColor: displayColor,
     opacity: phase === "full" || (reducedMotion && isVisible) ? 1 : 0,
     transition: `opacity ${COLOR_FADE_MS}ms ease, background-color ${COLOR_FADE_MS}ms ease`,
-    boxShadow:
-      activeKey === "educating" && (phase === "full" || reducedMotion)
-        ? EDUCATING_WASH_EDGE
-        : undefined,
   };
+
+  const showEducatingEdge =
+    activeKey === "educating" &&
+    (phase === "full" || (reducedMotion && isVisible));
 
   return (
     <div
@@ -210,6 +210,12 @@ export default function HomeSplashOverlay() {
         <div
           className="absolute h-[220vmax] w-[220vmax] will-change-transform"
           style={blobStyle}
+        />
+      ) : null}
+      {showEducatingEdge ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{ boxShadow: EDUCATING_WASH_EDGE }}
         />
       ) : null}
     </div>

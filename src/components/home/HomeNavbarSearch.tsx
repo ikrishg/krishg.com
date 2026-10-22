@@ -10,6 +10,10 @@ import {
   filterSiteSearch,
   type SiteSearchEntry,
 } from "./home-search-index";
+import { navigateSearchEntry } from "./home-search-nav";
+
+const PANEL_INK = "#141a2b";
+const PANEL_SURFACE = "#fff9ec";
 
 function SearchIcon() {
   return (
@@ -38,6 +42,8 @@ export default function HomeNavbarSearch() {
   const inputId = useId();
 
   const results = filterSiteSearch(query);
+  const activeOptionId =
+    results.length > 0 ? `${listId}-option-${activeIndex}` : undefined;
 
   const close = useCallback(() => {
     setOpen(false);
@@ -60,7 +66,7 @@ export default function HomeNavbarSearch() {
   useEffect(() => {
     if (!open) return;
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         close();
@@ -98,7 +104,7 @@ export default function HomeNavbarSearch() {
 
   const onResultClick = (entry: SiteSearchEntry) => {
     close();
-    window.location.assign(entry.href);
+    navigateSearchEntry(entry);
   };
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -116,7 +122,7 @@ export default function HomeNavbarSearch() {
         className="home-navbar-search__trigger inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm text-[var(--home-nav-fg)] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-nav-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-80"
         aria-label="Search site"
         aria-expanded={open}
-        aria-controls={listId}
+        aria-controls={open ? listId : undefined}
         onClick={() => (open ? close() : openSearch())}
       >
         <SearchIcon />
@@ -125,9 +131,11 @@ export default function HomeNavbarSearch() {
       {open ? (
         <div
           ref={panelRef}
-          className="home-navbar-search__panel absolute right-0 top-[calc(100%+0.35rem)] z-[50] w-[min(22rem,calc(100vw-2*var(--gutter)))] overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--home-nav-fg)_22%,transparent)] bg-[var(--home-nav-bg)] text-[var(--home-nav-fg)] shadow-[0_12px_40px_color-mix(in_srgb,#000_22%,transparent)]"
-          role="dialog"
-          aria-label="Search site"
+          className="home-navbar-search__panel absolute right-0 top-[calc(100%+0.35rem)] z-[50] w-[min(22rem,calc(100vw-2*var(--gutter)))] overflow-hidden rounded-md border border-[color-mix(in_srgb,#141a2b_14%,transparent)] shadow-[0_12px_40px_color-mix(in_srgb,#000_22%,transparent)]"
+          style={{
+            backgroundColor: PANEL_SURFACE,
+            color: PANEL_INK,
+          }}
         >
           <label className="sr-only" htmlFor={inputId}>
             Search
@@ -136,36 +144,52 @@ export default function HomeNavbarSearch() {
             ref={inputRef}
             id={inputId}
             type="search"
+            role="combobox"
+            aria-expanded={true}
+            aria-controls={listId}
+            aria-activedescendant={activeOptionId}
+            aria-autocomplete="list"
             enterKeyHint="go"
             autoComplete="off"
             spellCheck={false}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onInputKeyDown}
-            className="home-navbar-search__input w-full border-0 border-b border-[color-mix(in_srgb,var(--home-nav-fg)_18%,transparent)] bg-transparent px-3 py-3 text-base text-[var(--home-nav-fg)] outline-none placeholder:text-[color-mix(in_srgb,var(--home-nav-fg)_55%,transparent)]"
+            className="home-navbar-search__input w-full border-0 border-b border-[color-mix(in_srgb,#141a2b_14%,transparent)] bg-transparent px-3 py-3 text-base outline-none"
+            style={{
+              color: PANEL_INK,
+            }}
             placeholder="Search pages…"
           />
           <ul
             id={listId}
             role="listbox"
             aria-label="Search results"
-            className="m-0 max-h-[min(16rem,50vh)] list-none overflow-y-auto p-1"
+            className="m-0 max-h-[min(20rem,60vh)] list-none overflow-y-auto p-1"
           >
             {results.length === 0 ? (
-              <li className="px-3 py-2 text-sm opacity-75">No matches</li>
+              <li
+                className="px-3 py-2 text-sm"
+                style={{ color: `color-mix(in srgb, ${PANEL_INK} 75%, transparent)` }}
+                role="status"
+              >
+                No matches
+              </li>
             ) : (
               results.map((entry, index) => (
                 <li key={entry.id} role="presentation">
                   <a
+                    id={`${listId}-option-${index}`}
                     role="option"
                     aria-selected={index === activeIndex}
                     href={entry.href}
-                    className="block rounded-sm px-3 py-2.5 text-sm font-medium lowercase underline-offset-[0.2em] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--home-nav-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
+                    className="flex min-h-11 items-center rounded-sm px-3 text-sm font-medium lowercase underline-offset-[0.2em] transition-colors duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#141a2b] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[color-mix(in_srgb,#141a2b_8%,transparent)]"
                     style={{
                       backgroundColor:
                         index === activeIndex
-                          ? "color-mix(in srgb, var(--home-nav-fg) 12%, transparent)"
+                          ? "color-mix(in srgb, #141a2b 10%, transparent)"
                           : undefined,
+                      color: PANEL_INK,
                     }}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={(event) => {

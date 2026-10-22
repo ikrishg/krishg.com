@@ -133,6 +133,10 @@ body.site-body {
 
 .home-closing-tail {
   position: relative;
+  background-color: var(--home-educator-bg);
+}
+
+.home-closing-index {
   min-height: calc(100svh - var(--home-nav-height));
   min-height: calc(100lvh - var(--home-nav-height));
 }
@@ -142,10 +146,78 @@ body.site-body {
   box-shadow: 0 -1.5rem 0 0 var(--home-educator-bg);
 }
 
+html[data-home-splash] .home-closing-tail {
+  background-color: transparent;
+}
+
 html[data-home-splash] .home-closing-index,
 html[data-home-splash] .home-footer {
   background-color: transparent;
   box-shadow: none;
+}
+
+html[data-home-splash="building"] .home-closing-index .home-closing-link,
+html[data-home-splash="building"] .home-closing-star,
+html[data-home-splash="building"] .home-footer,
+html[data-home-splash="building"] .home-footer a,
+html[data-home-splash="building"] .home-footer .opacity-55 {
+  color: #141a2b;
+}
+
+html[data-home-splash="building"] .home-closing-index .home-closing-link,
+html[data-home-splash="building"] .home-footer a {
+  outline-color: #141a2b;
+}
+
+html[data-home-splash="educating"] .home-closing-index .home-closing-link,
+html[data-home-splash="educating"] .home-closing-star,
+html[data-home-splash="educating"] .home-footer,
+html[data-home-splash="educating"] .home-footer a,
+html[data-home-splash="educating"] .home-footer .opacity-55 {
+  color: #141a2b;
+}
+
+html[data-home-splash="educating"] .home-closing-index .home-closing-link,
+html[data-home-splash="educating"] .home-footer a {
+  outline-color: #141a2b;
+}
+
+html[data-home-splash="creating"] .home-closing-index .home-closing-link,
+html[data-home-splash="creating"] .home-closing-star,
+html[data-home-splash="creating"] .home-footer,
+html[data-home-splash="creating"] .home-footer a,
+html[data-home-splash="creating"] .home-footer .opacity-55,
+html[data-home-splash="about"] .home-closing-index .home-closing-link,
+html[data-home-splash="about"] .home-closing-star,
+html[data-home-splash="about"] .home-footer,
+html[data-home-splash="about"] .home-footer a,
+html[data-home-splash="about"] .home-footer .opacity-55,
+html[data-home-splash="now"] .home-closing-index .home-closing-link,
+html[data-home-splash="now"] .home-closing-star,
+html[data-home-splash="now"] .home-footer,
+html[data-home-splash="now"] .home-footer a,
+html[data-home-splash="now"] .home-footer .opacity-55,
+html[data-home-splash="sitemap"] .home-closing-index .home-closing-link,
+html[data-home-splash="sitemap"] .home-closing-star,
+html[data-home-splash="sitemap"] .home-footer,
+html[data-home-splash="sitemap"] .home-footer a,
+html[data-home-splash="sitemap"] .home-footer .opacity-55 {
+  color: #fff9ec;
+}
+
+html[data-home-splash="creating"] .home-closing-index .home-closing-link,
+html[data-home-splash="creating"] .home-footer a,
+html[data-home-splash="about"] .home-closing-index .home-closing-link,
+html[data-home-splash="about"] .home-footer a,
+html[data-home-splash="now"] .home-closing-index .home-closing-link,
+html[data-home-splash="now"] .home-footer a,
+html[data-home-splash="sitemap"] .home-closing-index .home-closing-link,
+html[data-home-splash="sitemap"] .home-footer a {
+  outline-color: #fff9ec;
+}
+
+.home-navbar-search__input::placeholder {
+  color: color-mix(in srgb, #141a2b 60%, transparent);
 }
 
 html[data-home-past-bands] .home-band-min-h .artifact-stage {
