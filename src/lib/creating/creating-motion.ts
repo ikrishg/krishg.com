@@ -36,7 +36,7 @@ export function runFlipFrom(
 
   const cardTargets = root.querySelectorAll(CARD_FLIP_SELECTOR);
 
-  const duration = options?.duration ?? 0.72;
+  const duration = options?.duration ?? 0.6;
   const staggerAmount = Math.min(0.15, 0.25);
   const stagger = { amount: staggerAmount };
   const ease = "creating.cubicInOut";
