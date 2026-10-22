@@ -10,6 +10,7 @@ import {
   setOverscrollTarget,
   resetOverscrollEngine,
   setOverscrollMaxPull,
+  setOverscrollWheelGain,
 } from "~motion/homeOverscrollEngine";
 import { registerOverscrollWheelFeed } from "~motion/homeOverscrollWheelFeed";
 import {
@@ -17,27 +18,25 @@ import {
   markSplashWheelInput,
 } from "~motion/homeSplashScrollGate";
 
-const FOOTER_SELECTOR = ".home-footer";
 const SURFACE_SELECTOR = ".home-scroll-surface";
-const ART_ASPECT = 1100 / 871;
 const PIN_PULL_THRESHOLD = 0.5;
 const RELEASE_DELAY_MS = 150;
+const MAX_PULL_VH = 0.3;
+const PEAK_PULL_VH = 0.25;
+/** Wheel gain at 25vh peak / 30vh cap (scaled from 0.54). */
+const WHEEL_GAIN = 0.54 * (PEAK_PULL_VH / MAX_PULL_VH);
 
-function computeMaxPull() {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const containHeight = Math.min(vh, vw / ART_ASPECT);
-  const letterbox = Math.max(0, vh - containHeight);
-  const footer = document.querySelector<HTMLElement>(FOOTER_SELECTOR);
-  const footerHeight = footer
-    ? Math.min(footer.getBoundingClientRect().height, vh * 0.95)
-    : vh * 0.55;
-  const revealTarget = Math.max(letterbox + 56, footerHeight * 0.62, 200);
-  return Math.min(Math.ceil(revealTarget), Math.round(vh * 0.92));
+function computeMaxPull(vh: number) {
+  return Math.round(vh * MAX_PULL_VH);
 }
 
-function touchPullPx(delta: number, maxPull: number) {
-  return maxPull * (1 - Math.exp(-delta / 240));
+function computePeakPull(vh: number) {
+  return Math.round(vh * PEAK_PULL_VH);
+}
+
+function touchPullPx(delta: number, peakPull: number, maxPull: number) {
+  const eased = peakPull * (1 - Math.exp(-delta / 240));
+  return Math.min(maxPull, eased);
 }
 
 function readBottomState() {
@@ -76,12 +75,18 @@ export default function HomeOverscrollReveal() {
     let bottomTouchStartY = 0;
     let touchStartedAtBottom = false;
     let maxPullCached = 320;
+    let peakPullCached = 260;
 
     const syncMaxPull = () => {
-      const maxPull = computeMaxPull();
+      const vh = window.innerHeight;
+      const maxPull = computeMaxPull(vh);
+      const peakPull = computePeakPull(vh);
       maxPullCached = maxPull;
+      peakPullCached = peakPull;
       setOverscrollMaxPull(maxPull);
+      setOverscrollWheelGain(WHEEL_GAIN);
       root.style.setProperty("--home-overscroll-max-pull", `${maxPull}px`);
+      root.style.setProperty("--home-overscroll-peak-pull", `${peakPull}px`);
     };
 
     syncMaxPull();
@@ -182,7 +187,7 @@ export default function HomeOverscrollReveal() {
       pullEngaged = true;
       event.preventDefault();
       pinScrollToBottom();
-      setOverscrollTarget(touchPullPx(delta, maxPullCached));
+      setOverscrollTarget(touchPullPx(delta, peakPullCached, maxPullCached));
     };
 
     const endTouch = () => {
@@ -230,6 +235,7 @@ export default function HomeOverscrollReveal() {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       root.style.removeProperty("--home-overscroll-max-pull");
+      root.style.removeProperty("--home-overscroll-peak-pull");
       bindOverscrollSurface(null);
       resetOverscrollEngine();
     };

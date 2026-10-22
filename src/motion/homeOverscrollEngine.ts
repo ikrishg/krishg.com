@@ -9,6 +9,7 @@ let splashClearedForPull = false;
 
 let surfaceEl: HTMLElement | null = null;
 let maxPullPx = 320;
+let wheelGain = 0.45;
 let pull = 0;
 let pullTarget = 0;
 let pullVelocity = 0;
@@ -28,6 +29,11 @@ export function bindOverscrollSurface(el: HTMLElement | null) {
 export function setOverscrollMaxPull(px: number) {
   maxPullPx = Math.max(0, px);
   pullTarget = Math.min(pullTarget, maxPullPx);
+  pull = Math.min(pull, maxPullPx);
+}
+
+export function setOverscrollWheelGain(gain: number) {
+  wheelGain = Math.max(0, gain);
 }
 
 export function getOverscrollPull() {
@@ -50,7 +56,7 @@ export function setOverscrollReducedMotionSpring(enabled: boolean) {
 
 export function nudgeOverscrollTarget(deltaY: number) {
   releasing = false;
-  const next = pullTarget + deltaY * 0.54;
+  const next = pullTarget + deltaY * wheelGain;
   pullTarget = Math.max(0, Math.min(maxPullPx, next));
 }
 
