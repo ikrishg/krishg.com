@@ -20,8 +20,11 @@ import {
 
 const SURFACE_SELECTOR = ".home-scroll-surface";
 const PIN_PULL_THRESHOLD = 0.5;
-/** Idle gap between wheel notches before spring-back (hold pull through detents). */
-const RELEASE_DELAY_MS = 280;
+function wheelReleaseDelayMs(notchGapMs: number) {
+  if (notchGapMs >= 450) return 320;
+  if (notchGapMs <= 60) return 150;
+  return Math.min(420, Math.max(150, notchGapMs * 1.25));
+}
 const MAX_PULL_VH = 0.3;
 const PEAK_PULL_VH = 0.25;
 /** Wheel gain at 25vh peak / 30vh cap (scaled from 0.54). */
@@ -77,6 +80,8 @@ export default function HomeOverscrollReveal() {
     let touchStartedAtBottom = false;
     let maxPullCached = 320;
     let peakPullCached = 260;
+    let lastWheelAt = 0;
+    let prevWheelAt = 0;
 
     const syncMaxPull = () => {
       const vh = window.innerHeight;
@@ -132,9 +137,12 @@ export default function HomeOverscrollReveal() {
         finishRelease({ fromWheel: true });
         return;
       }
+      const notchGap =
+        lastWheelAt > 0 && prevWheelAt > 0 ? lastWheelAt - prevWheelAt : 60;
+      const delayMs = wheelReleaseDelayMs(notchGap);
       releaseTimer = setTimeout(() => {
         finishRelease({ fromWheel: true });
-      }, RELEASE_DELAY_MS);
+      }, delayMs);
     };
 
     const processWheelDelta = (deltaY: number) => {
@@ -144,6 +152,9 @@ export default function HomeOverscrollReveal() {
       }
 
       if (deltaY > 0) {
+        const now = performance.now();
+        prevWheelAt = lastWheelAt;
+        lastWheelAt = now;
         pullEngaged = true;
         nudgeOverscrollTarget(deltaY);
         pinScrollToBottom();
