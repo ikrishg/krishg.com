@@ -107,7 +107,6 @@ body.site-body {
 
 .home-scroll-surface {
   position: relative;
-  z-index: 1;
   background-color: var(--home-canvas);
 }
 
@@ -132,15 +131,26 @@ body.site-body {
   opacity: 1;
 }
 
-#educator {
-  z-index: 2;
+.home-closing-tail {
+  position: relative;
+  min-height: calc(100svh - var(--home-nav-height));
+  min-height: calc(100lvh - var(--home-nav-height));
 }
 
 .home-closing-index,
 .home-footer {
-  position: relative;
-  z-index: 5;
   box-shadow: 0 -1.5rem 0 0 var(--home-educator-bg);
+}
+
+html[data-home-splash] .home-closing-index,
+html[data-home-splash] .home-footer {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+html[data-home-past-bands] .home-band-min-h .artifact-stage {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .sr-only {

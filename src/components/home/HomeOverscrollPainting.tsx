@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-const ART_URL = "/images/starry-night.webp";
+const ART_1X = "/images/starry-night.webp";
+const ART_2X = "/images/starry-night-1800.webp";
 const FOOTER_SELECTOR = ".home-footer";
+
+const ART_IMAGE_SET = `image-set(url("${ART_1X}") 1x, url("${ART_2X}") 2x)`;
 
 export default function HomeOverscrollPainting() {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -16,13 +19,12 @@ export default function HomeOverscrollPainting() {
       if (cancelled || loaded) return;
       const img = new Image();
       img.decoding = "async";
-      img.src = ART_URL;
+      img.src = ART_1X;
       img.onload = () => {
         if (cancelled) return;
-        layerRef.current?.style.setProperty(
-          "background-image",
-          `url("${ART_URL}")`,
-        );
+        const hi = new Image();
+        hi.src = ART_2X;
+        layerRef.current?.style.setProperty("background-image", ART_IMAGE_SET);
         setLoaded(true);
       };
     };

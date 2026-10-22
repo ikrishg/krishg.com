@@ -17,7 +17,6 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
 <RootLayout head={{ title, description }}>
   <h1 class="sr-only">Krish Gupta</h1>
   <HomeOverscrollPainting client:load />
-  <HomeSplashOverlay client:load />
   <HomeOverscrollReveal client:load />
   <PreloadHomeHeroGlbs client:load />
   <HomeHeroCopyMotion client:load />
@@ -75,7 +74,10 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
       <EducatorArtifact slot="artifact" client:load />
     </HeroSection>
 
-    <HomeClosingIndex client:load />
-    <HomeFooter />
+    <div class="home-closing-tail">
+      <HomeSplashOverlay client:load />
+      <HomeClosingIndex client:load />
+      <HomeFooter />
+    </div>
   </div>
 </RootLayout>

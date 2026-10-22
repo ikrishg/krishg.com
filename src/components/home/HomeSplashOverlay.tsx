@@ -18,6 +18,7 @@ const COLOR_FADE_MS = 400;
 const THROTTLE_MS = 350;
 const SHRINK_MS = 420;
 const EXPAND_MS = 550;
+const EDUCATING_WASH_EDGE = "inset 0 0 0 6px rgba(20, 26, 43, 0.3)";
 
 type Phase = "idle" | "expand" | "full" | "shrink";
 
@@ -50,7 +51,7 @@ export default function HomeSplashOverlay() {
   const beginShrink = useCallback(() => {
     clearTimers();
     setActiveKey(null);
-    document.documentElement.dataset.homeSplash = "";
+    delete document.documentElement.dataset.homeSplash;
     setPhase("shrink");
     shrinkTimerRef.current = setTimeout(() => {
       setPhase("idle");
@@ -146,16 +147,20 @@ export default function HomeSplashOverlay() {
       activate(detail.key, detail.origin);
     };
 
+    const onImmediateClear = () => beginShrink();
+
     window.addEventListener("home-splash:activate", onActivate);
     window.addEventListener("home-splash:schedule-clear", scheduleClear);
     window.addEventListener("home-splash:cancel-clear", cancelClear);
+    window.addEventListener("home-splash:immediate-clear", onImmediateClear);
     return () => {
       window.removeEventListener("home-splash:activate", onActivate);
       window.removeEventListener("home-splash:schedule-clear", scheduleClear);
       window.removeEventListener("home-splash:cancel-clear", cancelClear);
+      window.removeEventListener("home-splash:immediate-clear", onImmediateClear);
       clearTimers();
     };
-  }, [activate, scheduleClear, cancelClear, clearTimers]);
+  }, [activate, scheduleClear, cancelClear, clearTimers, beginShrink]);
 
   const isVisible = phase !== "idle";
   const blobScale =
@@ -177,16 +182,16 @@ export default function HomeSplashOverlay() {
           phase === "shrink"
             ? `transform ${SHRINK_MS}ms cubic-bezier(0.77, 0, 0.175, 1)`
             : `transform ${EXPAND_MS}ms cubic-bezier(0.23, 1, 0.32, 1), background-color ${COLOR_FADE_MS}ms ease`,
-        boxShadow:
-          activeKey === "educating"
-            ? "inset 0 0 0 3px color-mix(in srgb, #252d45 30%, transparent)"
-            : undefined,
       };
 
   const washStyle: CSSProperties = {
     backgroundColor: displayColor,
     opacity: phase === "full" || (reducedMotion && isVisible) ? 1 : 0,
     transition: `opacity ${COLOR_FADE_MS}ms ease, background-color ${COLOR_FADE_MS}ms ease`,
+    boxShadow:
+      activeKey === "educating" && (phase === "full" || reducedMotion)
+        ? EDUCATING_WASH_EDGE
+        : undefined,
   };
 
   return (
@@ -198,15 +203,15 @@ export default function HomeSplashOverlay() {
     >
       {!reducedMotion ? (
         <div className="absolute inset-0" style={washStyle} />
+      ) : (
+        <div className="absolute inset-0" style={washStyle} />
+      )}
+      {!reducedMotion ? (
+        <div
+          className="absolute h-[220vmax] w-[220vmax] will-change-transform"
+          style={blobStyle}
+        />
       ) : null}
-      <div
-        className={
-          reducedMotion
-            ? "absolute inset-0"
-            : "absolute h-[220vmax] w-[220vmax] will-change-transform"
-        }
-        style={blobStyle}
-      />
     </div>
   );
 }
@@ -230,4 +235,8 @@ export function dispatchSplashActivate(
 
 export function dispatchSplashScheduleClear() {
   window.dispatchEvent(new CustomEvent("home-splash:schedule-clear"));
+}
+
+export function dispatchSplashImmediateClear() {
+  window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));
 }
