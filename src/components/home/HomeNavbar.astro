@@ -22,9 +22,15 @@ import HomeNavbarScroll from "./HomeNavbarScroll.tsx";
   .home-navbar {
     position: sticky;
     top: 0;
-    z-index: 40;
+    z-index: 60;
     background-color: var(--home-nav-bg);
     color: var(--home-nav-fg);
+  }
+
+  :global(html[data-home-splash]) .home-navbar,
+  :global(html[data-home-splash]) .home-navbar[data-scrolled="true"] {
+    background-color: transparent;
+    box-shadow: none;
   }
 
   @media (prefers-reduced-motion: no-preference) {

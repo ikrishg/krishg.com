@@ -16,14 +16,15 @@ const socialTablerIcons: Record<string, typeof IconBrandX> = {
 
 const mailIconHtml = renderTablerIcon(IconMail, {
   className: "home-footer__mail-icon shrink-0",
+  stroke: 1.75,
 });
 ---
 
 <footer
-  class="home-footer relative z-[40] snap-start bg-[var(--home-closing-bg)] text-[var(--home-closing-fg)]"
+  class="home-footer snap-start bg-[var(--home-closing-bg)] text-[var(--home-closing-fg)]"
   data-home-nav-theme="closing"
 >
-  <div class="home-footer__layout px-[var(--gutter)]">
+  <div class="home-footer__layout relative z-[46] px-[var(--gutter)]">
     <a
       class="home-footer__email group"
       href={`mailto:${contactEmail}`}
@@ -40,7 +41,8 @@ const mailIconHtml = renderTablerIcon(IconMail, {
             const iconHtml = Icon
               ? renderTablerIcon(Icon, {
                   className: "home-footer__social-icon",
-                  size: 24,
+                  size: 48,
+                  stroke: 1.5,
                 })
               : "";
             return (
@@ -50,7 +52,7 @@ const mailIconHtml = renderTablerIcon(IconMail, {
                   href={social.href}
                   rel="noopener noreferrer"
                   target="_blank"
-                  aria-label={social.label}
+                  aria-label={`${social.label} (opens in new tab)`}
                 >
                   <Fragment set:html={iconHtml} />
                 </a>

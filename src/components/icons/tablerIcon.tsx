@@ -12,13 +12,15 @@ export function TablerIcon({
   icon: Icon,
   className,
   size = 24,
+  stroke = TABLER_STROKE,
 }: {
   icon: TablerIconComponent;
   className?: string;
   size?: number | string;
+  stroke?: number;
 }): ReactNode {
   return createElement(Icon, {
-    stroke: TABLER_STROKE,
+    stroke,
     size,
     className,
     "aria-hidden": true,
@@ -28,13 +30,18 @@ export function TablerIcon({
 /** Build-time SVG string for Astro and other static templates. */
 export function renderTablerIcon(
   Icon: TablerIconComponent,
-  options: { className?: string; size?: number | string } = {},
+  options: {
+    className?: string;
+    size?: number | string;
+    stroke?: number;
+  } = {},
 ): string {
   return renderToStaticMarkup(
     <TablerIcon
       icon={Icon}
       className={options.className}
       size={options.size}
+      stroke={options.stroke}
     />,
   );
 }
