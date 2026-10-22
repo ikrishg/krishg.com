@@ -14,12 +14,13 @@ type SplashMask = "circle" | "organic";
 
 const CLEAR_DELAY_MS = 90;
 const GROW_MS = 620;
-const SHRINK_MS = 520;
-const COLOR_MS = 340;
+const SHRINK_MS = 280;
+const COLOR_MS = 200;
 const REDUCED_FADE_MS = 280;
 
 const GROW_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
-const SHRINK_EASE = "cubic-bezier(0.45, 0, 0.55, 1)";
+const SPLASH_EASE = "cubic-bezier(0.23, 1, 0.32, 1)";
+const SHRINK_EASE = SPLASH_EASE;
 
 function coverRadius(ox: number, oy: number): number {
   return (
@@ -251,7 +252,7 @@ export default function HomeSplashOverlay() {
         if (!path) return true;
         const anim = path.animate(
           [{ fill: from }, { fill: to }],
-          { duration: COLOR_MS, easing: "ease", fill: "forwards" },
+          { duration: COLOR_MS, easing: SPLASH_EASE, fill: "forwards" },
         );
         whenAnimDone(anim, () => {});
         return true;
@@ -261,7 +262,7 @@ export default function HomeSplashOverlay() {
         [{ backgroundColor: from }, { backgroundColor: to }],
         {
           duration: COLOR_MS,
-          easing: "ease",
+          easing: SPLASH_EASE,
           fill: "forwards",
         },
       );

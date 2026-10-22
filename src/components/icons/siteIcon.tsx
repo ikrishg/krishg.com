@@ -2,7 +2,6 @@ import {
   Asterisk,
   LinkedinLogo,
   MagnifyingGlass,
-  PaperPlaneTilt,
   XLogo,
   type Icon,
   type IconWeight,
@@ -11,17 +10,11 @@ import type { ReactNode } from "react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-export type SiteIconName =
-  | "mail"
-  | "x"
-  | "linkedin"
-  | "search"
-  | "asterisk";
+export type SiteIconName = "x" | "linkedin" | "search" | "asterisk";
 
 export type SiteIconWeight = "bold" | "fill";
 
 const ICONS: Record<SiteIconName, Icon> = {
-  mail: PaperPlaneTilt,
   x: XLogo,
   linkedin: LinkedinLogo,
   search: MagnifyingGlass,
@@ -70,7 +63,7 @@ export function renderSiteIcon(
 
 /** Footer social icon (single bold glyph; hover via link styles). */
 export function renderSiteSocialIcon(
-  name: Exclude<SiteIconName, "mail" | "search" | "asterisk">,
+  name: Exclude<SiteIconName, "search" | "asterisk">,
 ): string {
   const icon = renderSiteIcon(name, {
     weight: "bold",

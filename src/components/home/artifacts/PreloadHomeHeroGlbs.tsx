@@ -24,17 +24,17 @@ export default function PreloadHomeHeroGlbs() {
         if (!isAbortError(error)) throw error;
       }
     };
+    let disposeSchedule: () => void;
     if ("requestIdleCallback" in window) {
       const id = window.requestIdleCallback(run, { timeout: 2500 });
-      return () => {
-        window.removeEventListener("unhandledrejection", onRejection);
-        window.cancelIdleCallback(id);
-      };
+      disposeSchedule = () => window.cancelIdleCallback(id);
+    } else {
+      const t = globalThis.setTimeout(run, 400);
+      disposeSchedule = () => globalThis.clearTimeout(t);
     }
-    const t = window.setTimeout(run, 400);
     return () => {
       window.removeEventListener("unhandledrejection", onRejection);
-      window.clearTimeout(t);
+      disposeSchedule();
     };
   }, []);
   return null;

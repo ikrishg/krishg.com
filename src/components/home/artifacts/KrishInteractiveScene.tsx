@@ -106,13 +106,14 @@ export function KrishInteractiveScene({
         kind,
         element: gl.domElement,
         camera,
-        engagementShell: shell ?? undefined,
+        engagementShell: (shell ?? null) as null | undefined,
         onState: () => {
           animatingRef.current = true;
           if (inViewRef.current) invalidate();
         },
       });
       interactionRef.current = interaction;
+      const attached = interaction;
 
       void (async () => {
         if (!portraitUrl) {
@@ -122,9 +123,9 @@ export function KrishInteractiveScene({
         }
         try {
           if (kind === "frame") {
-            await interaction!.setFramePortrait(portraitUrl);
+            await attached?.setFramePortrait?.(portraitUrl);
           } else {
-            await interaction!.setPortrait(portraitUrl);
+            await attached?.setPortrait?.(portraitUrl);
           }
         } catch {
           /* keep default materials */
