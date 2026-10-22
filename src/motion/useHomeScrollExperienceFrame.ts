@@ -44,7 +44,10 @@ type BandCache = {
 };
 
 type BandSample = {
-  el: HTMLElement;
+  band: HTMLElement;
+  paint: HTMLElement | null;
+  artifactParallax: HTMLElement | null;
+  copy: HTMLElement | null;
   progress: number;
   parallax: number;
   artifact: number;
@@ -65,6 +68,7 @@ export function useHomeScrollExperienceFrame() {
   const linksRef = useRef<HTMLElement[]>([]);
   const closingRef = useRef<HTMLElement | null>(null);
   const lastScrollRef = useRef(0);
+  const forceTickRef = useRef(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -82,7 +86,16 @@ export function useHomeScrollExperienceFrame() {
     ];
     closingRef.current = document.getElementById(CLOSING_ID);
 
-    return () => mq.removeEventListener("change", sync);
+    const onResize = () => {
+      forceTickRef.current = true;
+      lastScrollRef.current = Number.NaN;
+    };
+    window.addEventListener("resize", onResize, { passive: true });
+
+    return () => {
+      mq.removeEventListener("change", sync);
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   const tick = () => {
@@ -91,7 +104,11 @@ export function useHomeScrollExperienceFrame() {
     if (!lenis) return;
 
     const scrollY = lenis.scroll;
+    const force = forceTickRef.current;
+    if (force) forceTickRef.current = false;
+
     if (
+      !force &&
       Math.abs(lenis.velocity) < 0.02 &&
       Math.abs(scrollY - lastScrollRef.current) < 0.25
     ) {
@@ -131,7 +148,12 @@ export function useHomeScrollExperienceFrame() {
       }
 
       bandSamples.push({
-        el: band,
+        band,
+        paint: band.querySelector<HTMLElement>(".hero-band-paint"),
+        artifactParallax: band.querySelector<HTMLElement>(
+          ".artifact-stage__parallax",
+        ),
+        copy: band.querySelector<HTMLElement>(".hero-copy"),
         progress,
         parallax,
         artifact: artifactShift,
@@ -166,17 +188,24 @@ export function useHomeScrollExperienceFrame() {
     }
 
     for (const sample of bandSamples) {
-      bandCacheRef.current.set(sample.el, {
+      bandCacheRef.current.set(sample.band, {
         progress: sample.progress,
         parallax: sample.parallax,
         artifact: sample.artifact,
       });
-      sample.el.style.setProperty("--band-progress", sample.progress.toFixed(4));
-      sample.el.style.setProperty("--band-parallax", `${sample.parallax}px`);
-      sample.el.style.setProperty(
-        "--artifact-parallax",
-        `${sample.artifact}px`,
-      );
+      const progressCss = sample.progress.toFixed(4);
+      if (sample.paint) {
+        sample.paint.style.setProperty("--band-parallax", `${sample.parallax}px`);
+      }
+      if (sample.artifactParallax) {
+        sample.artifactParallax.style.setProperty(
+          "--artifact-parallax",
+          `${sample.artifact}px`,
+        );
+      }
+      if (sample.copy) {
+        sample.copy.style.setProperty("--band-progress", progressCss);
+      }
     }
 
     for (const sample of linkSamples) {

@@ -50,7 +50,7 @@ export function setOverscrollReducedMotionSpring(enabled: boolean) {
 
 export function nudgeOverscrollTarget(deltaY: number) {
   releasing = false;
-  const next = pullTarget + deltaY * 0.34;
+  const next = pullTarget + deltaY * 0.54;
   pullTarget = Math.max(0, Math.min(maxPullPx, next));
 }
 
