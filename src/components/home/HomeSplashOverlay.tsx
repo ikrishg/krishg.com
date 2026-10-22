@@ -29,6 +29,7 @@ const GROW_MS = 520;
 const FADE_MS = 260;
 const INK_DELAY_MS = 208;
 const REDUCED_FADE_MS = 150;
+const MIN_SWAP_MS = 340;
 
 let layerId = 0;
 
@@ -144,8 +145,19 @@ export default function HomeSplashOverlay() {
   const [layers, setLayers] = useState<SplashLayer[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
+
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef<{
+    key: ClosingSplashKey;
+    origin: PixelOrigin;
+  } | null>(null);
+  const lastPushRef = useRef(0);
+  const layersRef = useRef<SplashLayer[]>([]);
 
   const syncHtmlSplash = useCallback((key: ClosingSplashKey | null) => {
     const root = document.documentElement;
@@ -183,13 +195,22 @@ export default function HomeSplashOverlay() {
     [clearInkTimer, reducedMotion],
   );
 
+  const clearSwapTimer = useCallback(() => {
+    if (swapTimerRef.current) {
+      clearTimeout(swapTimerRef.current);
+      swapTimerRef.current = null;
+    }
+  }, []);
+
   const clearTimers = useCallback(() => {
     if (clearTimerRef.current) {
       clearTimeout(clearTimerRef.current);
       clearTimerRef.current = null;
     }
     clearInkTimer();
-  }, [clearInkTimer]);
+    clearSwapTimer();
+    pendingRef.current = null;
+  }, [clearInkTimer, clearSwapTimer]);
 
   const markFull = useCallback((id: number) => {
     setLayers((prev) => {
@@ -262,15 +283,42 @@ export default function HomeSplashOverlay() {
     [cancelClear, clearInkTimer, reducedMotion, scheduleInk, syncHtmlSplash],
   );
 
+  const flushPendingSwap = useCallback(() => {
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    swapTimerRef.current = null;
+    if (!pending) return;
+    pushLayer(pending.key, pending.origin);
+    lastPushRef.current = performance.now();
+  }, [pushLayer]);
+
   const activate = useCallback(
     (key: ClosingSplashKey, nextOrigin?: PixelOrigin) => {
       const origin = nextOrigin ?? {
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
       };
+      const now = performance.now();
+      const elapsed = now - lastPushRef.current;
+      const hasLayer = layersRef.current.length > 0;
+
+      if (hasLayer && elapsed < MIN_SWAP_MS) {
+        pendingRef.current = { key, origin };
+        if (!swapTimerRef.current) {
+          swapTimerRef.current = setTimeout(
+            () => flushPendingSwap(),
+            MIN_SWAP_MS - elapsed,
+          );
+        }
+        return;
+      }
+
+      pendingRef.current = null;
+      clearSwapTimer();
       pushLayer(key, origin);
+      lastPushRef.current = now;
     },
-    [pushLayer],
+    [clearSwapTimer, flushPendingSwap, pushLayer],
   );
 
   useEffect(() => {

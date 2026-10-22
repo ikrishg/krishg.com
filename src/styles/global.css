@@ -109,6 +109,10 @@ body.site-body {
   overscroll-behavior-y: none;
 }
 
+.home-scroll-clip {
+  overflow: clip;
+}
+
 .home-scroll-surface {
   position: relative;
   background-color: var(--home-canvas);
@@ -137,12 +141,12 @@ body.site-body {
 
 .home-closing-tail {
   position: relative;
-  z-index: 1;
   display: flex;
   flex-direction: column;
 }
 
 .home-closing-index {
+  position: relative;
   flex: 1 1 auto;
   min-height: calc(100svh - var(--home-nav-height));
   min-height: calc(100lvh - var(--home-nav-height));
@@ -192,6 +196,7 @@ body.site-body {
 }
 
 .home-footer {
+  position: relative;
   min-height: calc(100svh - var(--home-nav-height));
   min-height: calc(100lvh - var(--home-nav-height));
 }
