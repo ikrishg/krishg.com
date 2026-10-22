@@ -31,18 +31,16 @@ await page.evaluate(() => {
   }
 });
 
+await page.waitForSelector('.home-overscroll-painting[data-loaded="true"]', {
+  timeout: 60_000,
+});
+
 for (let i = 0; i < 4; i += 1) {
   await page.mouse.wheel(0, 120);
-  await page.waitForTimeout(40);
+  await page.waitForTimeout(50);
 }
 
-await page.waitForTimeout(80);
-
-const file = path.join(outDir, "homepage-starry-wheel-1440.png");
-await page.screenshot({ path: file, animations: "disabled" });
-console.log(`Wrote ${file}`);
-
-await page.waitForTimeout(400);
+await page.waitForTimeout(60);
 
 const metrics = await page.evaluate(() => {
   const pull = Number.parseFloat(
@@ -64,6 +62,15 @@ const metrics = await page.evaluate(() => {
   };
 });
 
+if (metrics.pull < 24) {
+  throw new Error(`Expected active pull for screenshot, got ${metrics.pull}`);
+}
+
+const file = path.join(outDir, "homepage-starry-wheel-1440.png");
+await page.screenshot({ path: file, animations: "disabled" });
+console.log(`Wrote ${file}`);
 console.log(JSON.stringify(metrics, null, 2));
+
+await page.waitForTimeout(400);
 
 await browser.close();
