@@ -206,7 +206,7 @@
   font-family: var(--font-newsreader), Georgia, serif;
   font-size: 0.85rem;
   line-height: 1.4;
-  color: color-mix(in srgb, var(--creating-ink) 88%, var(--creating-on-canvas));
+  color: var(--creating-on-canvas);
 }
 
 .creating-card__swatch--on-stage {
@@ -220,7 +220,7 @@
 }
 
 .creating-card--listicle .creating-card__subtitle {
-  color: color-mix(in srgb, var(--creating-ink) 88%, var(--creating-on-canvas));
+  color: var(--creating-on-canvas);
 }
 
 .creating-card--listicle .creating-card__typography,
@@ -309,12 +309,19 @@
   margin: 0;
   padding: 0.5rem 3.5rem 0;
   font-size: 0.7rem;
-  color: var(--creating-ink);
+  color: var(--creating-on-canvas);
 }
 
 .creating-card--filter-leaving {
   pointer-events: none;
-  display: none;
+}
+
+.creating-flip-root[data-flip-active="true"] .creating-card {
+  overflow: clip;
+}
+
+.creating-flip-root[data-flip-active="true"] .creating-card__media {
+  overflow: clip;
 }
 
 .creating-filter-btn {
@@ -487,7 +494,7 @@
 
 .creating-page[data-phase="gallery"] .creating-header__hint,
 .creating-page[data-phase="detail"] .creating-header__hint {
-  color: var(--creating-ink);
+  color: var(--creating-on-canvas);
 }
 
 .creating-page[data-phase="gallery"] .creating-view-btn,
@@ -559,15 +566,15 @@
   }
 
   .creating-header__filters {
-    padding-inline-end: 2.5rem;
+    padding-inline-end: 1.25rem;
     -webkit-mask-image: linear-gradient(
       90deg,
-      #000 calc(100% - 2.5rem),
+      #000 calc(100% - 1.75rem),
       transparent
     );
     mask-image: linear-gradient(
       90deg,
-      #000 calc(100% - 2.5rem),
+      #000 calc(100% - 1.75rem),
       transparent
     );
   }

@@ -8,8 +8,6 @@ const outDir =
   process.env.VIDEO_DIR ?? path.join(process.cwd(), "artifacts/creating-verify");
 
 await mkdir(outDir, { recursive: true });
-const framesDir = path.join(outDir, "flip-frames");
-await mkdir(framesDir, { recursive: true });
 
 async function recordViewport({ name, width, height, touch }) {
   const videoDir = path.join(outDir, `_flip-video-${name}`);
@@ -25,33 +23,17 @@ async function recordViewport({ name, width, height, touch }) {
   const url = `${preview.replace(/\/$/, "")}/creating`;
   await page.goto(url, { waitUntil: "networkidle", timeout: 120_000 });
   await page.waitForSelector(".creating-surface", { timeout: 30_000 });
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(600);
 
   const click = async (label) => {
     await page.getByRole("button", { name: label }).click();
-    await page.waitForTimeout(1100);
+    await page.waitForTimeout(1200);
   };
 
-  await click(/^Listicle$/i);
-  await page.waitForTimeout(900);
-  await click(/^Gallery$/i);
-  await page.waitForTimeout(900);
-  await click(/^Poetry$/i);
-  await page.waitForFunction(() => {
-    const media = document.querySelectorAll(
-      ".creating-flip-root .creating-card__media",
-    );
-    if (media.length === 0) return false;
-    return [...media].every((el) => parseFloat(getComputedStyle(el).opacity) > 0.95);
-  });
-  await page.screenshot({
-    path: path.join(framesDir, `${name}-after-poetry.png`),
-  });
-  await click(/^Photography$/i);
   await click(/^Design$/i);
   await click(/^All$/i);
 
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(500);
   await context.close();
   await browser.close();
 
@@ -74,6 +56,6 @@ for (const spec of [
 
 await writeFile(
   path.join(outDir, "flip-proof.json"),
-  JSON.stringify({ results, framesDir }, null, 2),
+  JSON.stringify({ results }, null, 2),
 );
-console.log(JSON.stringify({ results, framesDir }, null, 2));
+console.log(JSON.stringify({ results }, null, 2));

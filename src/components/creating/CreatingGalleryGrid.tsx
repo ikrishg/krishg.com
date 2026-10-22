@@ -28,6 +28,7 @@ export function CreatingGalleryGrid({
     let ticking = false;
     const update = () => {
       ticking = false;
+      if (root.getAttribute("data-flip-active") === "true") return;
       const cards = root.querySelectorAll<HTMLElement>("[data-entry-id]");
       cards.forEach((card) => {
         const rect = card.getBoundingClientRect();
