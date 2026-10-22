@@ -124,6 +124,23 @@ body.site-body {
 
 .home-scroll-surface[data-overscroll-pulling="true"] {
   transition: none;
+  --home-canvas: var(--home-closing-bg);
+  background-color: var(--home-closing-bg);
+}
+
+/*
+ * During Starry Night overscroll, keep the viewport gap beige — never hero yellow
+ * bleeding through a fading layer or stale page-accent at the nav probe.
+ */
+html[data-overscroll-pulling="true"],
+html[data-overscroll-reveal="true"] {
+  --home-canvas: var(--home-closing-bg);
+  background-color: var(--home-closing-bg);
+}
+
+html[data-overscroll-pulling="true"] body.site-body,
+html[data-overscroll-reveal="true"] body.site-body {
+  background-color: var(--home-closing-bg);
 }
 
 .home-overscroll-painting {
@@ -131,16 +148,21 @@ body.site-body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  visibility: hidden;
   opacity: 0;
-  will-change: opacity;
+}
+
+.home-overscroll-painting[data-visible="true"] {
+  visibility: visible;
+  opacity: 1;
 }
 
 .home-overscroll-painting__inset {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  padding: clamp(14px, 2.8vw, 28px);
-  background-color: var(--home-closing-bg);
+  padding: clamp(20px, 4vw, 48px);
+  background-color: #e7ddcc;
 }
 
 .home-overscroll-painting__frame {
@@ -148,18 +170,24 @@ body.site-body {
   height: 100%;
   overflow: hidden;
   border-radius: clamp(24px, 3.2vw, 32px);
+  isolation: isolate;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, #141a2b 10%, transparent),
-    0 18px 48px color-mix(in srgb, #141a2b 18%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, #141a2b 14%, transparent),
+    inset 0 24px 48px color-mix(in srgb, #141a2b 22%, transparent),
+    0 20px 56px color-mix(in srgb, #141a2b 16%, transparent);
 }
 
 .home-overscroll-painting__art {
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
   background-color: #0a1628;
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
+  opacity: var(--home-overscroll-art-opacity, 0);
+  transition: opacity 80ms linear;
 }
 
 .home-closing-tail {

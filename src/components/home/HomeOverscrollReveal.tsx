@@ -10,6 +10,10 @@ import {
   setOverscrollMaxPull,
 } from "~motion/homeOverscrollEngine";
 import { registerOverscrollWheelFeed } from "~motion/homeOverscrollWheelFeed";
+import {
+  markSplashTouchInput,
+  markSplashWheelInput,
+} from "~motion/homeSplashScrollGate";
 
 const FOOTER_SELECTOR = ".home-footer";
 const SURFACE_SELECTOR = ".home-scroll-surface";
@@ -110,6 +114,7 @@ export default function HomeOverscrollReveal() {
     };
 
     const onWheel = (event: WheelEvent) => {
+      markSplashWheelInput();
       if (getLenis()) return;
       if (!pulling) {
         if (!readBottomState() || event.deltaY <= 0) return;
@@ -129,6 +134,7 @@ export default function HomeOverscrollReveal() {
     };
 
     const onTouchMove = (event: TouchEvent) => {
+      markSplashTouchInput();
       if (!touchStartedAtBottom) return;
       const y = event.touches[0]?.clientY ?? touchAnchorY;
       const delta = bottomTouchStartY - y;

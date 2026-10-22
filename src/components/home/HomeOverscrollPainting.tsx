@@ -77,11 +77,14 @@ export default function HomeOverscrollPainting() {
         root.dataset.overscrollReveal === "true" ||
         revealVar > 0.08 ||
         pull > 24;
-      const opacity = reveal
+      const artOpacity = reveal
         ? Math.min(1, revealVar > 0 ? revealVar : pull > 24 ? 1 : pull / 24)
         : 0;
-      layer.style.opacity = String(opacity);
-      layer.dataset.visible = opacity > 0.04 ? "true" : "false";
+      root.style.setProperty(
+        "--home-overscroll-art-opacity",
+        artOpacity.toFixed(3),
+      );
+      layer.dataset.visible = reveal ? "true" : "false";
     };
 
     sync();
