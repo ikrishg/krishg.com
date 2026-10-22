@@ -1,3 +1,5 @@
+import { recordR3fFlushRenderCount } from "./r3fFlushTelemetry";
+
 export type R3fTempusGate = {
   inView: () => boolean;
   isDirty: () => boolean;
@@ -23,6 +25,7 @@ export function flushR3fTempusGates(): number {
     gate.render();
     rendered += 1;
   }
+  recordR3fFlushRenderCount(rendered);
   return rendered;
 }
 

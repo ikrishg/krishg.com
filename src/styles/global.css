@@ -131,16 +131,35 @@ body.site-body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.home-overscroll-painting__inset {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: clamp(14px, 2.8vw, 28px);
+  background-color: var(--home-closing-bg);
+}
+
+.home-overscroll-painting__frame {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: clamp(24px, 3.2vw, 32px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #141a2b 10%, transparent),
+    0 18px 48px color-mix(in srgb, #141a2b 18%, transparent);
+}
+
+.home-overscroll-painting__art {
+  width: 100%;
+  height: 100%;
   background-color: #0a1628;
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.home-overscroll-painting[data-visible="true"] {
-  opacity: 1;
 }
 
 .home-closing-tail {
@@ -230,16 +249,6 @@ body.site-body {
     color 0.2s ease;
 }
 
-.home-footer__email-inner {
-  display: inline-flex;
-  max-width: 100%;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.3em;
-  font-size: clamp(2rem, 6.4vw, 6rem);
-  line-height: 1.05;
-}
-
 .home-footer__email:focus-visible {
   outline: 2px solid var(--home-closing-fg);
   outline-offset: 4px;
@@ -261,19 +270,12 @@ body.site-body {
   }
 }
 
-.home-footer__mail-icon {
-  flex-shrink: 0;
-  width: 1em;
-  height: 1em;
-  margin-top: 0.06em;
-  font-size: 0.85em;
-}
-
 .home-footer__email-text {
   font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
     sans-serif;
-  font-size: 1em;
+  font-size: clamp(2rem, 6.4vw, 6rem);
   font-weight: 800;
+  line-height: 1.05;
   letter-spacing: -0.04em;
   word-break: break-word;
   text-align: center;
@@ -339,14 +341,8 @@ body.site-body {
 }
 
 @media (width < 768px) {
-  .home-footer__email-inner {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.65rem;
-    font-size: clamp(1.65rem, 9.5vw, 2.35rem);
-  }
-
   .home-footer__email-text {
+    font-size: clamp(1.65rem, 9.5vw, 2.35rem);
     max-width: 100%;
     padding-inline: 0.25rem;
   }
@@ -379,14 +375,19 @@ html[data-home-splash="sitemap"] .home-navbar-search__trigger {
   color: #fff9ec;
 }
 
+.home-closing-link,
+.home-closing-star,
+.home-footer a {
+  transition:
+    color 0.28s var(--ease-out),
+    outline-color 0.28s var(--ease-out);
+}
+
 html[data-home-splash] .home-closing-link,
 html[data-home-splash] .home-closing-star,
 html[data-home-splash] .home-footer a {
   color: var(--home-closing-ink, var(--home-closing-fg));
   outline-color: var(--home-closing-ink, var(--home-closing-fg));
-  transition:
-    color 0.32s ease,
-    outline-color 0.32s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -543,6 +544,34 @@ html[data-page-accent="closing"] {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  html[data-motion-enhance] [data-home-scroll-band] .hero-band-paint {
+    transform: translate3d(0, var(--band-parallax, 0px), 0) scale(1.015);
+    will-change: transform;
+  }
+
+  html[data-motion-enhance] [data-home-scroll-band] .artifact-stage {
+    transform: translate3d(0, var(--artifact-parallax, 0px), 0);
+    will-change: transform;
+  }
+
+  html[data-motion-enhance] [data-home-scroll-band] .hero-copy {
+    opacity: calc(0.55 + 0.45 * var(--band-progress, 1));
+    transform: translate3d(0, calc((1 - var(--band-progress, 1)) * 18px), 0);
+    will-change: transform, opacity;
+  }
+
+  html[data-motion-enhance] .home-closing-link--primary {
+    opacity: var(--link-in, 1);
+    transform: translate3d(0, calc((1 - var(--link-in, 1)) * 22px), 0);
+    will-change: transform, opacity;
+  }
+
+  html[data-motion-enhance] #home-closing-index .home-closing-nav-row {
+    opacity: calc(0.5 + 0.5 * var(--closing-progress, 1));
+    transform: translate3d(0, calc((1 - var(--closing-progress, 1)) * 14px), 0);
+    will-change: transform, opacity;
+  }
+
   @keyframes hero-copy-rise {
     from {
       opacity: 0;

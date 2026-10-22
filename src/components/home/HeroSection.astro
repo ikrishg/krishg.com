@@ -36,13 +36,14 @@ const ctaTarget = ctaExternal ? "_blank" : undefined;
 <section
   id={id}
   data-home-nav-theme={accent}
+  data-home-scroll-band
   style={`--hero-bg:var(--home-${accent}-bg);--hero-fg:var(--home-${accent}-fg);`}
   aria-labelledby={`${id}-heading`}
   class:list={[
     /* Sticky parent stays transparent: Safari 26 Liquid Glass samples
        sticky/fixed background-color near the chrome. Band paint lives on
        an absolute child so stuck lower bands do not tint the toolbar. */
-    "home-band-min-h sticky top-[var(--home-nav-height)] isolate snap-start flex items-center justify-center box-border text-[var(--hero-fg)]",
+    "home-band-min-h sticky top-[var(--home-nav-height)] isolate flex items-center justify-center box-border text-[var(--hero-fg)]",
     clipOverflow ? "overflow-hidden" : "overflow-visible",
     "py-8 md:py-14",
     "max-md:px-[var(--gutter)]",

@@ -1,23 +1,19 @@
 import { useEffect } from "react";
 import { getLenis } from "~motion/lenisStore";
+import {
+  bindOverscrollSurface,
+  nudgeOverscrollTarget,
+  overscrollAtBottom,
+  releaseOverscrollTarget,
+  setOverscrollTarget,
+  resetOverscrollEngine,
+  setOverscrollMaxPull,
+} from "~motion/homeOverscrollEngine";
 import { registerOverscrollWheelFeed } from "~motion/homeOverscrollWheelFeed";
 
-const BOTTOM_EPSILON = 2;
-const PAINT_VISIBLE_PULL = 24;
-const SURFACE_SELECTOR = ".home-scroll-surface";
 const FOOTER_SELECTOR = ".home-footer";
+const SURFACE_SELECTOR = ".home-scroll-surface";
 const ART_ASPECT = 1100 / 871;
-
-function atScrollBottom() {
-  const root = document.documentElement;
-  const nativeAtBottom =
-    window.scrollY + window.innerHeight >= root.scrollHeight - BOTTOM_EPSILON;
-  const lenis = getLenis();
-  if (lenis) {
-    return lenis.scroll >= lenis.limit - BOTTOM_EPSILON || nativeAtBottom;
-  }
-  return nativeAtBottom;
-}
 
 function computeMaxPull() {
   const vw = window.innerWidth;
@@ -36,9 +32,21 @@ function touchPullPx(delta: number, maxPull: number) {
   return maxPull * (1 - Math.exp(-delta / 240));
 }
 
+function readBottomState() {
+  const lenis = getLenis();
+  const root = document.documentElement;
+  return overscrollAtBottom(
+    lenis?.scroll ?? window.scrollY,
+    lenis?.limit ?? 0,
+    window.scrollY,
+    window.innerHeight,
+    root.scrollHeight,
+  );
+}
+
 /**
- * Pulls the homepage scroll surface (not the navbar or splash overlay) to reveal
- * the Starry Night layer beneath.
+ * Pulls the homepage scroll surface to reveal the Starry Night layer beneath.
+ * Target pull is spring-smoothed on the Tempus loop (HomeOverscrollSpring).
  */
 export default function HomeOverscrollReveal() {
   useEffect(() => {
@@ -46,24 +54,21 @@ export default function HomeOverscrollReveal() {
     const surface = document.querySelector<HTMLElement>(SURFACE_SELECTOR);
     if (!surface) return;
 
-    let pull = 0;
+    bindOverscrollSurface(surface);
+
     let pulling = false;
-    let maxPull = computeMaxPull();
-    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    let releaseTimer: ReturnType<typeof setTimeout> | undefined;
     let touchAnchorY = 0;
     let bottomTouchStartY = 0;
-    let trackingBottomPull = false;
     let touchStartedAtBottom = false;
 
     const syncMaxPull = () => {
-      maxPull = computeMaxPull();
+      const maxPull = computeMaxPull();
+      setOverscrollMaxPull(maxPull);
       root.style.setProperty("--home-overscroll-max-pull", `${maxPull}px`);
     };
 
     syncMaxPull();
-
-    const maxScrollY = () =>
-      document.documentElement.scrollHeight - window.innerHeight;
 
     const pinScrollToBottom = () => {
       const lenis = getLenis();
@@ -73,80 +78,45 @@ export default function HomeOverscrollReveal() {
         }
         return;
       }
-      const y = maxScrollY();
-      if (window.scrollY !== y) {
-        window.scrollTo(0, y);
-      }
+      const y = document.documentElement.scrollHeight - window.innerHeight;
+      if (window.scrollY !== y) window.scrollTo(0, y);
     };
 
-    const applyPull = (
-      value: number,
-      options?: {
-        /** Pin scroll to the document bottom when clearing pull (overscroll release). */
-        pinBottom?: boolean;
-      },
-    ) => {
-      pull = Math.max(0, Math.min(maxPull, value));
-      if (pull <= 0.5) {
-        const pinBottom = options?.pinBottom ?? false;
-        pulling = false;
-        root.style.removeProperty("--home-overscroll-pull");
-        surface.style.removeProperty("transform");
-        surface.dataset.overscrollPulling = "false";
-        delete root.dataset.overscrollReveal;
-        if (pinBottom) {
-          pinScrollToBottom();
-        }
-        root.style.scrollSnapType = "";
-        return;
-      }
-      root.style.scrollSnapType = "none";
-      pinScrollToBottom();
-      root.style.setProperty("--home-overscroll-pull", `${pull}px`);
-      surface.style.transform = `translate3d(0, ${-pull}px, 0)`;
-      surface.dataset.overscrollPulling = "true";
-      if (pull > PAINT_VISIBLE_PULL) {
-        root.dataset.overscrollReveal = "true";
-      } else {
-        delete root.dataset.overscrollReveal;
-      }
-    };
-
-    const scheduleReset = () => {
-      if (resetTimer) clearTimeout(resetTimer);
-      resetTimer = setTimeout(() => applyPull(0, { pinBottom: true }), 120);
+    const scheduleRelease = () => {
+      if (releaseTimer) clearTimeout(releaseTimer);
+      releaseTimer = setTimeout(() => {
+        releaseOverscrollTarget();
+        pinScrollToBottom();
+      }, 70);
     };
 
     const processWheelDelta = (deltaY: number) => {
       if (!pulling) {
-        if (!atScrollBottom() || deltaY <= 0) {
-          if (pull > 0) scheduleReset();
+        if (!readBottomState() || deltaY <= 0) {
+          if (pulling) scheduleRelease();
           return;
         }
         pulling = true;
+        pinScrollToBottom();
       }
 
-      const next = pull + deltaY * 0.38;
-      if (next <= 0.5) {
-        applyPull(0, { pinBottom: true });
+      if (deltaY > 0) {
+        nudgeOverscrollTarget(deltaY);
+        scheduleRelease();
         return;
       }
-      applyPull(next);
-      scheduleReset();
+
+      releaseOverscrollTarget();
     };
 
     const onWheel = (event: WheelEvent) => {
       if (getLenis()) return;
       if (!pulling) {
-        if (!atScrollBottom() || event.deltaY <= 0) {
-          if (pull > 0) scheduleReset();
-          return;
-        }
+        if (!readBottomState() || event.deltaY <= 0) return;
         pulling = true;
+        pinScrollToBottom();
       }
-      if (event.deltaY > 0) {
-        event.preventDefault();
-      }
+      if (event.deltaY > 0) event.preventDefault();
       processWheelDelta(event.deltaY);
     };
 
@@ -154,49 +124,41 @@ export default function HomeOverscrollReveal() {
 
     const onTouchStart = (event: TouchEvent) => {
       touchAnchorY = event.touches[0]?.clientY ?? 0;
-      touchStartedAtBottom = atScrollBottom();
-      trackingBottomPull = touchStartedAtBottom;
-      if (trackingBottomPull) bottomTouchStartY = touchAnchorY;
+      touchStartedAtBottom = readBottomState();
+      if (touchStartedAtBottom) bottomTouchStartY = touchAnchorY;
     };
 
     const onTouchMove = (event: TouchEvent) => {
       if (!touchStartedAtBottom) return;
-      if (!pulling && !atScrollBottom()) return;
       const y = event.touches[0]?.clientY ?? touchAnchorY;
       const delta = bottomTouchStartY - y;
       if (delta <= 0) {
-        const pinBottom = touchStartedAtBottom && atScrollBottom();
-        applyPull(0, { pinBottom });
+        releaseOverscrollTarget();
         return;
       }
       pulling = true;
+      pinScrollToBottom();
       event.preventDefault();
-      applyPull(touchPullPx(delta, maxPull));
+      const maxPull = Number.parseFloat(
+        getComputedStyle(root).getPropertyValue("--home-overscroll-max-pull"),
+      );
+      setOverscrollTarget(touchPullPx(delta, maxPull || 320));
     };
 
     const onTouchEnd = () => {
-      const releaseAtBottom =
-        touchStartedAtBottom && atScrollBottom() && pull > 0.5;
-      trackingBottomPull = false;
       touchStartedAtBottom = false;
-
-      if (releaseAtBottom) {
-        scheduleReset();
-      } else if (pull > 0.5 || pulling) {
-        applyPull(0, { pinBottom: false });
-      }
       pulling = false;
+      scheduleRelease();
     };
 
     const onScroll = () => {
-      if (pulling) return;
-      if (!atScrollBottom() && pull > 0) applyPull(0, { pinBottom: false });
+      if (!readBottomState()) {
+        releaseOverscrollTarget();
+        pulling = false;
+      }
     };
 
-    const onResize = () => {
-      syncMaxPull();
-      if (pull > maxPull) applyPull(maxPull);
-    };
+    const onResize = () => syncMaxPull();
 
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -207,7 +169,7 @@ export default function HomeOverscrollReveal() {
 
     return () => {
       registerOverscrollWheelFeed(null);
-      if (resetTimer) clearTimeout(resetTimer);
+      if (releaseTimer) clearTimeout(releaseTimer);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
@@ -215,7 +177,8 @@ export default function HomeOverscrollReveal() {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
       root.style.removeProperty("--home-overscroll-max-pull");
-      applyPull(0, { pinBottom: false });
+      bindOverscrollSurface(null);
+      resetOverscrollEngine();
     };
   }, []);
 

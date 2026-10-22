@@ -278,11 +278,11 @@ export default function HomeSplashOverlay() {
     clearTimers();
     cancelMotion();
     stateRef.current = "hiding";
+    setInk(null);
+    syncHtmlSplash(null);
 
     const finish = () => {
       resetOverlay();
-      setInk(null);
-      syncHtmlSplash(null);
     };
 
     if (reducedMotionRef.current) {
@@ -351,12 +351,16 @@ export default function HomeSplashOverlay() {
   const activate = useCallback(
     (key: ClosingSplashKey, origin: PixelOrigin) => {
       cancelClear();
+      if (stateRef.current === "hiding") {
+        resetOverlay();
+        stateRef.current = "idle";
+      }
       if (stateRef.current === "full" || stateRef.current === "growing") {
         if (retargetColor(key)) return;
       }
       playGrow(key, origin);
     },
-    [cancelClear, playGrow, retargetColor],
+    [cancelClear, playGrow, retargetColor, resetOverlay],
   );
 
   useEffect(() => {
