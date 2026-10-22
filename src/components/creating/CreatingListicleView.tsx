@@ -3,6 +3,7 @@ import { CreatingWorkCard } from "./CreatingWorkCard";
 
 type Props = {
   entries: CreatingEntry[];
+  activeEntryIds: Set<string>;
   reducedMotion: boolean;
   transitionEntryId: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
@@ -11,6 +12,7 @@ type Props = {
 
 export function CreatingListicleView({
   entries,
+  activeEntryIds,
   reducedMotion,
   transitionEntryId,
   onOpen,
@@ -24,6 +26,7 @@ export function CreatingListicleView({
             <CreatingWorkCard
               entry={entry}
               variant="listicle"
+              filterActive={activeEntryIds.has(entry.id)}
               reducedMotion={reducedMotion}
               transitionEntryId={transitionEntryId}
               onOpen={onOpen}

@@ -16,6 +16,7 @@ type Props = {
   parallaxY?: number;
   reducedMotion: boolean;
   transitionEntryId?: string | null;
+  filterActive?: boolean;
 };
 
 export function CreatingWorkCard({
@@ -26,6 +27,7 @@ export function CreatingWorkCard({
   parallaxY = 0,
   reducedMotion,
   transitionEntryId = null,
+  filterActive = true,
 }: Props) {
   const mediaRef = useRef<HTMLDivElement>(null);
   const accent = CATEGORY_ACCENT[entry.category];
@@ -63,9 +65,10 @@ export function CreatingWorkCard({
 
   return (
     <article
-      className={`creating-card creating-card--${variant}`}
+      className={`creating-card creating-card--${variant}${filterActive ? "" : " creating-card--filter-leaving"}`}
       data-flip-id={entry.id}
       data-entry-id={entry.id}
+      aria-hidden={filterActive ? undefined : true}
       style={style}
       onPointerEnter={() => onHover?.(entry.id)}
       onPointerLeave={() => onHover?.(null)}

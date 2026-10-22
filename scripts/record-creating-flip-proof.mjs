@@ -32,6 +32,10 @@ async function recordViewport({ name, width, height, touch }) {
     await page.waitForTimeout(1100);
   };
 
+  await click(/^Listicle$/i);
+  await page.waitForTimeout(900);
+  await click(/^Gallery$/i);
+  await page.waitForTimeout(900);
   await click(/^Poetry$/i);
   await page.waitForFunction(() => {
     const media = document.querySelectorAll(
@@ -46,12 +50,6 @@ async function recordViewport({ name, width, height, touch }) {
   await click(/^Photography$/i);
   await click(/^Design$/i);
   await click(/^All$/i);
-  await click(/^Listicle$/i);
-  await page.screenshot({
-    path: path.join(framesDir, `${name}-view-listicle-mid.png`),
-  });
-  await click(/^Timeline$/i);
-  await click(/^Gallery$/i);
 
   await page.waitForTimeout(600);
   await context.close();

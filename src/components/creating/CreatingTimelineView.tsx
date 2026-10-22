@@ -9,6 +9,7 @@ const FLING_RECENT_MS = 80;
 
 type Props = {
   entries: CreatingEntry[];
+  activeEntryIds: Set<string>;
   reducedMotion: boolean;
   transitionEntryId: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
@@ -17,6 +18,7 @@ type Props = {
 
 export function CreatingTimelineView({
   entries,
+  activeEntryIds,
   reducedMotion,
   transitionEntryId,
   onOpen,
@@ -37,9 +39,6 @@ export function CreatingTimelineView({
     if (!markerEls) return;
 
     const syncYears = () => {
-      const yearsRow = markerEls[0]?.parentElement;
-      if (!yearsRow) return;
-      const rowPad = parseFloat(getComputedStyle(yearsRow).paddingLeft) || 0;
       markerEls.forEach((marker) => {
         const entryId = marker.getAttribute("data-year-for");
         if (!entryId) return;
@@ -47,8 +46,7 @@ export function CreatingTimelineView({
           `[data-entry-id="${entryId}"]`,
         );
         if (!card) return;
-        const x =
-          track.offsetLeft + card.offsetLeft - scroller.scrollLeft - rowPad;
+        const x = track.offsetLeft + card.offsetLeft - scroller.scrollLeft;
         marker.style.transform = `translateX(${x}px)`;
       });
     };
@@ -231,6 +229,7 @@ export function CreatingTimelineView({
               key={entry.id}
               entry={entry}
               variant="timeline"
+              filterActive={activeEntryIds.has(entry.id)}
               reducedMotion={reducedMotion}
               transitionEntryId={transitionEntryId}
               onOpen={onOpen}
