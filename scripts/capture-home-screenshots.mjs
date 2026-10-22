@@ -19,6 +19,8 @@ const shots = [
   { name: "homepage-hero-builder", selector: "#builder", scroll: null },
   { name: "homepage-hero-creator", selector: "#creator", scroll: null },
   { name: "homepage-hero-educator", selector: "#educator", scroll: null },
+  { name: "homepage-closing-index", selector: "#home-closing-index", scroll: null },
+  { name: "homepage-footer", selector: ".home-footer", scroll: null },
 ];
 
 async function waitForArtifactReady(page, sectionSelector) {
