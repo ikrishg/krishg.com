@@ -124,6 +124,7 @@ body.site-body {
 
 .home-scroll-surface[data-overscroll-pulling="true"] {
   transition: none;
+  overflow: clip;
   --home-canvas: var(--home-closing-bg);
   background-color: var(--home-closing-bg);
 }
@@ -571,6 +572,11 @@ html[data-page-accent="closing"] {
     var(--home-closing-bg)
   );
   color: var(--home-closing-fg);
+}
+
+html[data-overscroll-pulling="true"] .hero-band-paint,
+html[data-overscroll-reveal="true"] .hero-band-paint {
+  visibility: hidden;
 }
 
 @media (prefers-reduced-motion: no-preference) {
