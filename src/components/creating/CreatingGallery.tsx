@@ -82,7 +82,22 @@ function focusEntryOpener(entryId: string | null, opener: HTMLElement | null) {
         : null;
   if (!(target instanceof HTMLElement)) return;
   target.focus({ preventScroll: true });
-  target.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const scrollRoot = getScrollRoot();
+  const rootRect = scrollRoot?.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const rootMid =
+    rootRect != null
+      ? rootRect.top + rootRect.height / 2
+      : window.innerHeight / 2;
+  const targetMid = targetRect.top + targetRect.height / 2;
+  const distance = Math.abs(targetMid - rootMid);
+  const behavior = distance > 220 ? "instant" : "smooth";
+  target.scrollIntoView({ block: "center", inline: "nearest", behavior });
+  if (scrollRoot && behavior === "instant") {
+    requestAnimationFrame(() => {
+      scrollRoot.scrollTop = scrollRoot.scrollTop;
+    });
+  }
 }
 
 export default function CreatingGallery({ entries }: Props) {
@@ -109,12 +124,24 @@ export default function CreatingGallery({ entries }: Props) {
   const didIntroRef = useRef(false);
   const historyPushedRef = useRef(false);
   const skipPopFromCloseRef = useRef(false);
+  const [retainedLeavingIds, setRetainedLeavingIds] = useState<string[]>([]);
 
   const categories = useMemo(() => categoriesPresent(entries), [entries]);
   const visibleEntries = useMemo(
     () => filteredEntries(entries, filter),
     [entries, filter],
   );
+
+  const activeVisibleIds = useMemo(
+    () => new Set(visibleEntries.map((e) => e.id)),
+    [visibleEntries],
+  );
+
+  const layoutEntries = useMemo(() => {
+    const ids = new Set(activeVisibleIds);
+    for (const id of retainedLeavingIds) ids.add(id);
+    return entries.filter((e) => ids.has(e.id));
+  }, [entries, activeVisibleIds, retainedLeavingIds]);
 
   const activeEntry = useMemo(
     () => entries.find((e) => e.id === activeId) ?? null,
@@ -142,24 +169,34 @@ export default function CreatingGallery({ entries }: Props) {
     const state = pendingFlipRef.current;
     pendingFlipRef.current = null;
     if (!state) return;
-    runFlipFrom(state, flipRootRef.current, reducedMotion);
+    runFlipFrom(state, flipRootRef.current, reducedMotion, {
+      onComplete: () => setRetainedLeavingIds([]),
+    });
   }, [reducedMotion]);
 
   const transitionUi = useCallback(
     (next: { view?: CreatingView; filter?: CreatingCategoryFilter }) => {
       const root = flipRootRef.current;
+      if (next.filter != null && next.filter !== filter) {
+        const nextVisible = filteredEntries(entries, next.filter);
+        const nextIds = new Set(nextVisible.map((e) => e.id));
+        const leaving = visibleEntries
+          .filter((e) => !nextIds.has(e.id))
+          .map((e) => e.id);
+        if (leaving.length > 0) setRetainedLeavingIds(leaving);
+      }
       if (!reducedMotion && root) {
         pendingFlipRef.current = captureFlipState(root);
       }
       if (next.view != null) setView(next.view);
       if (next.filter != null) setFilter(next.filter);
     },
-    [reducedMotion, setFilter, setView],
+    [entries, filter, reducedMotion, setFilter, setView, visibleEntries],
   );
 
   useLayoutEffect(() => {
     runFlipAfterUpdate();
-  }, [view, filter, visibleEntries, runFlipAfterUpdate]);
+  }, [view, filter, layoutEntries, runFlipAfterUpdate]);
 
   useEffect(() => {
     if (didIntroRef.current || reducedMotion) return;
@@ -192,10 +229,14 @@ export default function CreatingGallery({ entries }: Props) {
         const url = new URL(window.location.href);
         url.searchParams.set("piece", id);
         if (!historyPushedRef.current) {
-          history.pushState({ creatingPiece: id }, "", url);
+          history.pushState(
+            { creatingPiece: id, creatingPushed: true },
+            "",
+            url,
+          );
           historyPushedRef.current = true;
         } else {
-          history.replaceState({ creatingPiece: id }, "", url);
+          history.replaceState({ creatingPiece: id, creatingPushed: true }, "", url);
         }
       });
     },
@@ -210,7 +251,10 @@ export default function CreatingGallery({ entries }: Props) {
       setActiveId(null);
       const url = new URL(window.location.href);
       url.searchParams.delete("piece");
-      if (pushedDetail && window.history.state?.creatingPiece) {
+      if (
+        (pushedDetail || window.history.state?.creatingPushed) &&
+        window.history.state?.creatingPiece
+      ) {
         skipPopFromCloseRef.current = true;
         history.back();
       } else {
@@ -229,6 +273,7 @@ export default function CreatingGallery({ entries }: Props) {
     const onPop = () => {
       const fromOurClose = skipPopFromCloseRef.current;
       skipPopFromCloseRef.current = false;
+      historyPushedRef.current = Boolean(window.history.state?.creatingPushed);
       const piece = readPieceFromUrl();
       setActiveId(piece);
       if (!piece) {
@@ -310,7 +355,8 @@ export default function CreatingGallery({ entries }: Props) {
         <div ref={flipRootRef} className="creating-flip-root">
           {view === "gallery" && (
             <CreatingGalleryGrid
-              entries={visibleEntries}
+              entries={layoutEntries}
+              activeEntryIds={activeVisibleIds}
               reducedMotion={reducedMotion}
               transitionEntryId={transitionEntryId}
               onOpen={openEntry}
@@ -319,7 +365,8 @@ export default function CreatingGallery({ entries }: Props) {
           )}
           {view === "listicle" && (
             <CreatingListicleView
-              entries={visibleEntries}
+              entries={layoutEntries}
+              activeEntryIds={activeVisibleIds}
               reducedMotion={reducedMotion}
               transitionEntryId={transitionEntryId}
               onOpen={openEntry}
@@ -328,7 +375,8 @@ export default function CreatingGallery({ entries }: Props) {
           )}
           {view === "timeline" && (
             <CreatingTimelineView
-              entries={visibleEntries}
+              entries={layoutEntries}
+              activeEntryIds={activeVisibleIds}
               reducedMotion={reducedMotion}
               transitionEntryId={transitionEntryId}
               onOpen={openEntry}

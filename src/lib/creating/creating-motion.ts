@@ -6,12 +6,8 @@ registerCreatingEasings();
 gsap.registerPlugin(Flip);
 
 const CARD_FLIP_SELECTOR = ".creating-card[data-flip-id]";
-const MEDIA_FLIP_SELECTOR = "[data-flip-id$='--media']";
 
-export type CapturedFlip = {
-  cards: Flip.FlipState;
-  media: Flip.FlipState | null;
-};
+export type CapturedFlip = Flip.FlipState;
 
 export function captureFlipTargets(root: ParentNode | null): Element[] {
   if (!root) return [];
@@ -21,33 +17,24 @@ export function captureFlipTargets(root: ParentNode | null): Element[] {
 export function captureFlipState(root: ParentNode | null): CapturedFlip | null {
   const cards = captureFlipTargets(root);
   if (cards.length === 0) return null;
-  const media = [...root!.querySelectorAll(MEDIA_FLIP_SELECTOR)];
-  return {
-    cards: Flip.getState(cards, {
-      props: "transform,opacity",
-      nested: true,
-    }),
-    media:
-      media.length > 0
-        ? Flip.getState(media, {
-            props: "transform,opacity",
-            nested: true,
-            scale: true,
-          })
-        : null,
-  };
+  return Flip.getState(cards, {
+    props: "transform,opacity",
+    nested: true,
+  });
 }
 
 export function runFlipFrom(
   state: CapturedFlip,
   root: ParentNode | null,
   reducedMotion: boolean,
-  options?: { duration?: number },
+  options?: { duration?: number; onComplete?: () => void },
 ) {
-  if (reducedMotion || !state || !root) return;
+  if (reducedMotion || !state || !root) {
+    options?.onComplete?.();
+    return;
+  }
 
   const cardTargets = root.querySelectorAll(CARD_FLIP_SELECTOR);
-  const mediaTargets = root.querySelectorAll(MEDIA_FLIP_SELECTOR);
 
   const duration = options?.duration ?? 0.72;
   const stagger = { amount: 0.25 };
@@ -55,9 +42,10 @@ export function runFlipFrom(
 
   const notifyDone = () => {
     window.dispatchEvent(new CustomEvent("creating-flip-complete"));
+    options?.onComplete?.();
   };
 
-  Flip.from(state.cards, {
+  Flip.from(state, {
     targets: cardTargets,
     duration,
     ease,
@@ -87,17 +75,6 @@ export function runFlipFrom(
     },
     onComplete: notifyDone,
   });
-
-  if (state.media && mediaTargets.length > 0) {
-    Flip.from(state.media, {
-      targets: mediaTargets,
-      duration,
-      ease,
-      stagger,
-      nested: true,
-      scale: true,
-    });
-  }
 }
 
 export function staggerCardsIn(

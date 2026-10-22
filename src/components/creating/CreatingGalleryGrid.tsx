@@ -4,6 +4,7 @@ import { CreatingWorkCard } from "./CreatingWorkCard";
 
 type Props = {
   entries: CreatingEntry[];
+  activeEntryIds: Set<string>;
   reducedMotion: boolean;
   transitionEntryId: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
@@ -12,6 +13,7 @@ type Props = {
 
 export function CreatingGalleryGrid({
   entries,
+  activeEntryIds,
   reducedMotion,
   transitionEntryId,
   onOpen,
@@ -56,6 +58,7 @@ export function CreatingGalleryGrid({
             key={entry.id}
             entry={entry}
             variant="gallery"
+            filterActive={activeEntryIds.has(entry.id)}
             reducedMotion={reducedMotion}
             transitionEntryId={transitionEntryId}
             onOpen={onOpen}

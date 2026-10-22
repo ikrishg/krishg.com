@@ -262,7 +262,7 @@
   display: flex;
   gap: 1.25rem;
   align-items: flex-end;
-  min-height: min(70vh, 28rem);
+  min-height: 14rem;
   padding: 0.65rem 3.5rem 2rem;
   width: max-content;
 }
@@ -285,6 +285,7 @@
   height: 1.25rem;
   margin: 0 0 0.75rem;
   padding: 0 3.5rem;
+  overflow: clip;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -305,6 +306,10 @@
   padding: 0.5rem 3.5rem 0;
   font-size: 0.7rem;
   color: var(--creating-on-canvas);
+}
+
+.creating-card--filter-leaving {
+  pointer-events: none;
 }
 
 .creating-filter-btn {
@@ -328,6 +333,16 @@
 .creating-page[data-reduced-motion="true"] .creating-detail__body {
   transform: none !important;
   transition: none !important;
+}
+
+.creating-page[data-reduced-motion="true"] .creating-detail:focus-within {
+  outline: 2px solid #141a2b;
+  outline-offset: -2px;
+}
+
+.creating-page[data-reduced-motion="true"] .creating-detail__close:focus-visible {
+  outline: 2px solid #141a2b;
+  outline-offset: 2px;
 }
 
 ::view-transition-old(root),
@@ -541,6 +556,22 @@
 
   .creating-header__filters .creating-filter-btn {
     flex: 0 0 auto;
+  }
+
+  .creating-header__filters::after {
+    content: "";
+    position: sticky;
+    right: 0;
+    flex: 0 0 2.5rem;
+    align-self: stretch;
+    margin-left: -2.5rem;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--creating-paper) 55%, transparent) 35%,
+      var(--creating-paper)
+    );
+    pointer-events: none;
   }
 }
 
