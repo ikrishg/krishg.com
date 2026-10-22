@@ -158,6 +158,32 @@ body.site-body {
   min-height: inherit;
 }
 
+.home-closing-desktop {
+  min-height: inherit;
+}
+
+@media (width < 768px) {
+  html[data-home-closing-layout="mobile-stack"] .home-closing-tail {
+    min-height: 0;
+    background-color: transparent;
+  }
+
+  html[data-home-closing-layout="mobile-stack"] .home-closing-index {
+    min-height: 0;
+    flex: 0 0 auto;
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  html[data-home-closing-mobile] .home-navbar {
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--home-nav-fg) 28%, transparent);
+  }
+
+  .home-closing-link--mobile {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 .home-closing-tail .home-footer {
   flex-shrink: 0;
   background-color: var(--home-closing-bg);

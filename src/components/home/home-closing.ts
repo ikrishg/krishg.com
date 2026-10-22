@@ -46,3 +46,19 @@ export const closingNavRow: ClosingLink[] = [
   { key: "now", label: "now", href: "/now" },
   { key: "sitemap", label: "sitemap", href: "/sitemap" },
 ];
+
+/** Mobile stack order: three band links then three nav links. */
+export const closingMobileLinks: ClosingLink[] = [
+  ...closingBandRow,
+  ...closingNavRow,
+];
+
+/** Static ink on mobile colour blocks (no hover splash). */
+export const closingMobileInkHex: Record<ClosingSplashKey, string> = {
+  building: "#fff9ec",
+  creating: "#fff9ec",
+  educating: "#141a2b",
+  about: "#fff9ec",
+  now: "#fff9ec",
+  sitemap: "#fff9ec",
+};
