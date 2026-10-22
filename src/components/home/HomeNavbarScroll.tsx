@@ -1,29 +1,21 @@
 import { useEffect } from "react";
+import { getScrollY, subscribeScroll } from "~motion/lenisStore";
 
 export default function HomeNavbarScroll() {
   useEffect(() => {
     const header = document.querySelector<HTMLElement>(".home-navbar");
     if (!header) return;
 
-    let ticking = false;
-
     const setScrolled = (scrolled: boolean) => {
       header.dataset.scrolled = scrolled ? "true" : "false";
     };
 
     const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const y = window.scrollY;
-        setScrolled(y > 12);
-        ticking = false;
-      });
+      setScrolled(getScrollY() > 12);
     };
 
-    setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    onScroll();
+    return subscribeScroll(onScroll);
   }, []);
 
   return null;

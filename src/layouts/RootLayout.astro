@@ -4,6 +4,7 @@ import Head, { type HeadProps } from "~components/Head.astro";
 import HomeNavbar from "~components/home/HomeNavbar.astro";
 import HomePageLoader from "~components/home/HomePageLoader.tsx";
 import HomeReadySignal from "~components/home/HomeReadySignal.tsx";
+import SiteMotion from "~motion/SiteMotion.tsx";
 import type { HeroAccent } from "~components/home/hero-types";
 import { homeAccentCanvasHex } from "~components/home/hero-types";
 
@@ -56,6 +57,7 @@ const themeColor = homeAccentCanvasHex[htmlAccent];
   >
     {/* Safari 26 Liquid Glass bottom-toolbar sample target; see global.css */}
     <div class="safari-toolbar-tint" aria-hidden="true"></div>
+    <SiteMotion client:load />
     <HomePageLoader client:load />
     <HomeReadySignal client:load />
     <HomeNavbar />

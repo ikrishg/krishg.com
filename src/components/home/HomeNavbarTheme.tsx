@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { subscribeScroll } from "~motion/lenisStore";
 import {
   homeAccentCanvasHex,
   isPageAccent,
@@ -99,11 +100,11 @@ export default function HomeNavbarTheme() {
     };
 
     pickActive();
-    window.addEventListener("scroll", pickActive, { passive: true });
+    const offScroll = subscribeScroll(pickActive);
     window.addEventListener("resize", pickActive);
 
     return () => {
-      window.removeEventListener("scroll", pickActive);
+      offScroll();
       window.removeEventListener("resize", pickActive);
     };
   }, []);

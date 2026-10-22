@@ -17,6 +17,9 @@ importers:
       '@astrojs/vercel':
         specifier: ^11.0.3
         version: 11.0.13(astro@7.3.8(@types/node@24.19.2)(@vercel/functions@3.9.11)(jiti@2.7.0)(yaml@2.9.1))(react@19.3.0)
+      '@darkroomengineering/fitbox':
+        specifier: ^0.2.1
+        version: 0.2.1(react@19.3.0)
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -38,6 +41,9 @@ importers:
       astro:
         specifier: ^7.1.1
         version: 7.3.8(@types/node@24.19.2)(@vercel/functions@3.9.11)(jiti@2.7.0)(yaml@2.9.1)
+      lenis:
+        specifier: ^1.3.27
+        version: 1.3.27(react@19.3.0)
       react:
         specifier: ^19.2.7
         version: 19.3.0
@@ -47,6 +53,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      tempus:
+        specifier: ^1.0.0
+        version: 1.0.0(react@19.3.0)
       three:
         specifier: ^0.186.1
         version: 0.186.1
@@ -305,6 +314,9 @@ packages:
     resolution: {integrity: sha512-CuNiSqg7+e1cO/GjffyMOm5Tt2jUF9CWHHnvQ/UkqvtkGfHdgwEC0wpmq7fkN3gxwpRnrAN0WzO3vREKmNolMQ==}
     engines: {node: '>=18'}
 
+  '@chenglou/pretext@0.0.8':
+    resolution: {integrity: sha512-yqm2GMxnPI7VHcHwe84P8ZF0JK/2d2DMKPqMN+s95jQhwDMYYXKVFVJUMEaVWckQStdsjdLav/0Vu+d9YbtGxA==}
+
   '@clack/core@1.5.1':
     resolution: {integrity: sha512-iHTrHA8MtVuLl2TfZySmcKv1qO2PoyC9Z7pfSDozEuV5vtY3/wcOPKJXlqJ5Oq2Cx5DDGQGAMVx6HZfRRoVEbQ==}
     engines: {node: '>= 20.12.0'}
@@ -312,6 +324,14 @@ packages:
   '@clack/prompts@1.8.1':
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
+
+  '@darkroomengineering/fitbox@0.2.1':
+    resolution: {integrity: sha512-4S3vJnCrhsIE7IYbw2HJsuMOaCXZT8s4ye/w41hBgHqoTTRjYGPCpUN60zVNGlFM93R/VtjWeT/fwZ6JZSiNQA==}
+    peerDependencies:
+      react: '>=19.0.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
@@ -1559,6 +1579,20 @@ packages:
   jsonc-parser@3.3.1:
     resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
 
+  lenis@1.3.27:
+    resolution: {integrity: sha512-QIHNH4LIfWyLfgH/5K0aTGZgyFJJ7GfHNcaH/AIgyKjb8gstLh5siNGvrVqz1w5ClLXzOvllBVk7vby8JzUVPQ==}
+    peerDependencies:
+      '@nuxt/kit': '>=3.0.0'
+      react: '>=17.0.0'
+      vue: '>=3.0.0'
+    peerDependenciesMeta:
+      '@nuxt/kit':
+        optional: true
+      react:
+        optional: true
+      vue:
+        optional: true
+
   lie@3.3.0:
     resolution: {integrity: sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==}
 
@@ -2102,6 +2136,14 @@ packages:
   tar@7.5.22:
     resolution: {integrity: sha512-MFO/QzvtAOmJbkhOaCTvbGcFN9L9b+JunIsDwaKljSOdcLMea3NJ1k9Usz/rjdfSXTq4dfzfeS7W4p4YOAAHeA==}
     engines: {node: '>=18'}
+
+  tempus@1.0.0:
+    resolution: {integrity: sha512-yAtEKgbPwrenbvi4dvEFDUADRSZ5cHFqHIeFWQFEN5yrIRNhuBIl4lbTcukgy7KVgnr2qEOGabRixKQe0SCF9w==}
+    peerDependencies:
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   three-mesh-bvh@0.8.3:
     resolution: {integrity: sha512-4G5lBaF+g2auKX3P0yqx+MJC6oVt6sB5k+CchS6Ob0qvH0YIhuUk1eYr7ktsIpY+albCqE80/FVQGV190PmiAg==}
@@ -2725,6 +2767,8 @@ snapshots:
     dependencies:
       fontkitten: 1.0.3
 
+  '@chenglou/pretext@0.0.8': {}
+
   '@clack/core@1.5.1':
     dependencies:
       fast-wrap-ansi: 0.2.2
@@ -2736,6 +2780,12 @@ snapshots:
       fast-string-width: 3.0.2
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
+
+  '@darkroomengineering/fitbox@0.2.1(react@19.3.0)':
+    dependencies:
+      '@chenglou/pretext': 0.0.8
+    optionalDependencies:
+      react: 19.3.0
 
   '@dimforge/rapier3d-compat@0.12.0': {}
 
@@ -3872,6 +3922,10 @@ snapshots:
 
   jsonc-parser@3.3.1: {}
 
+  lenis@1.3.27(react@19.3.0):
+    optionalDependencies:
+      react: 19.3.0
+
   lie@3.3.0:
     dependencies:
       immediate: 3.0.6
@@ -4399,6 +4453,10 @@ snapshots:
       minipass: 7.1.3
       minizlib: 3.1.0
       yallist: 5.0.0
+
+  tempus@1.0.0(react@19.3.0):
+    optionalDependencies:
+      react: 19.3.0
 
   three-mesh-bvh@0.8.3(three@0.186.1):
     dependencies:

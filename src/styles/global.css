@@ -95,7 +95,6 @@ html {
   -webkit-text-size-adjust: 100%;
   overscroll-behavior-y: none;
   scroll-padding-top: var(--home-nav-height);
-  scroll-snap-type: y proximity;
   background-color: var(--home-canvas);
 }
 

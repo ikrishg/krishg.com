@@ -6,6 +6,7 @@ import {
   closingMobileLinks,
   closingNavRow,
 } from "./home-closing";
+import { useSharedPrimaryFontSize } from "./homeClosingPrimaryFit";
 import { dispatchSplashScheduleClear } from "./HomeSplashOverlay";
 
 const MOBILE_CLOSING_MQ = "(max-width: 767px)";
@@ -50,10 +51,21 @@ function NavRow() {
 }
 
 function PrimaryRow() {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const sharedPrimaryPx = useSharedPrimaryFontSize(rowRef, closingBandRow);
+
   return (
-    <div className="home-closing-primary-row flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-4 md:gap-5 md:max-lg:flex-col lg:flex-row lg:gap-[clamp(2rem,9vw,9rem)]">
+    <div
+      ref={rowRef}
+      className="home-closing-primary-row flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-4 md:gap-5 md:max-lg:flex-col lg:flex-row lg:gap-[clamp(2rem,9vw,9rem)]"
+    >
       {closingBandRow.map((link) => (
-        <HomeClosingLink key={link.key} link={link} variant="primary" />
+        <HomeClosingLink
+          key={link.key}
+          link={link}
+          variant="primary"
+          sharedPrimaryPx={sharedPrimaryPx}
+        />
       ))}
     </div>
   );

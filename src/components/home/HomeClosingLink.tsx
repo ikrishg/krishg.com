@@ -1,4 +1,6 @@
+import { FitText } from "@darkroomengineering/fitbox/react";
 import type { PointerEvent } from "react";
+import { useClampFontSizePx } from "./useClampFontSizePx";
 import type { ClosingLink } from "./home-closing";
 import {
   closingMobileInkHex,
@@ -12,6 +14,8 @@ import {
 type Props = {
   link: ClosingLink;
   variant: "primary" | "nav" | "mobile-block";
+  /** Smallest per-link fit across the three primary words (fitbox). */
+  sharedPrimaryPx?: number | null;
 };
 
 function canUseHoverSplash() {
@@ -20,7 +24,13 @@ function canUseHoverSplash() {
 }
 
 const primaryClass =
-  "home-closing-link home-closing-link--primary inline-block min-h-11 py-2 text-center font-[family-name:var(--font-inter-tight),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(2.25rem,5.4vw,6rem)] font-extrabold lowercase tracking-[-0.045em] underline underline-offset-[0.08em] decoration-[0.055em] transition-[color,opacity,text-decoration-thickness] duration-200 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 md:text-[clamp(4rem,8.33vw,4.5rem)] lg:text-[clamp(2.25rem,5.4vw,6rem)]";
+  "home-closing-link home-closing-link--primary inline-block min-h-11 w-full max-w-full py-2 text-center font-[family-name:var(--font-inter-tight),var(--font-space-grotesk),system-ui,sans-serif] font-extrabold lowercase tracking-[-0.045em] underline underline-offset-[0.08em] decoration-[0.055em] transition-[color,opacity,text-decoration-thickness] duration-200 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
+
+/** SSR fallback sizing; FitText refines after hydration without layout jump. */
+const primaryFitClass =
+  "block max-w-full text-[clamp(2.25rem,5.4vw,6rem)] md:text-[clamp(4rem,8.33vw,4.5rem)] lg:text-[clamp(2.25rem,5.4vw,6rem)]";
+
+const mobileFitClass = "block max-w-full text-[clamp(1.5rem,7.2vw,2rem)]";
 
 const navClass =
   "home-closing-link home-closing-link--nav inline-block min-h-11 py-2 font-[family-name:var(--font-inter),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.25rem,2.15vw,2rem)] font-normal lowercase tracking-[-0.02em] underline underline-offset-[0.18em] decoration-[0.07em] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
@@ -28,7 +38,13 @@ const navClass =
 const mobileBlockClass =
   "home-closing-link home-closing-link--mobile box-border flex min-h-[calc((100svh-var(--home-nav-height))/6)] min-h-[calc((100lvh-var(--home-nav-height))/6)] w-full flex-1 items-center justify-center px-[var(--gutter)] py-4 text-center font-[family-name:var(--font-inter),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.5rem,7.2vw,2rem)] font-normal lowercase tracking-[-0.02em] underline decoration-[0.07em] underline-offset-[0.2em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] active:opacity-92";
 
-export default function HomeClosingLink({ link, variant }: Props) {
+export default function HomeClosingLink({
+  link,
+  variant,
+  sharedPrimaryPx = null,
+}: Props) {
+  const mobileClampMinPx = useClampFontSizePx(mobileFitClass, 24);
+
   const className =
     variant === "primary"
       ? primaryClass
@@ -55,7 +71,15 @@ export default function HomeClosingLink({ link, variant }: Props) {
         href={link.href}
         data-splash-key={link.key}
       >
-        {link.label}
+        <FitText
+          as="span"
+          className={mobileFitClass}
+          maxLines={1}
+          minSize={mobileClampMinPx}
+          maxSize={48}
+        >
+          {link.label}
+        </FitText>
       </a>
     );
   }
@@ -87,7 +111,20 @@ export default function HomeClosingLink({ link, variant }: Props) {
         dispatchSplashScheduleClear();
       }}
     >
-      {link.label}
+      {variant === "primary" ? (
+        <span
+          className={primaryFitClass}
+          style={
+            sharedPrimaryPx != null
+              ? { fontSize: `${sharedPrimaryPx}px` }
+              : undefined
+          }
+        >
+          {link.label}
+        </span>
+      ) : (
+        link.label
+      )}
     </a>
   );
 }
