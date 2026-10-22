@@ -42,7 +42,6 @@ export function runFlipFrom(
 
   const notifyDone = () => {
     window.dispatchEvent(new CustomEvent("creating-flip-complete"));
-    options?.onComplete?.();
   };
 
   Flip.from(state, {
@@ -74,6 +73,10 @@ export function runFlipFrom(
       });
     },
     onComplete: notifyDone,
+  });
+
+  gsap.delayedCall(duration + stagger.amount, () => {
+    options?.onComplete?.();
   });
 }
 

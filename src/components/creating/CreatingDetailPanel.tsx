@@ -32,7 +32,7 @@ export function CreatingDetailPanel({
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel || reducedMotion) {
-      closeRef.current?.focus();
+      closeRef.current?.focus({ preventScroll: true });
       return;
     }
     gsap.fromTo(
@@ -40,7 +40,7 @@ export function CreatingDetailPanel({
       { opacity: 0, y: 28 },
       { opacity: 1, y: 0, duration: 0.65, ease: "creating.cubicOut" },
     );
-    closeRef.current?.focus();
+    closeRef.current?.focus({ preventScroll: true });
   }, [entry.id, reducedMotion]);
 
   useEffect(() => {
@@ -55,14 +55,14 @@ export function CreatingDetailPanel({
     return () => {
       const target = returnFocusRef.current;
       if (target && document.contains(target)) {
-        target.focus();
+        target.focus({ preventScroll: true });
         return;
       }
       if (!focusEntryId) return;
       const el = document.querySelector(
         `[data-entry-id="${focusEntryId}"] .creating-card__open`,
       );
-      if (el instanceof HTMLElement) el.focus();
+      if (el instanceof HTMLElement) el.focus({ preventScroll: true });
     };
   }, [returnFocusRef, focusEntryId]);
 
