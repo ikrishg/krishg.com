@@ -301,7 +301,7 @@ html[data-overscroll-reveal="true"] body.site-body {
 .home-footer__email-text {
   font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
     sans-serif;
-  font-size: clamp(2rem, 6.4vw, 6rem);
+  font-size: clamp(28px, 4.5vw, 64px);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.04em;
@@ -370,7 +370,6 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 @media (width < 768px) {
   .home-footer__email-text {
-    font-size: clamp(1.65rem, 9.5vw, 2.35rem);
     max-width: 100%;
     padding-inline: 0.25rem;
   }

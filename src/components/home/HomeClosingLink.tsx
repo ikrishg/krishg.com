@@ -14,6 +14,7 @@ import {
   isSplashScrollBlocked,
   queueSplashAfterScroll,
 } from "~motion/homeSplashScrollGate";
+import { canUseClosingHoverSplash } from "./closingHoverSplash";
 
 type Props = {
   link: ClosingLink;
@@ -21,11 +22,6 @@ type Props = {
   /** Smallest per-link fit across the three primary words (fitbox). */
   sharedPrimaryPx?: number | null;
 };
-
-function canUseHoverSplash() {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-}
 
 function trySplashActivate(
   key: ClosingLink["key"],
@@ -112,7 +108,7 @@ export default function HomeClosingLink({
       data-splash-key={link.key}
       onPointerDown={onBandPointerDown}
       onPointerEnter={(event) => {
-        if (!canUseHoverSplash() || event.pointerType !== "mouse") return;
+        if (!canUseClosingHoverSplash() || event.pointerType !== "mouse") return;
         trySplashActivate(
           link.key,
           event.currentTarget,
@@ -121,11 +117,11 @@ export default function HomeClosingLink({
         );
       }}
       onPointerLeave={(event) => {
-        if (!canUseHoverSplash() || event.pointerType !== "mouse") return;
+        if (!canUseClosingHoverSplash() || event.pointerType !== "mouse") return;
         dispatchSplashScheduleClear();
       }}
       onFocus={(event) => {
-        if (!canUseHoverSplash()) return;
+        if (!canUseClosingHoverSplash()) return;
         const rect = event.currentTarget.getBoundingClientRect();
         trySplashActivate(
           link.key,
@@ -135,7 +131,7 @@ export default function HomeClosingLink({
         );
       }}
       onBlur={() => {
-        if (!canUseHoverSplash()) return;
+        if (!canUseClosingHoverSplash()) return;
         dispatchSplashScheduleClear();
       }}
     >

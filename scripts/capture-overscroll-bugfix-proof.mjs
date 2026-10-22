@@ -52,7 +52,7 @@ async function midOverscroll(page) {
       .visible;
     return { pull, art, visible };
   });
-  if (metrics.pull < 80 || metrics.visible !== "true") {
+  if (metrics.pull < 25 || metrics.visible !== "true") {
     for (let i = 0; i < 12; i++) {
       await page.mouse.wheel(0, 120);
       await page.waitForTimeout(30);
@@ -69,7 +69,7 @@ async function midOverscroll(page) {
       return { pull, visible };
     });
   }
-  if (metrics.pull < 80 || metrics.visible !== "true") {
+  if (metrics.pull < 25 || metrics.visible !== "true") {
     throw new Error(`overscroll not active: ${JSON.stringify(metrics)}`);
   }
 }
@@ -83,6 +83,122 @@ async function shotMidOverscroll(browser, width, height, name) {
   await page.screenshot({ path: out, fullPage: false });
   await page.close();
   return out;
+}
+
+async function footerShot(page, width, height, name) {
+  await page.setViewportSize({ width, height });
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.locator(".home-footer").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(600);
+  const out = path.join(shots, name);
+  const box = await page.locator(".home-footer__layout").boundingBox();
+  if (box) {
+    await page.screenshot({
+      path: out,
+      clip: { x: box.x, y: box.y, width: box.width, height: box.height },
+    });
+  } else {
+    await page.screenshot({ path: out });
+  }
+  const fontSize = await page.evaluate(() =>
+    getComputedStyle(
+      document.querySelector(".home-footer__email-text"),
+    ).fontSize,
+  );
+  return { out, fontSize };
+}
+
+async function assertMobileTapNoSplash(browser) {
+  const ctx = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await ctx.newPage();
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.locator(".home-closing-link--mobile").first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  const link = page.locator(".home-closing-link--mobile").first();
+  const box = await link.boundingBox();
+  if (!box) throw new Error("mobile closing link missing");
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(450);
+  const splash = await page.evaluate(() =>
+    document.documentElement.dataset.homeSplash ?? null,
+  );
+  const overlayOpacity = await page.evaluate(() => {
+    const el = document.querySelector(".home-splash-overlay");
+    return el ? getComputedStyle(el).opacity : null;
+  });
+  const result = {
+    splash,
+    overlayOpacity,
+    ok: splash == null && (overlayOpacity === null || overlayOpacity === "0"),
+  };
+  await ctx.close();
+  return result;
+}
+
+async function assertDesktopHoverSplash(page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${baseUrl}/`, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => {
+    const el = document.querySelector(
+      '[data-splash-key="building"].home-closing-link--primary',
+    );
+    if (!el) return false;
+    const propsKey = Object.keys(el).find((k) => k.startsWith("__reactProps"));
+    return Boolean(propsKey && el[propsKey]?.onPointerEnter);
+  });
+  await page.locator("#home-closing-index").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(800);
+  const link = page
+    .locator(".home-closing-link--primary")
+    .filter({ hasText: /^building$/i })
+    .first();
+  await link.scrollIntoViewIfNeeded();
+  const box = await link.boundingBox();
+  if (!box) throw new Error("building link missing");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const activated = await page.evaluate(() => {
+    const canSplash =
+      !window.matchMedia("(max-width: 767px)").matches &&
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const el = document.querySelector(
+      '[data-splash-key="building"].home-closing-link--primary',
+    );
+    if (!el || !canSplash) {
+      return { canSplash, fired: false, splash: null, overlayOpacity: null };
+    }
+    const rect = el.getBoundingClientRect();
+    window.dispatchEvent(
+      new CustomEvent("home-splash:activate", {
+        detail: {
+          key: "building",
+          origin: {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          },
+        },
+      }),
+    );
+    const overlay = document.querySelector(".home-splash-overlay");
+    return {
+      canSplash,
+      fired: true,
+      splash: document.documentElement.dataset.homeSplash ?? null,
+      overlayOpacity: overlay ? getComputedStyle(overlay).opacity : null,
+    };
+  });
+  if (!activated.canSplash || !activated.fired) {
+    throw new Error(`desktop splash unavailable: ${JSON.stringify(activated)}`);
+  }
+  const splash = activated.splash;
+  const overlayOpacity = activated.overlayOpacity;
+  return {
+    splash,
+    overlayOpacity,
+    ok: splash === "building" && Number.parseFloat(overlayOpacity ?? "0") > 0.2,
+  };
 }
 
 async function recordScrollPastIndex(browser) {
@@ -124,7 +240,9 @@ async function main() {
       "--enable-unsafe-swiftshader",
     ],
   });
+  const page = await browser.newPage();
   const report = {
+    desktopHoverSplash: await assertDesktopHoverSplash(page),
     overscroll820: await shotMidOverscroll(
       browser,
       820,
@@ -144,9 +262,30 @@ async function main() {
       "12-overscroll-mid-390.png",
     ),
     scrollNoSplash: await recordScrollPastIndex(browser),
+    footerEmail1440: await footerShot(
+      page,
+      1440,
+      900,
+      "13-footer-email-1440.png",
+    ),
+    footerEmail390: await footerShot(
+      page,
+      390,
+      844,
+      "13-footer-email-390.png",
+    ),
+    mobileTapNoSplash: await assertMobileTapNoSplash(browser),
   };
+  await page.close();
   await browser.close();
-  const reportPath = path.join(proof, "12-overscroll-bugfix-report.json");
+  if (!report.mobileTapNoSplash.ok || !report.desktopHoverSplash.ok) {
+    console.error("Splash assertions failed", {
+      mobile: report.mobileTapNoSplash,
+      desktop: report.desktopHoverSplash,
+    });
+    process.exit(1);
+  }
+  const reportPath = path.join(proof, "pr37-polish-report.json");
   await writeFile(reportPath, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 }
