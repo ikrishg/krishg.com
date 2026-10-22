@@ -28,3 +28,6 @@ scripts/dev/out/
 
 .impeccable/live/server.json
 
+artifacts/creating-verify/
+artifacts/creating-screenshots/
+
