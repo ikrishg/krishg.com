@@ -1,9 +1,8 @@
 import {
   Asterisk,
-  EnvelopeSimple,
-  InstagramLogo,
   LinkedinLogo,
   MagnifyingGlass,
+  PaperPlaneTilt,
   XLogo,
   type Icon,
   type IconWeight,
@@ -16,17 +15,15 @@ export type SiteIconName =
   | "mail"
   | "x"
   | "linkedin"
-  | "instagram"
   | "search"
   | "asterisk";
 
 export type SiteIconWeight = "bold" | "fill";
 
 const ICONS: Record<SiteIconName, Icon> = {
-  mail: EnvelopeSimple,
+  mail: PaperPlaneTilt,
   x: XLogo,
   linkedin: LinkedinLogo,
-  instagram: InstagramLogo,
   search: MagnifyingGlass,
   asterisk: Asterisk,
 };
@@ -71,15 +68,13 @@ export function renderSiteIcon(
   );
 }
 
-/** Footer social: Bold default, Fill on hover/focus without layout shift. */
-export function renderSiteSocialIcon(name: Exclude<SiteIconName, "mail" | "search" | "asterisk">): string {
-  const bold = renderSiteIcon(name, {
+/** Footer social icon (single bold glyph; hover via link styles). */
+export function renderSiteSocialIcon(
+  name: Exclude<SiteIconName, "mail" | "search" | "asterisk">,
+): string {
+  const icon = renderSiteIcon(name, {
     weight: "bold",
-    className: "site-icon site-icon--bold",
+    className: "site-icon",
   });
-  const fill = renderSiteIcon(name, {
-    weight: "fill",
-    className: "site-icon site-icon--fill",
-  });
-  return `<span class="home-footer__social-icon" aria-hidden="true">${bold}${fill}</span>`;
+  return `<span class="home-footer__social-icon" aria-hidden="true">${icon}</span>`;
 }

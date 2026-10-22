@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Center, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -52,8 +52,6 @@ export function KrishInteractiveScene({
   const inViewRef = useRef(true);
   const animatingRef = useRef(true);
   const { camera, gl, size, invalidate } = useThree();
-  const [shadowY, setShadowY] = useState(-0.85);
-
   const tune = useMemo(() => getArtifactTune(kind), [kind]);
 
   const root = useMemo(() => {
@@ -179,8 +177,6 @@ export function KrishInteractiveScene({
       viewW: number;
       viewH: number;
     }) => {
-      setShadowY(info.shadowY);
-
       const shell = shellRef?.current;
       if (shell && camera instanceof THREE.PerspectiveCamera) {
         const shadowGroundY = info.meshBox.min.y - 0.008;
@@ -254,19 +250,6 @@ export function KrishInteractiveScene({
           </HeroCursorTilt>
         </Center>
       </HeroCameraFit>
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, shadowY, 0]}
-        renderOrder={-1}
-      >
-        <circleGeometry args={[kind === "computer" ? 5 : 7, 64]} />
-        <meshBasicMaterial
-          color="#1a1410"
-          transparent
-          opacity={0.34}
-          depthWrite={false}
-        />
-      </mesh>
     </>
   );
 }

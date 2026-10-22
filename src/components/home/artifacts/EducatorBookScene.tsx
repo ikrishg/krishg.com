@@ -3,7 +3,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { Center, useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
@@ -40,7 +39,6 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
   const fitAgainRef = useRef<(() => void) | null>(null);
   const appearanceReadyRef = useRef(false);
   const { camera, size, invalidate } = useThree();
-  const [shadowY, setShadowY] = useState(-1.2);
   const tune = getArtifactTune("book");
 
   const root = useMemo(() => {
@@ -99,7 +97,6 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
       viewW: number;
       viewH: number;
     }) => {
-      setShadowY(info.shadowY);
       const shell = shellRef?.current;
       if (!shell || !(camera instanceof THREE.PerspectiveCamera)) return;
 
@@ -173,19 +170,6 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
           </HeroCursorTilt>
         </Center>
       </HeroCameraFit>
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, shadowY, 0]}
-        renderOrder={-1}
-      >
-        <circleGeometry args={[6, 64]} />
-        <meshBasicMaterial
-          color="#1a1410"
-          transparent
-          opacity={0.34}
-          depthWrite={false}
-        />
-      </mesh>
     </>
   );
 }

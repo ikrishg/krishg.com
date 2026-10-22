@@ -14,7 +14,7 @@
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   --home-builder-bg: #398fd0;
-  --home-builder-fg: #fff9ec;
+  --home-builder-fg: #141a2b;
   --home-builder-muted: color-mix(in srgb, var(--home-builder-fg) 62%, var(--home-builder-bg));
   --home-creator-bg: #b94a3f;
   --home-creator-fg: #fff8ea;
@@ -108,6 +108,11 @@ body.site-body {
   overscroll-behavior-y: none;
 }
 
+::selection {
+  background-color: #141a2b;
+  color: #e7ddcc;
+}
+
 .home-scroll-clip {
   overflow: clip;
 }
@@ -127,8 +132,8 @@ body.site-body {
   z-index: 0;
   pointer-events: none;
   background-color: #0a1628;
-  background-size: contain;
-  background-position: center;
+  background-size: cover;
+  background-position: center top;
   background-repeat: no-repeat;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -251,7 +256,8 @@ body.site-body {
   }
 
   .home-footer__social-link:hover {
-    opacity: 0.72;
+    opacity: 0.82;
+    transform: translateY(-1px);
   }
 }
 
@@ -283,13 +289,13 @@ body.site-body {
 }
 
 .home-footer__social-list {
-  display: grid;
+  display: flex;
   width: min(33rem, 86vw);
   margin: 0 auto;
   list-style: none;
   padding: 0;
-  grid-template-columns: repeat(3, 1fr);
-  justify-items: center;
+  gap: clamp(1.5rem, 6vw, 3rem);
+  justify-content: center;
   align-items: center;
 }
 
@@ -301,7 +307,9 @@ body.site-body {
   justify-content: center;
   font-size: clamp(1.125rem, 1.25vw, 1.25rem);
   color: var(--home-closing-fg);
-  transition: opacity 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s var(--ease-out);
 }
 
 .home-footer__social-link:focus-visible {
@@ -311,7 +319,6 @@ body.site-body {
 }
 
 .home-footer__social-icon {
-  position: relative;
   display: inline-flex;
   width: 1.25em;
   height: 1.25em;
@@ -323,18 +330,6 @@ body.site-body {
   display: block;
   width: 1.25em;
   height: 1.25em;
-}
-
-.home-footer__social-icon .site-icon--fill {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-
-.home-footer__social-link:hover .site-icon--fill,
-.home-footer__social-link:focus-visible .site-icon--fill {
-  opacity: 1;
 }
 
 .home-navbar-search__icon {
