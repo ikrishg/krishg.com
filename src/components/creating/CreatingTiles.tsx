@@ -247,13 +247,6 @@ export function CreatingTiles({
       ref={meshRef}
       args={[geometry, undefined, visibleEntries.length]}
       frustumCulled={false}
-      onPointerMove={(e) => {
-        if (e.instanceId != null) {
-          const entry = visibleEntries[e.instanceId];
-          if (entry) useCreatingStore.getState().setHoveredId(entry.id);
-        }
-      }}
-      onPointerOut={() => useCreatingStore.getState().setHoveredId(null)}
     >
       <shaderMaterial
         ref={materialRef}

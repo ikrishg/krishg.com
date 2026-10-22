@@ -10,6 +10,7 @@
   --creating-ink: #141a2b;
   --creating-paper: #e7ddcc;
   --creating-red: #b94a3f;
+  --creating-on-canvas: #fff8ea;
   --creating-red-deep: #8f362e;
   --creating-red-soft: #d98a7f;
 }
@@ -139,6 +140,42 @@
   font-size: 0.75rem;
   opacity: 0.7;
   pointer-events: none;
+}
+
+.creating-page[data-phase="gallery"] .creating-header,
+.creating-page[data-phase="detail"] .creating-header {
+  color: var(--creating-on-canvas);
+}
+
+.creating-page[data-phase="gallery"] .creating-header__hint,
+.creating-page[data-phase="detail"] .creating-header__hint {
+  color: var(--creating-on-canvas);
+  opacity: 0.92;
+}
+
+.creating-page[data-phase="gallery"] .creating-view-btn,
+.creating-page[data-phase="detail"] .creating-view-btn {
+  border-color: color-mix(in srgb, var(--creating-on-canvas) 35%, transparent);
+  background: color-mix(in srgb, var(--creating-on-canvas) 92%, white);
+  color: var(--creating-ink);
+}
+
+.creating-page[data-phase="gallery"] .creating-view-btn[data-active="true"],
+.creating-page[data-phase="detail"] .creating-view-btn[data-active="true"] {
+  border-color: color-mix(in srgb, var(--creating-on-canvas) 55%, transparent);
+  background: var(--creating-red);
+  color: var(--creating-on-canvas);
+}
+
+.creating-page[data-phase="gallery"] .creating-filter-btn,
+.creating-page[data-phase="detail"] .creating-filter-btn {
+  border-color: color-mix(in srgb, var(--creating-on-canvas) 35%, transparent);
+  color: var(--creating-on-canvas);
+}
+
+.creating-page[data-phase="gallery"] .creating-filter-btn[data-active="true"],
+.creating-page[data-phase="detail"] .creating-filter-btn[data-active="true"] {
+  color: var(--creating-ink);
 }
 
 @media (width < 768px) {

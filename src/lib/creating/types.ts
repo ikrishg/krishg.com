@@ -53,4 +53,6 @@ export const CATEGORY_ACCENT: Record<CreatingCategory, string> = {
 };
 
 export const CREATING_PAPER = "#e7ddcc";
+export const CREATING_CANVAS = "#b94a3f";
 export const CREATING_INK = "#141a2b";
+export const CREATING_ON_CANVAS = "#fff8ea";

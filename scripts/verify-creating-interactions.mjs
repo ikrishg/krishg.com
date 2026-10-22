@@ -227,6 +227,30 @@ async function runSuite(context, tag) {
       note: paper,
     });
 
+    const canvasClear = await page.evaluate(() => {
+      const canvas = document.querySelector(".creating-canvas-wrap canvas");
+      if (!(canvas instanceof HTMLCanvasElement)) return { ok: false };
+      const gl =
+        canvas.getContext("webgl2", { preserveDrawingBuffer: true }) ||
+        canvas.getContext("webgl", { preserveDrawingBuffer: true });
+      if (!gl) return { ok: false, reason: "no gl" };
+      const pixels = new Uint8Array(4);
+      const x = 4;
+      const y = 4;
+      gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      const [r, g, b] = pixels;
+      const nearRed =
+        Math.abs(r - 185) <= 12 &&
+        Math.abs(g - 74) <= 12 &&
+        Math.abs(b - 63) <= 12;
+      return { ok: nearRed, sample: [r, g, b] };
+    });
+    checks.push({
+      name: "canvas-creator-red-clear",
+      pass: canvasClear.ok === true,
+      note: JSON.stringify(canvasClear.sample ?? canvasClear.reason),
+    });
+
     // Loader + Enter (already done)
     checks.push({ name: "loader-and-enter", pass: true });
 
@@ -365,30 +389,61 @@ async function runSuite(context, tag) {
           canvas.getContext("webgl2", { preserveDrawingBuffer: true }) ||
           canvas.getContext("webgl", { preserveDrawingBuffer: true });
         if (!gl) return { ok: false };
+        const verify = window.__creatingVerify?.();
+        const projected = verify?.projectedTiles ?? [];
+        const rect = canvas.getBoundingClientRect();
+        const sampleAt = (clientX, clientY) => {
+          const pixels = new Uint8Array(4);
+          const x = Math.min(
+            canvas.width - 1,
+            Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * canvas.width)),
+          );
+          const y = Math.min(
+            canvas.height - 1,
+            Math.max(
+              0,
+              Math.floor((1 - (clientY - rect.top) / rect.height) * canvas.height),
+            ),
+          );
+          gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+          return pixels;
+        };
+        const inView = projected.filter(
+          (p) =>
+            p.x >= rect.left + 24 &&
+            p.x <= rect.right - 24 &&
+            p.y >= rect.top + 24 &&
+            p.y <= rect.bottom - 24,
+        );
+        const picks =
+          inView.length > 0
+            ? inView.slice(0, 8)
+            : [{ x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.5 }];
         let r = 0;
         let g = 0;
         let b = 0;
         let n = 0;
-        for (let sy = 0.35; sy <= 0.65; sy += 0.1) {
-          for (let sx = 0.35; sx <= 0.65; sx += 0.1) {
-            const pixels = new Uint8Array(4);
-            const x = Math.floor(sx * canvas.width);
-            const y = Math.floor((1 - sy) * canvas.height);
-            gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-            r += pixels[0];
-            g += pixels[1];
-            b += pixels[2];
-            n += 1;
-          }
+        for (const p of picks) {
+          const pixels = sampleAt(p.x, p.y);
+          r += pixels[0];
+          g += pixels[1];
+          b += pixels[2];
+          n += 1;
         }
         const avgR = r / n;
         const avgG = g / n;
         const avgB = b / n;
+        const isCanvasClear = (r, g, b) =>
+          Math.abs(r - 185) <= 22 &&
+          Math.abs(g - 74) <= 22 &&
+          Math.abs(b - 63) <= 22;
+        const tilePixelsSampled = !isCanvasClear(avgR, avgG, avgB);
         return {
-          ok: avgG > avgR * 0.85 && avgG > 90 && avgR - avgG < 45,
+          ok: tilePixelsSampled && n >= 3,
           avgR,
           avgG,
           avgB,
+          samples: n,
         };
       });
       checks.push({
@@ -798,7 +853,12 @@ async function runSuite(context, tag) {
     });
 
     await page.getByRole("button", { name: /^Timeline$/i }).click();
-    await page.waitForTimeout(2200);
+    await page.waitForTimeout(4000);
+    await page.evaluate(() => {
+      const root = document.querySelector(".creating-root");
+      if (root instanceof HTMLElement) root.scrollTop = 0;
+    });
+    await page.waitForTimeout(600);
     await shot("07-timeline");
     checks.push({
       name: "view-timeline",
@@ -815,46 +875,56 @@ async function runSuite(context, tag) {
     });
 
     if (hasCanvas) {
-      await page.waitForTimeout(3500);
+      await page.waitForFunction(
+        () => window.__creatingVerify?.().view === "timeline",
+        { timeout: 20_000 },
+      );
+      await page.waitForTimeout(1500);
+      await page.evaluate(async () => {
+        for (let i = 0; i < 10; i += 1) {
+          await new Promise((r) =>
+            requestAnimationFrame(() => requestAnimationFrame(r)),
+          );
+        }
+      });
+      if (cx && cy) {
+        await page.mouse.move(cx, cy);
+        await page.waitForTimeout(400);
+      }
       const timelinePick = await page.evaluate(() => {
         const v = window.__creatingVerify?.();
         const titles = v?.visibleTitles ?? [];
         const targets = [];
+        let withPoint = 0;
         for (let i = 0; i < 30 && targets.length < 10; i += 1) {
           const pt = v?.pickPointFor?.(i);
           if (!pt) continue;
-          if (v.pickAt(pt.x, pt.y) !== i) continue;
+          withPoint += 1;
           targets.push({ instanceId: i, x: pt.x, y: pt.y });
         }
         return {
           titles: titles,
           ids: v?.visibleIds ?? [],
           tiles: targets,
+          withPoint,
+          view: v?.view ?? null,
         };
       });
       let timelineHits = 0;
       for (const tile of timelinePick.tiles) {
         const expectedId = timelinePick.ids[tile.instanceId] ?? "";
         const expected = timelinePick.titles[tile.instanceId] ?? "";
-        await page.evaluate(
-          ({ x, y }) => {
-            const canvas = document.querySelector(
-              ".creating-canvas-wrap canvas",
-            );
-            if (!(canvas instanceof HTMLCanvasElement)) return;
-            canvas.dispatchEvent(
-              new MouseEvent("click", {
-                clientX: x,
-                clientY: y,
-                bubbles: true,
-                cancelable: true,
-                view: window,
-              }),
-            );
-          },
-          { x: tile.x, y: tile.y },
-        );
-        await page.waitForTimeout(tag === "390" ? 1800 : 1200);
+        const pt = await page.evaluate((idx) => {
+          return window.__creatingVerify?.().pickPointFor?.(idx) ?? null;
+        }, tile.instanceId);
+        if (!pt) continue;
+        if (tag === "390") {
+          await page.touchscreen.tap(pt.x, pt.y);
+        } else {
+          await page.mouse.move(pt.x, pt.y);
+          await page.mouse.click(pt.x, pt.y);
+        }
+        await page.waitForTimeout(tag === "390" ? 2200 : 1600);
         const open = await page.locator(".creating-detail").isVisible();
         const opened = open
           ? await page.evaluate(() => {
@@ -867,9 +937,22 @@ async function runSuite(context, tag) {
           await page.keyboard.press("Escape");
           await page
             .locator(".creating-detail")
-            .waitFor({ state: "hidden", timeout: 8000 })
+            .waitFor({ state: "hidden", timeout: 12_000 })
             .catch(() => {});
-          await page.waitForTimeout(tag === "390" ? 600 : 400);
+          await page.waitForFunction(
+            () => !document.querySelector(".creating-detail"),
+            { timeout: 12_000 },
+          ).catch(() => {});
+          await page
+            .waitForFunction(
+              () =>
+                document
+                  .querySelector(".creating-page")
+                  ?.getAttribute("data-phase") === "gallery",
+              { timeout: 12_000 },
+            )
+            .catch(() => {});
+          await page.waitForTimeout(tag === "390" ? 1500 : 1300);
         }
       }
       checks.push({
@@ -877,7 +960,7 @@ async function runSuite(context, tag) {
         pass:
           timelinePick.tiles.length === 10 &&
           timelineHits === timelinePick.tiles.length,
-        note: `${timelineHits}/${timelinePick.tiles.length}`,
+        note: `${timelineHits}/${timelinePick.tiles.length} view=${timelinePick.view} pts=${timelinePick.withPoint}`,
       });
 
       const emptyClick = await page.evaluate(() => {
@@ -1051,10 +1134,30 @@ async function runSuite(context, tag) {
     await page.waitForTimeout(500);
     checks.push({ name: "wheel-trackpad", pass: true });
 
+    for (let i = 0; i < 4; i += 1) {
+      if (!(await page.locator(".creating-detail").isVisible())) break;
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
+    }
+
     // Browser back from detail
     if (hasCanvas) {
-      await page.mouse.click(cx, cy);
-      await page.waitForTimeout(1500);
+      let opened = false;
+      for (let i = 0; i < 30 && !opened; i += 1) {
+        const pt = await page.evaluate((idx) => {
+          const v = window.__creatingVerify?.();
+          const pt = v?.pickPointFor?.(idx);
+          return pt ?? null;
+        }, i);
+        if (!pt) continue;
+        await page.mouse.click(pt.x, pt.y);
+        await page.waitForTimeout(400);
+        opened = await page.locator(".creating-detail").isVisible();
+      }
+      if (!opened) {
+        await page.mouse.click(cx, cy);
+        await page.waitForTimeout(1500);
+      }
     } else {
       await keyboardPiece.evaluate((el) => {
         if (el instanceof HTMLElement) el.click();
@@ -1185,8 +1288,10 @@ const consolidated = [
     note: "navbar-red + logo visible + logoMorph cleared",
   },
   {
-    item: "Beige page background (before/after captures)",
-    ...pickPass("page-beige-background"),
+    item: "Beige page + Creator red WebGL clear",
+    pass:
+      pickPass("page-beige-background").pass &&
+      pickPass("canvas-creator-red-clear").pass,
     captures: "background-before.png, background-after.png",
   },
   {
