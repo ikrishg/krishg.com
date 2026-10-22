@@ -38,12 +38,6 @@ export const siteSearchEntries: SiteSearchEntry[] = [
     keywords: ["now", "current"],
   },
   {
-    id: "resume",
-    title: "résumé",
-    href: "/resume",
-    keywords: ["resume", "résumé", "cv"],
-  },
-  {
     id: "sitemap",
     title: "sitemap",
     href: "/sitemap",

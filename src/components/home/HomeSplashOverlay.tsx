@@ -1,35 +1,34 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
 import {
   closingSplashHex,
+  closingSplashInkHex,
   type ClosingSplashKey,
 } from "./home-closing";
-import { HOME_SPLASH_MASK_IMAGE } from "./home-splash-mask";
+import { HOME_SPLASH_PATH, splashBlobDiameter } from "./home-splash-mask";
 
-type Origin = { x: number; y: number };
+type PixelOrigin = { x: number; y: number };
 
 type SplashLayer = {
   id: number;
   key: ClosingSplashKey;
   color: string;
-  origin: Origin;
-  phase: "grow" | "full" | "shrink";
-  maskExpanded: boolean;
+  origin: PixelOrigin;
+  diameter: number;
+  phase: "grow" | "full" | "fade";
 };
 
-const CLEAR_DELAY_MS = 250;
-const COLOR_FADE_MS = 320;
-const THROTTLE_MS = 350;
-const GROW_MS = 580;
-const SHRINK_MS = 480;
-const FULL_MASK_SIZE = "420vmax";
-const EDUCATING_WASH_EDGE = "inset 0 0 0 6px rgba(20, 26, 43, 0.3)";
+const CLEAR_DELAY_MS = 120;
+const GROW_MS = 520;
+const FADE_MS = 260;
+const INK_DELAY_MS = 208;
+const REDUCED_FADE_MS = 150;
 
 let layerId = 0;
 
@@ -38,64 +37,115 @@ function nextLayerId() {
   return layerId;
 }
 
-function maskLayerStyle(
-  layer: SplashLayer,
-  reducedMotion: boolean,
-): CSSProperties {
-  const atOrigin = `${layer.origin.x * 100}% ${layer.origin.y * 100}%`;
-  if (reducedMotion) {
-    const visible = layer.phase !== "shrink";
-    return {
-      backgroundColor: layer.color,
-      opacity: visible ? 1 : 0,
-      transition: `opacity ${COLOR_FADE_MS}ms ease`,
-    };
-  }
+function SplashGrowSvg({
+  layer,
+  onFull,
+}: {
+  layer: SplashLayer;
+  onFull: (id: number) => void;
+}) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const { origin, diameter, color, id } = layer;
 
-  if (layer.phase === "shrink") {
-    return {
-      backgroundColor: layer.color,
-      opacity: 0,
-      transition: `opacity ${SHRINK_MS}ms ease`,
-    };
-  }
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    svg.style.transform = "scale(0.02)";
+    const anim = svg.animate(
+      [{ transform: "scale(0.02)" }, { transform: "scale(1)" }],
+      {
+        duration: GROW_MS,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
+      },
+    );
+    void anim.finished.then(() => onFull(id));
+    return () => anim.cancel();
+  }, [id, onFull]);
 
-  if (layer.phase === "full") {
-    return {
-      backgroundColor: layer.color,
-    };
-  }
+  const half = diameter / 2;
+  return (
+    <svg
+      ref={svgRef}
+      viewBox="-100 -100 200 200"
+      width={diameter}
+      height={diameter}
+      className="absolute"
+      style={{
+        left: origin.x - half,
+        top: origin.y - half,
+        transformOrigin: "50% 50%",
+        willChange: "transform",
+      }}
+      aria-hidden="true"
+    >
+      <path d={HOME_SPLASH_PATH} fill={color} />
+    </svg>
+  );
+}
 
-  const maskSize = layer.maskExpanded ? FULL_MASK_SIZE : "2vmax";
-  const transition = `mask-size ${GROW_MS}ms cubic-bezier(0.23, 1, 0.32, 1), -webkit-mask-size ${GROW_MS}ms cubic-bezier(0.23, 1, 0.32, 1)`;
+function SplashReducedLayer({
+  layer,
+  onFull,
+}: {
+  layer: SplashLayer;
+  onFull: (id: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
 
-  return {
-    backgroundColor: layer.color,
-    maskImage: HOME_SPLASH_MASK_IMAGE,
-    WebkitMaskImage: HOME_SPLASH_MASK_IMAGE,
-    maskRepeat: "no-repeat",
-    maskPosition: atOrigin,
-    WebkitMaskPosition: atOrigin,
-    maskSize,
-    WebkitMaskSize: maskSize,
-    transition,
-  };
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    node.style.opacity = "0";
+    const anim = node.animate([{ opacity: 0 }, { opacity: 1 }], {
+      duration: REDUCED_FADE_MS,
+      easing: "ease-out",
+      fill: "forwards",
+    });
+    void anim.finished.then(() => onFull(layer.id));
+    return () => anim.cancel();
+  }, [layer.id, onFull]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute inset-0"
+      style={{ backgroundColor: layer.color }}
+      data-splash-layer={layer.key}
+    />
+  );
+}
+
+function SplashFadeLayer({ layer }: { layer: SplashLayer }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const anim = node.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: FADE_MS,
+      easing: "ease-out",
+      fill: "forwards",
+    });
+    return () => anim.cancel();
+  }, [layer.id]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute inset-0"
+      style={{ backgroundColor: layer.color }}
+      data-splash-layer={layer.key}
+    />
+  );
 }
 
 export default function HomeSplashOverlay() {
   const [layers, setLayers] = useState<SplashLayer[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [topKey, setTopKey] = useState<ClosingSplashKey | null>(null);
 
-  const lastChangeRef = useRef(0);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingKeyRef = useRef<{
-    key: ClosingSplashKey;
-    origin?: Origin;
-  } | null>(null);
-  const growTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
-    new Map(),
-  );
+  const inkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const syncHtmlSplash = useCallback((key: ClosingSplashKey | null) => {
     const root = document.documentElement;
@@ -104,50 +154,78 @@ export default function HomeSplashOverlay() {
     } else {
       delete root.dataset.homeSplash;
     }
-    setTopKey(key);
   }, []);
+
+  const clearInkTimer = useCallback(() => {
+    if (inkTimerRef.current) {
+      clearTimeout(inkTimerRef.current);
+      inkTimerRef.current = null;
+    }
+  }, []);
+
+  const resetInk = useCallback(() => {
+    clearInkTimer();
+    document.documentElement.style.removeProperty("--home-closing-ink");
+  }, [clearInkTimer]);
+
+  const scheduleInk = useCallback(
+    (key: ClosingSplashKey) => {
+      clearInkTimer();
+      const ink = closingSplashInkHex[key];
+      if (reducedMotion) {
+        document.documentElement.style.setProperty("--home-closing-ink", ink);
+        return;
+      }
+      inkTimerRef.current = setTimeout(() => {
+        document.documentElement.style.setProperty("--home-closing-ink", ink);
+      }, INK_DELAY_MS);
+    },
+    [clearInkTimer, reducedMotion],
+  );
 
   const clearTimers = useCallback(() => {
     if (clearTimerRef.current) {
       clearTimeout(clearTimerRef.current);
       clearTimerRef.current = null;
     }
-    for (const timer of growTimersRef.current.values()) {
-      clearTimeout(timer);
-    }
-    growTimersRef.current.clear();
+    clearInkTimer();
+  }, [clearInkTimer]);
+
+  const markFull = useCallback((id: number) => {
+    setLayers((prev) => {
+      const target = prev.find((layer) => layer.id === id);
+      if (!target) return prev;
+      return [{ ...target, phase: "full" as const }];
+    });
   }, []);
 
-  const removeLayer = useCallback((id: number) => {
-    setLayers((prev) => prev.filter((layer) => layer.id !== id));
-    const timer = growTimersRef.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      growTimersRef.current.delete(id);
-    }
-  }, []);
-
-  const beginShrinkAll = useCallback(() => {
+  const beginFadeOut = useCallback(() => {
     clearTimers();
+    resetInk();
     setLayers((prev) => {
       if (!prev.length) {
         syncHtmlSplash(null);
         return prev;
       }
-      return prev.map((layer) => ({ ...layer, phase: "shrink" as const }));
+      const top = prev[prev.length - 1];
+      if (top.phase === "fade") return prev;
+      const solid =
+        top.phase === "full"
+          ? top
+          : { ...top, phase: "full" as const };
+      return [{ ...solid, phase: "fade" as const }];
     });
 
-    const delay = reducedMotion ? COLOR_FADE_MS : SHRINK_MS;
     window.setTimeout(() => {
       setLayers([]);
       syncHtmlSplash(null);
-    }, delay);
-  }, [clearTimers, reducedMotion, syncHtmlSplash]);
+    }, reducedMotion ? REDUCED_FADE_MS : FADE_MS);
+  }, [clearTimers, reducedMotion, resetInk, syncHtmlSplash]);
 
   const scheduleClear = useCallback(() => {
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
-    clearTimerRef.current = setTimeout(() => beginShrinkAll(), CLEAR_DELAY_MS);
-  }, [beginShrinkAll]);
+    clearTimerRef.current = setTimeout(() => beginFadeOut(), CLEAR_DELAY_MS);
+  }, [beginFadeOut]);
 
   const cancelClear = useCallback(() => {
     if (clearTimerRef.current) {
@@ -157,54 +235,42 @@ export default function HomeSplashOverlay() {
   }, []);
 
   const pushLayer = useCallback(
-    (key: ClosingSplashKey, origin: Origin) => {
+    (key: ClosingSplashKey, origin: PixelOrigin) => {
       cancelClear();
+      clearInkTimer();
+      document.documentElement.style.removeProperty("--home-closing-ink");
+
       const id = nextLayerId();
       const color = closingSplashHex[key];
+      const diameter = splashBlobDiameter(origin.x, origin.y);
       const layer: SplashLayer = {
         id,
         key,
         color,
         origin,
-        phase: reducedMotion ? "full" : "grow",
-        maskExpanded: Boolean(reducedMotion),
+        diameter,
+        phase: reducedMotion ? "grow" : "grow",
       };
-      setLayers((prev) => [...prev, layer]);
+
+      setLayers((prev) => {
+        const base = prev.length ? [prev[prev.length - 1]] : [];
+        return [...base, layer].slice(-2);
+      });
       syncHtmlSplash(key);
-      lastChangeRef.current = performance.now();
-      if (!reducedMotion) {
-        requestAnimationFrame(() => {
-          setLayers((prev) =>
-            prev.map((item) =>
-              item.id === id ? { ...item, maskExpanded: true } : item,
-            ),
-          );
-        });
-      }
+      scheduleInk(key);
     },
-    [cancelClear, reducedMotion, syncHtmlSplash],
+    [cancelClear, clearInkTimer, reducedMotion, scheduleInk, syncHtmlSplash],
   );
 
   const activate = useCallback(
-    (key: ClosingSplashKey, nextOrigin?: Origin) => {
-      const origin = nextOrigin ?? { x: 0.5, y: 0.5 };
-      const now = performance.now();
-      const elapsed = now - lastChangeRef.current;
-      if (topKey && topKey !== key && elapsed < THROTTLE_MS && layers.length) {
-        pendingKeyRef.current = { key, origin };
-        window.setTimeout(() => {
-          const pending = pendingKeyRef.current;
-          if (pending?.key === key) {
-            pendingKeyRef.current = null;
-            pushLayer(key, pending.origin ?? origin);
-          }
-        }, THROTTLE_MS - elapsed);
-        return;
-      }
-      pendingKeyRef.current = null;
+    (key: ClosingSplashKey, nextOrigin?: PixelOrigin) => {
+      const origin = nextOrigin ?? {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      };
       pushLayer(key, origin);
     },
-    [layers.length, pushLayer, topKey],
+    [pushLayer],
   );
 
   useEffect(() => {
@@ -219,13 +285,13 @@ export default function HomeSplashOverlay() {
     const onActivate = (event: Event) => {
       const detail = (event as CustomEvent<{
         key: ClosingSplashKey;
-        origin?: Origin;
+        origin?: PixelOrigin;
       }>).detail;
       if (!detail?.key) return;
       activate(detail.key, detail.origin);
     };
 
-    const onImmediateClear = () => beginShrinkAll();
+    const onImmediateClear = () => beginFadeOut();
 
     window.addEventListener("home-splash:activate", onActivate);
     window.addEventListener("home-splash:schedule-clear", scheduleClear);
@@ -237,14 +303,18 @@ export default function HomeSplashOverlay() {
       window.removeEventListener("home-splash:cancel-clear", cancelClear);
       window.removeEventListener("home-splash:immediate-clear", onImmediateClear);
       clearTimers();
+      resetInk();
     };
-  }, [activate, scheduleClear, cancelClear, clearTimers, beginShrinkAll]);
+  }, [
+    activate,
+    scheduleClear,
+    cancelClear,
+    clearTimers,
+    beginFadeOut,
+    resetInk,
+  ]);
 
   const isVisible = layers.length > 0;
-  const showEducatingEdge =
-    topKey === "educating" &&
-    layers.some((layer) => layer.phase === "full" || reducedMotion);
-
   const [portal, setPortal] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -259,45 +329,37 @@ export default function HomeSplashOverlay() {
 
   const tree = (
     <div
-      className="home-splash-overlay pointer-events-none fixed inset-0 z-[39]"
+      className="home-splash-overlay pointer-events-none fixed inset-0 z-[45]"
       aria-hidden="true"
       data-active={isVisible ? "true" : "false"}
     >
-      {layers.map((layer) => (
-        <div
-          key={layer.id}
-          className="absolute inset-0"
-          data-splash-layer={layer.key}
-          style={maskLayerStyle(layer, reducedMotion)}
-          onTransitionEnd={(event) => {
-            if (layer.phase === "grow") {
-              if (
-                event.propertyName === "mask-size" ||
-                event.propertyName === "-webkit-mask-size"
-              ) {
-                setLayers((prev) =>
-                  prev.map((item) =>
-                    item.id === layer.id ? { ...item, phase: "full" } : item,
-                  ),
-                );
-              }
-              return;
-            }
-            if (
-              layer.phase === "shrink" &&
-              event.propertyName === "opacity"
-            ) {
-              removeLayer(layer.id);
-            }
-          }}
-        />
-      ))}
-      {showEducatingEdge ? (
-        <div
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{ boxShadow: EDUCATING_WASH_EDGE }}
-        />
-      ) : null}
+      {layers.map((layer) => {
+        if (layer.phase === "fade") {
+          return <SplashFadeLayer key={layer.id} layer={layer} />;
+        }
+        if (layer.phase === "full") {
+          return (
+            <div
+              key={layer.id}
+              className="absolute inset-0"
+              data-splash-layer={layer.key}
+              style={{ backgroundColor: layer.color }}
+            />
+          );
+        }
+        if (reducedMotion) {
+          return (
+            <SplashReducedLayer
+              key={layer.id}
+              layer={layer}
+              onFull={markFull}
+            />
+          );
+        }
+        return (
+          <SplashGrowSvg key={layer.id} layer={layer} onFull={markFull} />
+        );
+      })}
     </div>
   );
 
@@ -311,8 +373,8 @@ export function dispatchSplashActivate(
 ) {
   const rect = element.getBoundingClientRect();
   const origin = {
-    x: (rect.left + rect.width / 2) / window.innerWidth,
-    y: (rect.top + rect.height / 2) / window.innerHeight,
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
   };
   window.dispatchEvent(
     new CustomEvent("home-splash:activate", {

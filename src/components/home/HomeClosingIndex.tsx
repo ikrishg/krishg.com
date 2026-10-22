@@ -1,3 +1,4 @@
+import { IconAsterisk } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import HomeClosingLink from "./HomeClosingLink";
 import {
@@ -26,18 +27,18 @@ function useClosingLayout() {
 function StarSeparator() {
   return (
     <span
-      className="home-closing-star relative z-[40] select-none px-[0.45em] text-[1.35em] font-bold leading-none"
+      className="home-closing-star inline-flex translate-y-[0.08em] select-none px-[clamp(1rem,3.6vw,3.5rem)]"
       style={{ color: "var(--home-closing-ink, var(--home-closing-fg))" }}
       aria-hidden="true"
     >
-      ✱
+      <IconAsterisk size={32} stroke={2.5} aria-hidden />
     </span>
   );
 }
 
 function NavRow() {
   return (
-    <p className="home-closing-nav-row relative z-[40] m-0 flex flex-wrap items-center justify-center gap-y-1 text-center">
+    <p className="home-closing-nav-row m-0 flex flex-wrap items-center justify-center gap-y-1 text-center">
       {closingNavRow.map((link, index) => (
         <span key={link.key} className="inline-flex items-center">
           {index > 0 ? <StarSeparator /> : null}
@@ -50,7 +51,7 @@ function NavRow() {
 
 function PrimaryRow() {
   return (
-    <div className="home-closing-primary-row relative z-[40] flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-4 md:flex-row md:gap-[clamp(1.5rem,6vw,5rem)]">
+    <div className="home-closing-primary-row flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-4 md:flex-row md:gap-[clamp(2rem,9vw,9rem)]">
       {closingBandRow.map((link) => (
         <HomeClosingLink key={link.key} link={link} variant="primary" />
       ))}
@@ -60,7 +61,7 @@ function PrimaryRow() {
 
 function MobileStack() {
   return (
-    <div className="home-closing-mobile relative z-[40] flex w-full flex-col">
+    <div className="home-closing-mobile relative z-[46] flex w-full flex-col">
       {closingMobileLinks.map((link) => (
         <HomeClosingLink key={link.key} link={link} variant="mobile-block" />
       ))}
@@ -70,11 +71,11 @@ function MobileStack() {
 
 function DesktopIndex() {
   return (
-    <div className="home-closing-desktop relative z-[40] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
+    <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
       <div className="home-closing-index__primary flex flex-1 flex-col items-center justify-center py-8 md:py-12">
         <PrimaryRow />
       </div>
-      <div className="home-closing-index__nav pb-6 pt-2 md:pb-8">
+      <div className="home-closing-index__nav pb-[max(1.5rem,5svh)] pt-2">
         <NavRow />
       </div>
     </div>
@@ -94,7 +95,6 @@ export default function HomeClosingIndex() {
       const next = event.relatedTarget as Node | null;
       if (next && section.contains(next)) return;
       dispatchSplashScheduleClear();
-      document.documentElement.style.removeProperty("--home-closing-ink");
     };
 
     section.addEventListener("pointerleave", onLeave);
@@ -144,8 +144,8 @@ export default function HomeClosingIndex() {
     <section
       ref={sectionRef}
       id="home-closing-index"
-      data-home-nav-theme={mobileStack ? "building" : "closing"}
-      className="home-closing-index relative z-[40] snap-start text-[var(--home-closing-fg)] max-md:px-0 md:px-[var(--gutter)]"
+      data-home-nav-theme={mobileStack ? "builder" : "closing"}
+      className="home-closing-index snap-start text-[var(--home-closing-fg)] max-md:px-0 md:px-[var(--gutter)]"
       aria-label="Site index"
     >
       {mobileStack ? <MobileStack /> : <DesktopIndex />}

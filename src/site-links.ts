@@ -1,7 +1,5 @@
 import { socials } from "~shared";
 
-export const resumeHref = "/resume";
-
 export const contactEmail = "send@krishg.com";
 
 export type FooterSocial = {
