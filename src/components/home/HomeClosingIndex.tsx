@@ -122,6 +122,7 @@ export default function HomeClosingIndex() {
     const root = document.documentElement;
     const observer = new IntersectionObserver(
       ([entry]) => {
+        if (!entry) return;
         if (entry.isIntersecting) {
           root.dataset.homePastBands = "true";
           if (mobileStack) {

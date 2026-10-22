@@ -72,6 +72,9 @@ export default function HomeOverscrollPainting() {
 
     const root = document.documentElement;
 
+    let lastOpacity = "";
+    let lastVisible = "";
+
     const sync = () => {
       const pull = getOverscrollPull();
       const revealVar = getOverscrollRevealProgress();
@@ -82,11 +85,16 @@ export default function HomeOverscrollPainting() {
       const artOpacity = reveal
         ? Math.min(1, revealVar > 0 ? revealVar : pull > 24 ? 1 : pull / 24)
         : 0;
-      root.style.setProperty(
-        "--home-overscroll-art-opacity",
-        artOpacity.toFixed(3),
-      );
-      layer.dataset.visible = reveal ? "true" : "false";
+      const opacityCss = artOpacity.toFixed(3);
+      if (opacityCss !== lastOpacity) {
+        lastOpacity = opacityCss;
+        root.style.setProperty("--home-overscroll-art-opacity", opacityCss);
+      }
+      const visible = reveal ? "true" : "false";
+      if (visible !== lastVisible) {
+        lastVisible = visible;
+        layer.dataset.visible = visible;
+      }
     };
 
     sync();

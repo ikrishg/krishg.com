@@ -17,6 +17,9 @@ let reducedMotionSpring = false;
 let surfacePullingDataset: "true" | "false" | null = null;
 let rootPullingDataset: "true" | "false" | null = null;
 let rootRevealDataset: "true" | undefined;
+let overscrollAccentApplied = false;
+let lastPullCss: string | null = null;
+let lastRevealCss: string | null = null;
 
 export function bindOverscrollSurface(el: HTMLElement | null) {
   surfaceEl = el;
@@ -81,8 +84,12 @@ function applyPullVisual(value: number) {
   if (!surface) return;
 
   if (value <= 0.35) {
-    root.style.removeProperty("--home-overscroll-pull");
+    if (lastPullCss !== null) {
+      root.style.removeProperty("--home-overscroll-pull");
+      lastPullCss = null;
+    }
     surface.style.removeProperty("transform");
+    overscrollAccentApplied = false;
     if (surfacePullingDataset !== "false") {
       surface.dataset.overscrollPulling = "false";
       surfacePullingDataset = "false";
@@ -95,12 +102,19 @@ function applyPullVisual(value: number) {
       delete root.dataset.overscrollPulling;
       rootPullingDataset = "false";
     }
-    root.style.setProperty("--home-overscroll-reveal", "0");
+    if (lastRevealCss !== "0") {
+      root.style.setProperty("--home-overscroll-reveal", "0");
+      lastRevealCss = "0";
+    }
     splashClearedForPull = false;
     return;
   }
 
-  root.style.setProperty("--home-overscroll-pull", `${value.toFixed(2)}px`);
+  const pullCss = `${value.toFixed(2)}px`;
+  if (pullCss !== lastPullCss) {
+    root.style.setProperty("--home-overscroll-pull", pullCss);
+    lastPullCss = pullCss;
+  }
   surface.style.transform = `translate3d(0, ${-value}px, 0)`;
   if (surfacePullingDataset !== "true") {
     surface.dataset.overscrollPulling = "true";
@@ -110,7 +124,10 @@ function applyPullVisual(value: number) {
     root.dataset.overscrollPulling = "true";
     rootPullingDataset = "true";
   }
-  setPageAccent("closing");
+  if (!overscrollAccentApplied) {
+    overscrollAccentApplied = true;
+    setPageAccent("closing");
+  }
 
   if (value > SPLASH_CLEAR_PULL && !splashClearedForPull) {
     splashClearedForPull = true;
@@ -118,7 +135,11 @@ function applyPullVisual(value: number) {
   }
 
   const reveal = value > PAINT_VISIBLE_PULL ? 1 : value / PAINT_VISIBLE_PULL;
-  root.style.setProperty("--home-overscroll-reveal", reveal.toFixed(3));
+  const revealCss = reveal.toFixed(3);
+  if (revealCss !== lastRevealCss) {
+    root.style.setProperty("--home-overscroll-reveal", revealCss);
+    lastRevealCss = revealCss;
+  }
   if (value > PAINT_VISIBLE_PULL) {
     if (rootRevealDataset !== "true") {
       root.dataset.overscrollReveal = "true";
@@ -200,6 +221,9 @@ export function resetOverscrollEngine() {
   surfacePullingDataset = null;
   rootPullingDataset = null;
   rootRevealDataset = undefined;
+  overscrollAccentApplied = false;
+  lastPullCss = null;
+  lastRevealCss = null;
   applyPullVisual(0);
 }
 

@@ -18,7 +18,9 @@ function bandIndex(bandId: string): number {
 function priorBandsOffsetHeight(bandIndex: number): number {
   let sum = 0;
   for (let j = 0; j < bandIndex; j++) {
-    const band = document.getElementById(HOME_BAND_IDS[j]);
+    const bandId = HOME_BAND_IDS[j];
+    if (!bandId) continue;
+    const band = document.getElementById(bandId);
     if (band) sum += band.offsetHeight;
   }
   return sum;

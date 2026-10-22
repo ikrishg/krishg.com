@@ -65,7 +65,7 @@ function LenisRoot({
 
   return (
     <>
-      <ReactLenis ref={lenisRef} root options={options} />
+      <ReactLenis ref={lenisRef} root options={options!} />
       <LenisTempusRaf lenisRef={lenisRef} />
       <LenisInstanceSync />
     </>

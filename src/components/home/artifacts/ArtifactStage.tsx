@@ -76,6 +76,7 @@ export function ArtifactStage({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
+        if (!entry) return;
         inViewRef.current = entry.isIntersecting;
         if (entry.isIntersecting) {
           dirtyRef.current = true;
@@ -99,11 +100,13 @@ export function ArtifactStage({
       aria-label={ariaLabel}
     >
       <ArtifactShellContext.Provider value={shellRef}>
-        <div
-          className="artifact-stage__canvas relative z-[1] h-full min-h-48 w-full flex-1 touch-pan-y outline-none md:min-h-[var(--artifact-canvas-height,32rem)] md:h-[var(--artifact-canvas-height,32rem)]"
-        >
-          <Canvas
+        <div className="artifact-stage__parallax relative z-[1] flex h-full min-h-48 w-full flex-1 touch-pan-y">
+          <div
+            className="artifact-stage__canvas relative h-full min-h-48 w-full flex-1 touch-pan-y outline-none md:min-h-[var(--artifact-canvas-height,32rem)] md:h-[var(--artifact-canvas-height,32rem)]"
+          >
+            <Canvas
             frameloop="demand"
+            resize={{ scroll: false }}
             camera={{
               position: [0, 0.2, 6],
               fov: cameraFov,
@@ -146,6 +149,7 @@ export function ArtifactStage({
             <HeroSceneLights accent={accent} />
             <Suspense fallback={null}>{children}</Suspense>
           </Canvas>
+          </div>
         </div>
       </ArtifactShellContext.Provider>
     </div>

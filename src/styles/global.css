@@ -583,7 +583,7 @@ html[data-overscroll-reveal="true"] [data-home-scroll-band] .hero-band-paint {
     transform: translate3d(0, var(--band-parallax, 0px), 0) scale(1.015);
   }
 
-  html[data-motion-enhance] [data-home-scroll-band] .artifact-stage {
+  html[data-motion-enhance] [data-home-scroll-band] .artifact-stage__parallax {
     transform: translate3d(0, var(--artifact-parallax, 0px), 0);
   }
 

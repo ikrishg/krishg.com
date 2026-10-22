@@ -105,7 +105,6 @@ export function HeroCameraFit({
     for (let pass = 0; pass < 40; pass++) {
       const mid = (lo + hi) / 2;
       applyCameraFit(camera, solved.center, mid, dir.current);
-      const meshH = screenMeshHeightPx(camera, meshBox, fitW, fitH);
       const clear = minClearancePx(
         camera,
         zoomClearanceBoxes,
@@ -131,16 +130,6 @@ export function HeroCameraFit({
         applyCameraFit(camera, solved.center, solved.distance, dir.current);
         const meshH = screenMeshHeightPx(camera, meshBox, fitW, fitH);
         if (Math.abs(meshH - targetMesh) <= 1.5) break;
-        const clear = minClearancePx(
-          camera,
-          clearanceBoxes,
-          solved.center,
-          solved.distance,
-          dir.current,
-          fitW,
-          fitH,
-          0,
-        );
         if (meshH > targetMesh + 1.5) {
           solved.distance *= 1.012;
         } else if (meshH < targetMesh - 1.5) {

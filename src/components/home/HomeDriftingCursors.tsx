@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+
+declare global {
+  interface Window {
+    __driftCursorRafFrames?: number;
+  }
+}
 
 type CursorTheme = {
   color: string;
@@ -89,7 +95,7 @@ function beginSegment(
   w: number,
   h: number,
   pad: number,
-): DriftCursor {
+): void {
   const target = pickTarget(w, h, pad);
   const { ctrlX, ctrlY } = pickControl(
     cursor.x,
@@ -101,17 +107,34 @@ function beginSegment(
   );
   const distance = Math.hypot(target.x - cursor.x, target.y - cursor.y);
   const duration = randomBetween(2.8, 5.6) + distance / Math.max(w, h) * 2.2;
-  return {
-    ...cursor,
-    fromX: cursor.x,
-    fromY: cursor.y,
-    toX: target.x,
-    toY: target.y,
-    ctrlX,
-    ctrlY,
-    progress: 0,
-    duration,
-    pauseLeft: 0,
+  cursor.fromX = cursor.x;
+  cursor.fromY = cursor.y;
+  cursor.toX = target.x;
+  cursor.toY = target.y;
+  cursor.ctrlX = ctrlX;
+  cursor.ctrlY = ctrlY;
+  cursor.progress = 0;
+  cursor.duration = duration;
+  cursor.pauseLeft = 0;
+}
+
+function driftingCursorsMotionEnabled() {
+  if (typeof window === "undefined") return false;
+  return (
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches
+  );
+}
+
+function subscribeDriftingCursorsMotion(onChange: () => void) {
+  const mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const mqFine = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const notify = () => onChange();
+  mqReduce.addEventListener("change", notify);
+  mqFine.addEventListener("change", notify);
+  return () => {
+    mqReduce.removeEventListener("change", notify);
+    mqFine.removeEventListener("change", notify);
   };
 }
 
@@ -137,7 +160,8 @@ function seedCursors(w: number, h: number): DriftCursor[] {
       duration: 1,
       pauseLeft: randomBetween(0.2, 1.4),
     };
-    return beginSegment(base, w, h, pad);
+    beginSegment(base, w, h, pad);
+    return base;
   });
 }
 
@@ -195,14 +219,19 @@ type Props = {
 };
 
 export default function HomeDriftingCursors({ className }: Props) {
+  const motionEnabled = useSyncExternalStore(
+    subscribeDriftingCursorsMotion,
+    driftingCursorsMotionEnabled,
+    () => false,
+  );
+
   const rootRef = useRef<HTMLDivElement>(null);
   const cursorElRefs = useRef<(HTMLDivElement | null)[]>([]);
   const inViewRef = useRef(false);
-  const reducedMotionRef = useRef(false);
-  const finePointerRef = useRef(false);
-  const activeRef = useRef(false);
   const sizeRef = useRef({ w: 1, h: 1 });
   const cursorsRef = useRef<DriftCursor[]>([]);
+  const rafRef = useRef(0);
+  const lastFrameMsRef = useRef(0);
 
   const rootClassName = useMemo(
     () =>
@@ -215,25 +244,104 @@ export default function HomeDriftingCursors({ className }: Props) {
     [className],
   );
 
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
+  const stopLoop = () => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    lastFrameMsRef.current = 0;
+  };
 
-    const mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const mqFine = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const shouldAnimate = () => motionEnabled && inViewRef.current;
 
-    const syncMotion = () => {
-      reducedMotionRef.current = mqReduce.matches;
-      finePointerRef.current = mqFine.matches;
-      activeRef.current = !mqReduce.matches && mqFine.matches;
+  const startLoop = () => {
+    if (!shouldAnimate() || rafRef.current) return;
+
+    const tick = (timeMs: number) => {
+      if (!shouldAnimate()) {
+        stopLoop();
+        return;
+      }
+
+      rafRef.current = requestAnimationFrame(tick);
+
+      const deltaTime =
+        lastFrameMsRef.current > 0 ? timeMs - lastFrameMsRef.current : 16;
+      lastFrameMsRef.current = timeMs;
+      if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
+
+      const { w, h } = sizeRef.current;
+      if (w <= 1 || h <= 1) return;
+
+      const pad = 40;
+      const dt = Math.min(deltaTime / 1000, 0.05);
+      const cursors = cursorsRef.current;
+
       for (let i = 0; i < CURSOR_COUNT; i++) {
+        const state = cursors[i];
         const el = cursorElRefs.current[i];
-        if (el) el.style.visibility = activeRef.current ? "visible" : "hidden";
+        if (!state || !el) continue;
+
+        if (state.pauseLeft > 0) {
+          state.pauseLeft = Math.max(0, state.pauseLeft - dt);
+          el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
+          continue;
+        }
+
+        const progress = state.progress + dt / state.duration;
+        if (progress >= 1) {
+          const landed = quadPoint(
+            state.fromX,
+            state.fromY,
+            state.ctrlX,
+            state.ctrlY,
+            state.toX,
+            state.toY,
+            1,
+          );
+          state.x = landed.x;
+          state.y = landed.y;
+          state.progress = 1;
+          state.pauseLeft = Math.random() < 0.38 ? randomBetween(0.35, 1.6) : 0;
+          if (state.pauseLeft <= 0) beginSegment(state, w, h, pad);
+        } else {
+          const eased = easeInOutSine(progress);
+          const point = quadPoint(
+            state.fromX,
+            state.fromY,
+            state.ctrlX,
+            state.ctrlY,
+            state.toX,
+            state.toY,
+            eased,
+          );
+          state.progress = progress;
+          state.x = point.x;
+          state.y = point.y;
+        }
+
+        el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
+      }
+
+      if (typeof window !== "undefined") {
+        window.__driftCursorRafFrames =
+          (window.__driftCursorRafFrames ?? 0) + 1;
       }
     };
-    syncMotion();
-    mqReduce.addEventListener("change", syncMotion);
-    mqFine.addEventListener("change", syncMotion);
+
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const syncLoop = () => {
+    if (shouldAnimate()) startLoop();
+    else stopLoop();
+  };
+
+  useEffect(() => {
+    if (!motionEnabled) return;
+
+    const root = rootRef.current;
+    if (!root) return;
 
     const measure = () => {
       const rect = root.getBoundingClientRect();
@@ -246,6 +354,7 @@ export default function HomeDriftingCursors({ className }: Props) {
           const state = cursorsRef.current[i];
           const el = cursorElRefs.current[i];
           if (el && state) {
+            el.style.visibility = "visible";
             el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
           }
         }
@@ -261,107 +370,26 @@ export default function HomeDriftingCursors({ className }: Props) {
         const entry = entries[0];
         if (!entry) return;
         inViewRef.current = entry.isIntersecting;
+        syncLoop();
       },
       { threshold: 0.05, rootMargin: "40px 0px" },
     );
     observer.observe(root);
+    syncLoop();
 
     return () => {
-      mqReduce.removeEventListener("change", syncMotion);
-      mqFine.removeEventListener("change", syncMotion);
+      stopLoop();
       ro.disconnect();
       observer.disconnect();
     };
-  }, []);
+  }, [motionEnabled]);
 
   useEffect(() => {
-    let rafId = 0;
-    let lastFrameMs = 0;
+    syncLoop();
+    return () => stopLoop();
+  }, [motionEnabled]);
 
-    const tick = (timeMs: number) => {
-      rafId = requestAnimationFrame(tick);
-
-      if (
-        !activeRef.current ||
-        !inViewRef.current ||
-        reducedMotionRef.current ||
-        !finePointerRef.current
-      ) {
-        lastFrameMs = 0;
-        return;
-      }
-
-      const deltaTime = lastFrameMs > 0 ? timeMs - lastFrameMs : 16;
-      lastFrameMs = timeMs;
-      if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
-
-      const { w, h } = sizeRef.current;
-      if (w <= 1 || h <= 1) return;
-
-      const pad = 40;
-      const dt = Math.min(deltaTime / 1000, 0.05);
-
-      const next = cursorsRef.current.map((cursor) => {
-        let state = cursor;
-
-        if (state.pauseLeft > 0) {
-          return { ...state, pauseLeft: Math.max(0, state.pauseLeft - dt) };
-        }
-
-        const progress = state.progress + dt / state.duration;
-        if (progress >= 1) {
-          const landed = quadPoint(
-            state.fromX,
-            state.fromY,
-            state.ctrlX,
-            state.ctrlY,
-            state.toX,
-            state.toY,
-            1,
-          );
-          state = {
-            ...state,
-            x: landed.x,
-            y: landed.y,
-            progress: 1,
-            pauseLeft: Math.random() < 0.38 ? randomBetween(0.35, 1.6) : 0,
-          };
-          if (state.pauseLeft > 0) return state;
-          return beginSegment(state, w, h, pad);
-        }
-
-        const eased = easeInOutSine(progress);
-        const point = quadPoint(
-          state.fromX,
-          state.fromY,
-          state.ctrlX,
-          state.ctrlY,
-          state.toX,
-          state.toY,
-          eased,
-        );
-
-        return {
-          ...state,
-          progress,
-          x: point.x,
-          y: point.y,
-        };
-      });
-
-      cursorsRef.current = next;
-      for (let i = 0; i < CURSOR_COUNT; i++) {
-        const el = cursorElRefs.current[i];
-        const state = next[i];
-        if (el && state) {
-          el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
-        }
-      }
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
+  if (!motionEnabled) return null;
 
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">

@@ -73,6 +73,7 @@ export function KrishInteractiveScene({
     if (!shell) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
+        if (!entry) return;
         inViewRef.current = entry.isIntersecting;
         if (entry.isIntersecting) invalidate();
       },
@@ -231,7 +232,9 @@ export function KrishInteractiveScene({
       <HeroCameraFit
         kind={kind}
         modelRoot={root}
-        viewDirection={tune.viewDirection}
+        {...(tune.viewDirection
+          ? { viewDirection: tune.viewDirection }
+          : {})}
         onFitted={onFitted}
         fitRef={fitAgainRef}
       >

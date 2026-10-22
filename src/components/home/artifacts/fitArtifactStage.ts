@@ -118,7 +118,7 @@ function distanceForMeshWidth(
   camera: THREE.PerspectiveCamera,
   meshWidth: number,
   viewW: number,
-  viewH: number,
+  _viewH: number,
   maxWidthPx: number,
 ): number {
   const fovRad = (camera.fov * Math.PI) / 180;
@@ -356,7 +356,6 @@ export function minClearancePx(
   viewH: number,
   orbitAzimuth = 0,
 ): number {
-  const padPx = ARTIFACT_PAD_PX;
   let min = Infinity;
   for (const box of boxes) {
     const angles =
