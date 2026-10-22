@@ -5,8 +5,10 @@ import {
   closingSplashInkHex,
   type ClosingSplashKey,
 } from "./home-closing";
+import { HOME_SPLASH_PATH, splashBlobDiameter } from "./home-splash-mask";
 
 type PixelOrigin = { x: number; y: number };
+type SplashMask = "circle" | "organic";
 
 const CLEAR_DELAY_MS = 90;
 const GROW_MS = 620;
@@ -28,8 +30,16 @@ function coverRadius(ox: number, oy: number): number {
   );
 }
 
+function readSplashMask(): SplashMask {
+  if (typeof window === "undefined") return "circle";
+  const value = new URLSearchParams(window.location.search).get("splashMask");
+  return value === "organic" ? "organic" : "circle";
+}
+
 export default function HomeSplashOverlay() {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const organicSvgRef = useRef<SVGSVGElement>(null);
+  const organicPathRef = useRef<SVGPathElement>(null);
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const motionRef = useRef<Animation | null>(null);
@@ -37,6 +47,8 @@ export default function HomeSplashOverlay() {
   const keyRef = useRef<ClosingSplashKey | null>(null);
   const originRef = useRef<PixelOrigin>({ x: 0, y: 0 });
   const reducedMotionRef = useRef(false);
+  const maskRef = useRef<SplashMask>("circle");
+  const [maskMode, setMaskMode] = useState<SplashMask>("circle");
 
   const syncHtmlSplash = useCallback((key: ClosingSplashKey | null) => {
     const root = document.documentElement;
@@ -61,13 +73,35 @@ export default function HomeSplashOverlay() {
     motionRef.current = null;
   }, []);
 
+  const layoutOrganicSplash = useCallback(
+    (origin: PixelOrigin, color: string) => {
+      const svg = organicSvgRef.current;
+      const path = organicPathRef.current;
+      if (!svg || !path) return;
+      const diameter = splashBlobDiameter(origin.x, origin.y);
+      const half = diameter / 2;
+      svg.style.left = `${origin.x - half}px`;
+      svg.style.top = `${origin.y - half}px`;
+      svg.style.width = `${diameter}px`;
+      svg.style.height = `${diameter}px`;
+      path.setAttribute("fill", color);
+      svg.style.transform = "scale(0.02)";
+    },
+    [],
+  );
+
   const resetOverlay = useCallback(() => {
     const el = overlayRef.current;
+    const svg = organicSvgRef.current;
     if (!el) return;
     cancelMotion();
     el.style.opacity = "0";
     el.style.removeProperty("clip-path");
     el.style.removeProperty("background-color");
+    if (svg) {
+      svg.style.transform = "scale(0.02)";
+      svg.style.opacity = "1";
+    }
     stateRef.current = "idle";
     keyRef.current = null;
   }, [cancelMotion]);
@@ -88,22 +122,52 @@ export default function HomeSplashOverlay() {
       clearTimers();
 
       const color = closingSplashHex[key];
-      const radius = coverRadius(origin.x, origin.y);
       keyRef.current = key;
       originRef.current = origin;
       syncHtmlSplash(key);
       setInk(key);
-
-      el.style.backgroundColor = color;
       el.style.opacity = "1";
 
       if (reducedMotionRef.current) {
-        el.style.clipPath = "none";
+        if (maskRef.current === "organic") {
+          el.style.backgroundColor = "transparent";
+          el.style.clipPath = "none";
+          layoutOrganicSplash(origin, color);
+          const svg = organicSvgRef.current;
+          if (svg) svg.style.transform = "scale(1)";
+        } else {
+          el.style.backgroundColor = color;
+          el.style.clipPath = "none";
+        }
         stateRef.current = "full";
         return;
       }
 
       stateRef.current = "growing";
+
+      if (maskRef.current === "organic") {
+        el.style.backgroundColor = "transparent";
+        el.style.clipPath = "none";
+        layoutOrganicSplash(origin, color);
+        const svg = organicSvgRef.current;
+        if (!svg) return;
+        const anim = svg.animate(
+          [{ transform: "scale(0.02)" }, { transform: "scale(1)" }],
+          {
+            duration: GROW_MS,
+            easing: GROW_EASE,
+            fill: "forwards",
+          },
+        );
+        motionRef.current = anim;
+        void anim.finished.then(() => {
+          if (stateRef.current === "growing") stateRef.current = "full";
+        });
+        return;
+      }
+
+      el.style.backgroundColor = color;
+      const radius = coverRadius(origin.x, origin.y);
       const anim = el.animate(
         [
           { clipPath: `circle(0px at ${origin.x}px ${origin.y}px)` },
@@ -124,7 +188,7 @@ export default function HomeSplashOverlay() {
         }
       });
     },
-    [cancelMotion, clearTimers, setInk, syncHtmlSplash],
+    [cancelMotion, clearTimers, layoutOrganicSplash, setInk, syncHtmlSplash],
   );
 
   const retargetColor = useCallback(
@@ -144,11 +208,27 @@ export default function HomeSplashOverlay() {
       if (from === to) return true;
 
       if (reducedMotionRef.current) {
-        el.style.backgroundColor = to;
+        if (maskRef.current === "organic") {
+          organicPathRef.current?.setAttribute("fill", to);
+        } else {
+          el.style.backgroundColor = to;
+        }
         return true;
       }
 
       cancelMotion();
+
+      if (maskRef.current === "organic") {
+        const path = organicPathRef.current;
+        if (!path) return true;
+        const anim = path.animate(
+          [{ fill: from }, { fill: to }],
+          { duration: COLOR_MS, easing: "ease", fill: "forwards" },
+        );
+        motionRef.current = anim;
+        return true;
+      }
+
       const anim = el.animate(
         [{ backgroundColor: from }, { backgroundColor: to }],
         {
@@ -191,6 +271,25 @@ export default function HomeSplashOverlay() {
       return;
     }
 
+    if (maskRef.current === "organic") {
+      const svg = organicSvgRef.current;
+      if (!svg) {
+        finish();
+        return;
+      }
+      const anim = svg.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(0.02)" }],
+        {
+          duration: SHRINK_MS,
+          easing: SHRINK_EASE,
+          fill: "forwards",
+        },
+      );
+      motionRef.current = anim;
+      void anim.finished.then(finish);
+      return;
+    }
+
     const { x, y } = originRef.current;
     const radius = coverRadius(x, y);
     const anim = el.animate(
@@ -223,16 +322,20 @@ export default function HomeSplashOverlay() {
   const activate = useCallback(
     (key: ClosingSplashKey, origin: PixelOrigin) => {
       cancelClear();
-      if (
-        stateRef.current === "full" ||
-        stateRef.current === "growing"
-      ) {
+      if (stateRef.current === "full" || stateRef.current === "growing") {
         if (retargetColor(key)) return;
       }
       playGrow(key, origin);
     },
     [cancelClear, playGrow, retargetColor],
   );
+
+  useEffect(() => {
+    const mask = readSplashMask();
+    maskRef.current = mask;
+    setMaskMode(mask);
+    document.documentElement.dataset.homeSplashMask = mask;
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -298,7 +401,20 @@ export default function HomeSplashOverlay() {
       ref={overlayRef}
       className="home-splash-overlay pointer-events-none fixed inset-0 z-[45] opacity-0"
       aria-hidden="true"
-    />
+    >
+      <svg
+        ref={organicSvgRef}
+        viewBox="-100 -100 200 200"
+        className="home-splash-organic absolute origin-center will-change-transform"
+        style={{
+          transform: "scale(0.02)",
+          opacity: maskMode === "organic" ? 1 : 0,
+        }}
+        aria-hidden="true"
+      >
+        <path ref={organicPathRef} d={HOME_SPLASH_PATH} />
+      </svg>
+    </div>
   );
 
   if (!portal) return null;
