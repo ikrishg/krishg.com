@@ -4,7 +4,12 @@ const ART_1X = "/images/starry-night.webp";
 const ART_2X = "/images/starry-night-1800.webp";
 const FOOTER_SELECTOR = ".home-footer";
 
-const ART_IMAGE_SET = `image-set(url("${ART_1X}") 1x, url("${ART_2X}") 2x)`;
+function paintingBackground(dpr: number): string {
+  if (dpr >= 2) {
+    return `image-set(url("${ART_1X}") 1x, url("${ART_2X}") 2x)`;
+  }
+  return `url("${ART_1X}")`;
+}
 
 export default function HomeOverscrollPainting() {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -22,10 +27,27 @@ export default function HomeOverscrollPainting() {
       img.src = ART_1X;
       img.onload = () => {
         if (cancelled) return;
-        const hi = new Image();
-        hi.src = ART_2X;
-        layerRef.current?.style.setProperty("background-image", ART_IMAGE_SET);
-        setLoaded(true);
+        const dpr = window.devicePixelRatio || 1;
+        const apply = () => {
+          layerRef.current?.style.setProperty(
+            "background-image",
+            paintingBackground(dpr),
+          );
+          setLoaded(true);
+        };
+        if (dpr >= 2) {
+          const hi = new Image();
+          hi.decoding = "async";
+          hi.onload = () => {
+            if (!cancelled) apply();
+          };
+          hi.onerror = () => {
+            if (!cancelled) apply();
+          };
+          hi.src = ART_2X;
+        } else {
+          apply();
+        }
       };
     };
 

@@ -1,14 +1,12 @@
-const NAV_VAR = "--home-nav-height";
 const SURFACE_SELECTOR = ".home-scroll-surface";
+const NAV_SELECTOR = ".home-navbar";
 
 export const HOME_BAND_IDS = ["builder", "creator", "educator"] as const;
 
-function navHeightPx(): number {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(
-    NAV_VAR,
-  );
-  const parsed = Number.parseFloat(raw);
-  return Number.isFinite(parsed) ? parsed : 64;
+export function homeNavHeightPx(): number {
+  const nav = document.querySelector<HTMLElement>(NAV_SELECTOR);
+  if (nav && nav.offsetHeight > 0) return nav.offsetHeight;
+  return 64;
 }
 
 function bandIndex(bandId: string): number {
@@ -26,7 +24,7 @@ export function scrollToHomeBand(bandId: string) {
   const surface = document.querySelector<HTMLElement>(SURFACE_SELECTOR);
   if (!surface) return;
 
-  const navH = navHeightPx();
+  const navH = homeNavHeightPx();
   const step = window.innerHeight - navH;
   const target = surface.offsetTop - navH + i * step;
 

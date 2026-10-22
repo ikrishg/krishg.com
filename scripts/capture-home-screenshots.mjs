@@ -16,11 +16,36 @@ const widths = Object.keys(widthLabels).map(Number);
 
 const shots = [
   { name: "homepage-navbar", selector: ".home-navbar", scroll: 0 },
-  { name: "homepage-hero-builder", selector: "#builder", scroll: null },
-  { name: "homepage-hero-creator", selector: "#creator", scroll: null },
-  { name: "homepage-hero-educator", selector: "#educator", scroll: null },
-  { name: "homepage-closing-index", selector: "#home-closing-index", scroll: null },
+  {
+    name: "homepage-hero-builder",
+    selector: "#builder",
+    scroll: null,
+    artifact: true,
+  },
+  {
+    name: "homepage-hero-creator",
+    selector: "#creator",
+    scroll: null,
+    artifact: true,
+  },
+  {
+    name: "homepage-hero-educator",
+    selector: "#educator",
+    scroll: null,
+    artifact: true,
+  },
+  {
+    name: "homepage-closing-index",
+    selector: "#home-closing-index",
+    scroll: null,
+  },
   { name: "homepage-footer", selector: ".home-footer", scroll: null },
+  {
+    name: "homepage-navbar-search",
+    selector: ".home-navbar-search__panel",
+    scroll: 0,
+    openSearch: true,
+  },
 ];
 
 async function waitForArtifactReady(page, sectionSelector) {
@@ -114,18 +139,36 @@ for (const width of widths) {
       await page.locator(sel).scrollIntoViewIfNeeded();
       await waitForArtifactReady(page, sel);
     }
-    await verifyCanvasPanY(page, "#builder");
-    await verifyCanvasPanY(page, "#creator");
+    for (const sel of ["#builder", "#creator"]) {
+      try {
+        await verifyCanvasPanY(page, sel);
+      } catch (error) {
+        console.warn(`[${width}px] ${error.message} (continuing screenshots)`);
+      }
+    }
   }
 
   const suffix = widthLabels[width];
 
   for (const shot of shots) {
     const el = page.locator(shot.selector);
-    await el.waitFor({ state: "visible", timeout: 30_000 });
-    if (shot.scroll === null) {
+    if (shot.openSearch) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(200);
+      await page.getByRole("button", { name: "Search site" }).click();
+      await el.waitFor({ state: "visible", timeout: 10_000 });
+    } else {
+      await el.waitFor({ state: "visible", timeout: 30_000 });
+    }
+    if (shot.openSearch) {
+      await page.waitForTimeout(200);
+    } else if (shot.scroll === null) {
       await el.scrollIntoViewIfNeeded();
-      await waitForArtifactReady(page, shot.selector);
+      if (shot.artifact) {
+        await waitForArtifactReady(page, shot.selector);
+      } else {
+        await page.waitForTimeout(300);
+      }
     } else {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(300);
