@@ -10,6 +10,7 @@ const _localOrigin = new THREE.Vector3();
 const _localDir = new THREE.Vector3();
 const _hit = new THREE.Vector3();
 const _ndc = new THREE.Vector3();
+const _toCam = new THREE.Vector3();
 
 function tileHalfExtents(pictureSize: number) {
   const tileW = pictureSize * 0.5;
@@ -34,7 +35,7 @@ function rayHitsTileLocal(
   if (t < 1e-4) return null;
 
   _hit.copy(_localDir).multiplyScalar(t).add(_localOrigin);
-  const slop = 1.015;
+  const slop = 1.06;
   if (Math.abs(_hit.x) > halfW * slop || Math.abs(_hit.y) > halfH * slop) {
     return null;
   }
@@ -94,11 +95,20 @@ export function pickPointForInstance(
   view: CreatingView,
   instanceId: number,
 ): { x: number; y: number } | null {
-  const projected = projectTileCenters(mesh, camera, canvas);
-  const center = projected.find((p) => p.instanceId === instanceId);
-  if (!center) return null;
+  if (instanceId < 0 || instanceId >= mesh.count) return null;
+  mesh.updateMatrixWorld(true);
+  camera.updateMatrixWorld(true);
+  mesh.getMatrixAt(instanceId, _instance);
+  _worldMatrix.multiplyMatrices(mesh.matrixWorld, _instance);
+  _world.set(0, 0, 0).applyMatrix4(_worldMatrix);
+  _ndc.copy(_world).project(camera);
+  const rect = canvas.getBoundingClientRect();
+  const center = {
+    x: ((_ndc.x + 1) / 2) * rect.width + rect.left,
+    y: ((1 - _ndc.y) / 2) * rect.height + rect.top,
+  };
 
-  for (let radius = 0; radius <= 28; radius += 4) {
+  for (let radius = 0; radius <= 48; radius += 4) {
     const steps = radius === 0 ? 1 : 10;
     for (let s = 0; s < steps; s += 1) {
       const angle = (s / steps) * Math.PI * 2;
@@ -124,12 +134,19 @@ export function projectTileCenters(
   mesh.updateMatrixWorld(true);
   camera.updateMatrixWorld(true);
 
+  const camPos = new THREE.Vector3();
+  const camDir = new THREE.Vector3();
+  camera.getWorldPosition(camPos);
+  camera.getWorldDirection(camDir);
+
   for (let i = 0; i < mesh.count; i++) {
     mesh.getMatrixAt(i, _instance);
     _worldMatrix.multiplyMatrices(mesh.matrixWorld, _instance);
     _world.set(0, 0, 0).applyMatrix4(_worldMatrix);
+    _toCam.copy(_world).sub(camPos);
+    if (_toCam.dot(camDir) <= 0) continue;
     _ndc.copy(_world).project(camera);
-    if (_ndc.z > 1) continue;
+    if (_ndc.z < -1 || _ndc.z > 1) continue;
     const x = ((_ndc.x + 1) / 2) * rect.width + rect.left;
     const y = ((1 - _ndc.y) / 2) * rect.height + rect.top;
     out.push({ instanceId: i, x, y });

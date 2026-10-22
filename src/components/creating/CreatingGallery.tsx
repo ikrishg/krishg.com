@@ -19,7 +19,10 @@ import { CreatingListicleList } from "./CreatingListicleList";
 import { WorksIndexNav } from "./WorksIndexNav";
 import { CreatingStaticFallback } from "./CreatingStaticFallback";
 import { useMorphTransition } from "./useMorphTransition";
-import { useVirtualScroll } from "./useVirtualScroll";
+import {
+  useVirtualScroll,
+  type VirtualScrollDragState,
+} from "./useVirtualScroll";
 import { timelineYearMarkers } from "~lib/creating/layout";
 import {
   entryAtInstance,
@@ -79,6 +82,7 @@ export default function CreatingGallery({ entries }: Props) {
 
   const [openProgress, setOpenProgress] = useState(0);
   const openTweenRef = useRef({ v: 0 });
+  const scrollDragRef = useRef<VirtualScrollDragState>({ didDrag: false });
   const [pointerFine, setPointerFine] = useState(true);
   const [webglAvailable, setWebglAvailable] = useState(true);
 
@@ -116,7 +120,85 @@ export default function CreatingGallery({ entries }: Props) {
   useEffect(() => {
     if (reducedMotion) return;
 
+    const suppressClickRef = { current: false };
+
+    const openTileAt = (clientX: number, clientY: number, target: EventTarget | null) => {
+      const wrap = canvasWrapRef.current;
+      if (!wrap) return false;
+      const canvas = wrap.querySelector("canvas");
+      if (!(canvas instanceof HTMLCanvasElement)) return false;
+      if (
+        target !== canvas &&
+        !(target instanceof Node && canvas.contains(target))
+      ) {
+        return false;
+      }
+      if (useCreatingStore.getState().phase !== "gallery") return false;
+      const mesh = useCreatingStore.getState().tileMesh;
+      const camera = useCreatingStore.getState().galleryCamera;
+      if (!mesh || !camera) return false;
+      const { view, entries, filter } = useCreatingStore.getState();
+      const id = pickTileInstanceId(
+        mesh,
+        camera,
+        clientX,
+        clientY,
+        canvas,
+        view,
+      );
+      if (id < 0) return false;
+      const entry = entryAtInstance(entries, filter, id);
+      if (!entry) return false;
+      const state = useCreatingStore.getState();
+      state.setActiveId(entry.id);
+      state.setPhase("detail");
+      return true;
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerType === "mouse") return;
+      if (scrollDragRef.current.didDrag) {
+        scrollDragRef.current.didDrag = false;
+        return;
+      }
+      if (openTileAt(event.clientX, event.clientY, event.target)) {
+        suppressClickRef.current = true;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
     const onClick = (event: MouseEvent) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
+      if (scrollDragRef.current.didDrag) {
+        scrollDragRef.current.didDrag = false;
+        return;
+      }
+      if (openTileAt(event.clientX, event.clientY, event.target)) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [reducedMotion]);
+
+  const setHoveredId = useCreatingStore((s) => s.setHoveredId);
+
+  useEffect(() => {
+    if (reducedMotion) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (useCreatingStore.getState().phase !== "gallery") return;
+      if (!pointerFine) return;
       const wrap = canvasWrapRef.current;
       if (!wrap) return;
       const canvas = wrap.querySelector("canvas");
@@ -126,9 +208,9 @@ export default function CreatingGallery({ entries }: Props) {
         target !== canvas &&
         !(target instanceof Node && canvas.contains(target))
       ) {
+        useCreatingStore.getState().setHoveredId(null);
         return;
       }
-      if (useCreatingStore.getState().phase !== "gallery") return;
       const mesh = useCreatingStore.getState().tileMesh;
       const camera = useCreatingStore.getState().galleryCamera;
       if (!mesh || !camera) return;
@@ -141,19 +223,17 @@ export default function CreatingGallery({ entries }: Props) {
         canvas,
         view,
       );
-      if (id < 0) return;
+      if (id < 0) {
+        setHoveredId(null);
+        return;
+      }
       const entry = entryAtInstance(entries, filter, id);
-      if (!entry) return;
-      event.stopPropagation();
-      event.preventDefault();
-      const state = useCreatingStore.getState();
-      state.setActiveId(entry.id);
-      state.setPhase("detail");
+      setHoveredId(entry?.id ?? null);
     };
 
-    document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
-  }, [reducedMotion]);
+    document.addEventListener("pointermove", onPointerMove);
+    return () => document.removeEventListener("pointermove", onPointerMove);
+  }, [reducedMotion, pointerFine, setHoveredId]);
 
   useEffect(() => {
     let loaded = 0;
@@ -310,6 +390,7 @@ export default function CreatingGallery({ entries }: Props) {
   useVirtualScroll({
     enabled: phase === "gallery" && !reducedMotion,
     element: scrollEl,
+    dragStateRef: scrollDragRef,
     onDelta: (dx, dy) => {
       dispatchScroll(dx, dy);
     },
@@ -351,16 +432,16 @@ export default function CreatingGallery({ entries }: Props) {
 
   const animateDetailClose = useCallback(() => {
     openTweenRef.current.v = openProgress;
+    setPhase("gallery");
     gsap.to(openTweenRef.current, {
       v: 0,
-      duration: 1.2,
+      duration: 0.55,
       ease: "creating.cubicInOut",
       onUpdate() {
         setOpenProgress(openTweenRef.current.v);
       },
       onComplete: () => {
         useCreatingStore.getState().setActiveId(null);
-        setPhase("gallery");
         closingDetailRef.current = false;
       },
     });
@@ -468,7 +549,7 @@ export default function CreatingGallery({ entries }: Props) {
   const mainInert = phase === "detail";
 
   return (
-    <div className="creating-page" ref={shellRef}>
+    <div className="creating-page" ref={shellRef} data-phase={phase}>
       <div className="creating-page__shell" inert={mainInert ? true : undefined}>
       {phase === "loader" && (
         <div className="creating-loader">
@@ -541,7 +622,7 @@ export default function CreatingGallery({ entries }: Props) {
       )}
       </div>
 
-      {phase === "detail" && (
+      {activeEntry && openProgress > 0.001 && (
         <CreatingDetailPanel
           entry={activeEntry}
           onClose={closeDetail}

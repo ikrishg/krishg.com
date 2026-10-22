@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 
 const INTERACTIVE_SELECTOR =
   "button, a, input, textarea, select, label, [data-no-drag]";
+
+const DRAG_THRESHOLD_PX = 8;
 
 export function isVirtualScrollInteractiveTarget(
   target: EventTarget | null,
@@ -10,14 +12,27 @@ export function isVirtualScrollInteractiveTarget(
   return Boolean(target.closest(INTERACTIVE_SELECTOR));
 }
 
+export type VirtualScrollDragState = {
+  didDrag: boolean;
+};
+
 type Options = {
   enabled: boolean;
   onDelta: (dx: number, dy: number, pointer: "mouse" | "touch") => void;
   element: HTMLElement | null;
+  dragStateRef?: MutableRefObject<VirtualScrollDragState>;
 };
 
-export function useVirtualScroll({ enabled, onDelta, element }: Options) {
+export function useVirtualScroll({
+  enabled,
+  onDelta,
+  element,
+  dragStateRef,
+}: Options) {
+  const pointerActive = useRef(false);
   const dragging = useRef(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
   const lastX = useRef(0);
   const lastY = useRef(0);
   const onDeltaRef = useRef(onDelta);
@@ -50,13 +65,32 @@ export function useVirtualScroll({ enabled, onDelta, element }: Options) {
           ? target
           : target.closest("canvas");
       if (!(canvas instanceof HTMLCanvasElement)) return;
-      dragging.current = true;
+      pointerActive.current = true;
+      dragging.current = false;
+      if (dragStateRef) dragStateRef.current.didDrag = false;
+      startX.current = e.clientX;
+      startY.current = e.clientY;
       lastX.current = e.clientX;
       lastY.current = e.clientY;
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!dragging.current) return;
+      if (!pointerActive.current) return;
+      const totalDx = e.clientX - startX.current;
+      const totalDy = e.clientY - startY.current;
+      if (
+        !dragging.current &&
+        Math.hypot(totalDx, totalDy) < DRAG_THRESHOLD_PX
+      ) {
+        return;
+      }
+      if (!dragging.current) {
+        dragging.current = true;
+        if (dragStateRef) dragStateRef.current.didDrag = true;
+        lastX.current = e.clientX;
+        lastY.current = e.clientY;
+        return;
+      }
       const dx = e.clientX - lastX.current;
       const dy = e.clientY - lastY.current;
       lastX.current = e.clientX;
@@ -66,6 +100,7 @@ export function useVirtualScroll({ enabled, onDelta, element }: Options) {
     };
 
     const onPointerUp = () => {
+      pointerActive.current = false;
       dragging.current = false;
     };
 
@@ -82,5 +117,5 @@ export function useVirtualScroll({ enabled, onDelta, element }: Options) {
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
     };
-  }, [enabled, element]);
+  }, [enabled, element, dragStateRef]);
 }

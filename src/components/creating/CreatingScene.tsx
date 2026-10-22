@@ -4,7 +4,7 @@ import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import { damp, MOTION_EPS } from "~lib/creating/damp";
 import type { CreatingEntry, CreatingView } from "~lib/creating/types";
-import { CREATING_PAPER, VIEW_TINT } from "~lib/creating/types";
+import { CREATING_CANVAS, VIEW_TINT } from "~lib/creating/types";
 import { CreatingTiles } from "./CreatingTiles";
 import { LoaderFrameScene } from "./LoaderFrameScene";
 import { TimelineYearTiles } from "./TimelineYearTiles";
@@ -33,6 +33,7 @@ function CameraRig({
 }) {
   const { camera, invalidate } = useThree();
   const pointer = useRef({ x: 0, y: 0 });
+  const tilt = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const onPointer = (e: PointerEvent) => {
@@ -59,17 +60,20 @@ function CameraRig({
     cam.position.z = damp(cam.position.z, targetZ, detailOpen ? 2.2 : 4, dt);
     cam.position.x = damp(cam.position.x, 0, 4, dt);
     cam.position.y = damp(cam.position.y, 0, 4, dt);
-    cam.rotation.order = "YXZ";
-    cam.rotation.y = damp(cam.rotation.y, targetRy, tiltOn ? 3.5 : 4, dt);
-    cam.rotation.x = damp(cam.rotation.x, targetRx, tiltOn ? 3.5 : 4, dt);
-    cam.rotation.z = 0;
+    tilt.current.y = damp(tilt.current.y, targetRy, tiltOn ? 3.5 : 4, dt);
+    tilt.current.x = damp(tilt.current.x, targetRx, tiltOn ? 3.5 : 4, dt);
+    cam.lookAt(0, 0, 0);
+    if (tiltOn) {
+      cam.rotateY(tilt.current.y);
+      cam.rotateX(tilt.current.x);
+    }
 
     const animating =
       Math.abs(cam.position.z - targetZ) > MOTION_EPS ||
       Math.abs(cam.position.x) > MOTION_EPS ||
       Math.abs(cam.position.y) > MOTION_EPS ||
-      Math.abs(cam.rotation.y - targetRy) > MOTION_EPS ||
-      Math.abs(cam.rotation.x - targetRx) > MOTION_EPS;
+      Math.abs(tilt.current.y - targetRy) > MOTION_EPS ||
+      Math.abs(tilt.current.x - targetRx) > MOTION_EPS;
 
     if (animating) invalidate();
   });
@@ -90,7 +94,7 @@ function SceneInner(
 
   return (
     <>
-      <color attach="background" args={[CREATING_PAPER]} />
+      <color attach="background" args={[CREATING_CANVAS]} />
       <ambientLight intensity={0.85} />
       <directionalLight position={[-2, 4, 3]} intensity={1.1} />
       <CameraRig
