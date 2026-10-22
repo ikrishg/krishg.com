@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ReactLenis, useLenis, type LenisRef } from "lenis/react";
 import { ReactTempus, useTempus } from "tempus/react";
 import "lenis/dist/lenis.css";
-import HomeOverscrollSpring from "./HomeOverscrollSpring";
-import HomeScrollExperience from "./HomeScrollExperience";
 import HomeSplashScrollGate from "./HomeSplashScrollGate";
 import { flushR3fTempusGates } from "./r3fTempusGate";
 import { setLenisInstance } from "./lenisStore";
@@ -97,9 +95,7 @@ export default function SiteMotion() {
     <>
       <ReactTempus patch />
       <LenisRoot lenisRef={lenisRef} options={lenisOptions} />
-      <HomeScrollExperience />
       <HomeSplashScrollGate />
-      <HomeOverscrollSpring />
       <R3fTempusFlush />
     </>
   );

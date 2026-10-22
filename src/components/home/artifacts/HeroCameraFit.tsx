@@ -34,7 +34,6 @@ type Props = {
   modelRoot: THREE.Object3D;
   viewDirection?: [number, number, number];
   onFitted?: (info: {
-    shadowY: number;
     restTarget: THREE.Vector3;
     canvasHeightPx: number;
     meshBox: THREE.Box3;
@@ -306,7 +305,6 @@ export function HeroCameraFit({
 
     invalidate();
     onFitted?.({
-      shadowY: shadowGroundY,
       restTarget: solved.center.clone(),
       canvasHeightPx: solved.canvasHeightPx,
       meshBox: meshBox.clone(),

@@ -161,9 +161,23 @@ async function measureViewport(browser, { width, height, label }) {
 
   await context.close();
 
+  const midSwipeDown = gestures.find(
+    (g) => g.start === "mid" && g.direction === "down",
+  );
+  const touchJumpGuard = {
+    scrollYBefore: midSwipeDown?.scrollYBefore ?? null,
+    scrollYAfter: midSwipeDown?.scrollYAfter ?? null,
+    delta: midSwipeDown?.delta ?? null,
+    pass:
+      midSwipeDown != null &&
+      Math.abs(midSwipeDown.delta) < 350 &&
+      midSwipeDown.scrollYAfter < midSwipeDown.maxScrollY - 80,
+  };
+
   return {
     viewport: label,
     gestures,
+    touchJumpGuard,
     bottomOverscrollReveal: {
       scrollYBefore: beforeReveal.scrollY,
       scrollYAfter: afterReveal.scrollY,
@@ -187,7 +201,16 @@ async function main() {
   } finally {
     await browser.close();
   }
-  console.log(JSON.stringify({ preview: BASE, touch: results }, null, 2));
+  const at390 = results.find((r) => r.viewport === "390");
+  const summary = {
+    preview: BASE,
+    touchJump390: at390?.touchJumpGuard ?? null,
+    touch: results,
+  };
+  console.log(JSON.stringify(summary, null, 2));
+  if (at390 && !at390.touchJumpGuard?.pass) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err) => {

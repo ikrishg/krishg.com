@@ -576,30 +576,25 @@ html[data-page-accent="closing"] {
 @media (prefers-reduced-motion: no-preference) {
   html[data-motion-enhance] [data-home-scroll-band] .hero-band-paint {
     transform: translate3d(0, var(--band-parallax, 0px), 0) scale(1.015);
-    will-change: transform;
   }
 
   html[data-motion-enhance] [data-home-scroll-band] .artifact-stage {
     transform: translate3d(0, var(--artifact-parallax, 0px), 0);
-    will-change: transform;
   }
 
   html[data-motion-enhance] [data-home-scroll-band] .hero-copy {
     opacity: calc(0.85 + 0.15 * var(--band-progress, 1));
     transform: translate3d(0, calc((1 - var(--band-progress, 1)) * 18px), 0);
-    will-change: transform, opacity;
   }
 
   html[data-motion-enhance] .home-closing-link--primary {
     opacity: var(--link-in, 1);
     transform: translate3d(0, calc((1 - var(--link-in, 1)) * 22px), 0);
-    will-change: transform, opacity;
   }
 
   html[data-motion-enhance] #home-closing-index .home-closing-nav-row {
     opacity: calc(0.5 + 0.5 * var(--closing-progress, 1));
     transform: translate3d(0, calc((1 - var(--closing-progress, 1)) * 14px), 0);
-    will-change: transform, opacity;
   }
 
   @keyframes hero-copy-rise {

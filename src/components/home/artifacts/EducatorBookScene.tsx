@@ -92,7 +92,6 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
 
   const onFitted = useCallback(
     (info: {
-      shadowY: number;
       meshBox: THREE.Box3;
       viewW: number;
       viewH: number;

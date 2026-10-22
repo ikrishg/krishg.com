@@ -13,6 +13,7 @@ let pull = 0;
 let pullTarget = 0;
 let pullVelocity = 0;
 let releasing = false;
+let reducedMotionSpring = false;
 
 export function bindOverscrollSurface(el: HTMLElement | null) {
   surfaceEl = el;
@@ -25,6 +26,20 @@ export function setOverscrollMaxPull(px: number) {
 
 export function getOverscrollPull() {
   return pull;
+}
+
+export function getOverscrollRevealProgress() {
+  if (pull <= 0.35) return 0;
+  return pull > PAINT_VISIBLE_PULL ? 1 : pull / PAINT_VISIBLE_PULL;
+}
+
+export function setOverscrollReducedMotionSpring(enabled: boolean) {
+  reducedMotionSpring = enabled;
+  if (enabled) {
+    pullVelocity = 0;
+    pull = pullTarget;
+    applyPullVisual(pull);
+  }
 }
 
 export function nudgeOverscrollTarget(deltaY: number) {
@@ -96,6 +111,27 @@ function applyPullVisual(value: number) {
 /** Spring step on the shared Tempus loop (dt in seconds). */
 export function stepOverscrollSpring(dt: number) {
   if (!Number.isFinite(dt) || dt <= 0) return;
+
+  if (reducedMotionSpring) {
+    pull = pullTarget;
+    if (!Number.isFinite(pull)) {
+      pull = 0;
+      pullTarget = 0;
+    }
+    applyPullVisual(pull);
+    return;
+  }
+
+  if (
+    !releasing &&
+    Math.abs(pull - pullTarget) < 0.02 &&
+    Math.abs(pullVelocity) < 0.02 &&
+    pull < 0.35 &&
+    pullTarget < 0.35
+  ) {
+    return;
+  }
+
   const stiffness = 9.5;
   const damping = 11.5;
   const dtClamped = Math.min(dt, 0.05);
