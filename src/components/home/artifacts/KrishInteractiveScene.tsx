@@ -171,7 +171,6 @@ export function KrishInteractiveScene({
 
   const onFitted = useCallback(
     (info: {
-      shadowY: number;
       restTarget: THREE.Vector3;
       canvasHeightPx: number;
       meshBox: THREE.Box3;

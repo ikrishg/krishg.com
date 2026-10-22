@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  getOverscrollPull,
+  getOverscrollRevealProgress,
+} from "~motion/homeOverscrollEngine";
 
 const ART_1X = "/images/starry-night.webp";
 const ART_2X = "/images/starry-night-1800.webp";
@@ -45,8 +49,9 @@ export default function HomeOverscrollPainting() {
     };
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
           loadArt();
           observer.disconnect();
         }
@@ -65,14 +70,11 @@ export default function HomeOverscrollPainting() {
     const layer = layerRef.current;
     if (!layer) return;
 
+    const root = document.documentElement;
+
     const sync = () => {
-      const root = document.documentElement;
-      const pull = Number.parseFloat(
-        getComputedStyle(root).getPropertyValue("--home-overscroll-pull"),
-      );
-      const revealVar = Number.parseFloat(
-        getComputedStyle(root).getPropertyValue("--home-overscroll-reveal"),
-      );
+      const pull = getOverscrollPull();
+      const revealVar = getOverscrollRevealProgress();
       const reveal =
         root.dataset.overscrollReveal === "true" ||
         revealVar > 0.08 ||

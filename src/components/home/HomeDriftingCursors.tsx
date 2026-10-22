@@ -300,7 +300,7 @@ export default function HomeDriftingCursors({ className }: Props) {
           return { ...state, pauseLeft: Math.max(0, state.pauseLeft - dt) };
         }
 
-        let progress = state.progress + dt / state.duration;
+        const progress = state.progress + dt / state.duration;
         if (progress >= 1) {
           const landed = quadPoint(
             state.fromX,
@@ -364,10 +364,8 @@ export default function HomeDriftingCursors({ className }: Props) {
           className="absolute will-change-transform"
           style={{ visibility: "hidden" }}
         >
-          <div className="relative">
-            <ModernPointer color={theme.color} />
-            <NameTag label={theme.label} color={theme.color} ink={theme.ink} />
-          </div>
+          <ModernPointer color={theme.color} />
+          <NameTag label={theme.label} color={theme.color} ink={theme.ink} />
         </div>
       ))}
     </div>
