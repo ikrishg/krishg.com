@@ -30,16 +30,19 @@ export function CreatingTimelineView({
     const track = trackRef.current;
     if (!scroller || !track) return;
 
-    const yearEls = track.querySelectorAll<HTMLElement>(".creating-card");
     const markerEls = scroller.parentElement?.querySelectorAll<HTMLElement>(
       ".creating-timeline__year",
     );
     if (!markerEls) return;
 
     const syncYears = () => {
-      yearEls.forEach((card, i) => {
-        const marker = markerEls[i];
-        if (!marker) return;
+      markerEls.forEach((marker) => {
+        const entryId = marker.getAttribute("data-year-for");
+        if (!entryId) return;
+        const card = track.querySelector<HTMLElement>(
+          `[data-entry-id="${entryId}"]`,
+        );
+        if (!card) return;
         const cardRect = card.getBoundingClientRect();
         const rowRect = marker.parentElement?.getBoundingClientRect();
         if (!rowRect) return;
@@ -59,8 +62,9 @@ export function CreatingTimelineView({
 
   useEffect(() => {
     const scroller = scrollerRef.current;
-    if (!scroller || reducedMotion) return;
+    if (!scroller) return;
 
+    const allowInertia = !reducedMotion;
     let pointerId: number | null = null;
     let didDrag = false;
     let captured = false;
@@ -69,6 +73,7 @@ export function CreatingTimelineView({
     let velocity = 0;
     let lastX = 0;
     let lastT = 0;
+    let downT = 0;
     let inertiaTween: gsap.core.Tween | null = null;
     let suppressClick = false;
 
@@ -85,6 +90,7 @@ export function CreatingTimelineView({
       scrollStart = scroller.scrollLeft;
       lastX = e.clientX;
       lastT = performance.now();
+      downT = lastT;
       inertiaTween?.kill();
     };
 
@@ -119,15 +125,18 @@ export function CreatingTimelineView({
         window.setTimeout(() => {
           suppressClick = false;
         }, 0);
-        const target = scroller.scrollLeft - velocity * 120;
-        inertiaTween = gsap.to(scroller, {
-          scrollLeft: Math.max(
-            0,
-            Math.min(scroller.scrollWidth - scroller.clientWidth, target),
-          ),
-          duration: 0.85,
-          ease: "power3.out",
-        });
+        const heldMs = performance.now() - downT;
+        if (allowInertia && heldMs < 120) {
+          const target = scroller.scrollLeft - velocity * 120;
+          inertiaTween = gsap.to(scroller, {
+            scrollLeft: Math.max(
+              0,
+              Math.min(scroller.scrollWidth - scroller.clientWidth, target),
+            ),
+            duration: 0.85,
+            ease: "power3.out",
+          });
+        }
       }
       pointerId = null;
       captured = false;

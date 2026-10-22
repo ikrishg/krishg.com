@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import gsap from "gsap";
 import type {
   CreatingCategoryFilter,
   CreatingEntry,
@@ -48,6 +47,18 @@ function useReducedMotion() {
   return reduced;
 }
 
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setCoarse(mq.matches);
+    const fn = () => setCoarse(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+  return coarse;
+}
+
 function readPieceFromUrl(): string | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -60,8 +71,21 @@ function getScrollRoot(): HTMLElement | null {
   return el instanceof HTMLElement ? el : null;
 }
 
+function focusEntryOpener(entryId: string | null, opener: HTMLElement | null) {
+  if (opener && document.contains(opener)) {
+    opener.focus();
+    return;
+  }
+  if (!entryId) return;
+  const el = document.querySelector(
+    `[data-entry-id="${entryId}"] .creating-card__open`,
+  );
+  if (el instanceof HTMLElement) el.focus();
+}
+
 export default function CreatingGallery({ entries }: Props) {
   const reducedMotion = useReducedMotion();
+  const coarsePointer = useCoarsePointer();
   const view = useCreatingStore((s) => s.view);
   const filter = useCreatingStore((s) => s.filter);
   const hoveredId = useCreatingStore((s) => s.hoveredId);
@@ -78,10 +102,11 @@ export default function CreatingGallery({ entries }: Props) {
   const flipRootRef = useRef<HTMLDivElement>(null);
   const scrollSaveRef = useRef(0);
   const detailOpenerRef = useRef<HTMLElement | null>(null);
+  const lastFocusedEntryRef = useRef<string | null>(null);
   const pendingFlipRef = useRef<ReturnType<typeof captureFlipState>>(null);
   const didIntroRef = useRef(false);
   const historyPushedRef = useRef(false);
-  const closingViaBackRef = useRef(false);
+  const skipPopFromCloseRef = useRef(false);
 
   const categories = useMemo(() => categoriesPresent(entries), [entries]);
   const visibleEntries = useMemo(
@@ -94,6 +119,10 @@ export default function CreatingGallery({ entries }: Props) {
     [entries, activeId],
   );
 
+  useEffect(() => {
+    if (activeId) lastFocusedEntryRef.current = activeId;
+  }, [activeId]);
+
   const hoveredTitle = useMemo(() => {
     if (!hoveredId) return null;
     return entries.find((e) => e.id === hoveredId)?.title ?? null;
@@ -103,7 +132,7 @@ export default function CreatingGallery({ entries }: Props) {
     const state = pendingFlipRef.current;
     pendingFlipRef.current = null;
     if (!state) return;
-    runFlipFrom(state, reducedMotion);
+    runFlipFrom(state, flipRootRef.current, reducedMotion);
   }, [reducedMotion]);
 
   const transitionUi = useCallback(
@@ -146,6 +175,7 @@ export default function CreatingGallery({ entries }: Props) {
       const scrollRoot = getScrollRoot();
       if (scrollRoot) scrollSaveRef.current = scrollRoot.scrollTop;
       detailOpenerRef.current = el;
+      lastFocusedEntryRef.current = id;
       setTransitionEntryId(id);
       await withViewTransition(reducedMotion, () => {
         setActiveId(id);
@@ -163,12 +193,13 @@ export default function CreatingGallery({ entries }: Props) {
   );
 
   const closeEntry = useCallback(async () => {
-    const useBack = historyPushedRef.current && !closingViaBackRef.current;
-    closingViaBackRef.current = false;
+    const closingId = activeId;
+    const useBack = historyPushedRef.current;
     setTransitionEntryId(activeId);
     await withViewTransition(reducedMotion, () => {
       setActiveId(null);
       if (useBack) {
+        skipPopFromCloseRef.current = true;
         history.back();
         historyPushedRef.current = false;
       } else {
@@ -181,22 +212,28 @@ export default function CreatingGallery({ entries }: Props) {
     setTransitionEntryId(null);
     restoreScroll();
     requestAnimationFrame(() => {
-      detailOpenerRef.current?.focus();
+      focusEntryOpener(closingId, detailOpenerRef.current);
     });
   }, [activeId, reducedMotion, restoreScroll]);
 
   useEffect(() => {
     const onPop = () => {
+      const fromOurClose = skipPopFromCloseRef.current;
+      skipPopFromCloseRef.current = false;
       const piece = readPieceFromUrl();
-      closingViaBackRef.current = true;
       setActiveId(piece);
       if (!piece) {
         historyPushedRef.current = false;
         setTransitionEntryId(null);
         restoreScroll();
-        requestAnimationFrame(() => {
-          detailOpenerRef.current?.focus();
-        });
+        if (!fromOurClose) {
+          requestAnimationFrame(() => {
+            focusEntryOpener(
+              lastFocusedEntryRef.current,
+              detailOpenerRef.current,
+            );
+          });
+        }
       }
     };
     window.addEventListener("popstate", onPop);
@@ -226,6 +263,9 @@ export default function CreatingGallery({ entries }: Props) {
   }, [entries.length, visibleEntries, view, filter, hoveredId, activeId]);
 
   const detailOpen = Boolean(activeEntry);
+  const tutorialText = coarsePointer
+    ? "Tap any piece to open its detail view."
+    : "Click any piece to open its detail view.";
 
   return (
     <div
@@ -240,7 +280,6 @@ export default function CreatingGallery({ entries }: Props) {
         categories={categories}
         filter={filter}
         onFilterChange={(f) => transitionUi({ filter: f })}
-        showTutorial={!detailOpen}
         hoveredTitle={hoveredTitle}
         reducedMotion={reducedMotion}
         detailOpen={detailOpen}
@@ -251,6 +290,11 @@ export default function CreatingGallery({ entries }: Props) {
         inert={detailOpen ? true : undefined}
         aria-hidden={detailOpen ? true : undefined}
       >
+        {!detailOpen && (
+          <p className="creating-tutorial" role="status">
+            {tutorialText}
+          </p>
+        )}
         <div ref={flipRootRef} className="creating-flip-root">
           {view === "gallery" && (
             <CreatingGalleryGrid
@@ -287,6 +331,7 @@ export default function CreatingGallery({ entries }: Props) {
           entry={activeEntry}
           onClose={closeEntry}
           returnFocusRef={detailOpenerRef}
+          focusEntryId={lastFocusedEntryRef.current}
           reducedMotion={reducedMotion}
         />
       )}

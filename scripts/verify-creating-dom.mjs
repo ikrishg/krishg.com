@@ -127,13 +127,19 @@ async function runSuite(context, tag, { touch }) {
   }
 
   await page.getByRole("button", { name: /^Poetry$/i }).click();
-  await page.waitForTimeout(800);
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll(".creating-flip-root .creating-card").length ===
+      6,
+    { timeout: 8000 },
+  );
+  const poetryCount = await page.evaluate(
+    () => document.querySelectorAll(".creating-flip-root .creating-card").length,
+  );
   checks.push({
     name: "filter-poetry",
-    pass:
-      (await page.evaluate(
-        () => document.querySelectorAll("[data-flip-id]").length,
-      )) === 6,
+    pass: poetryCount === 6,
+    note: String(poetryCount),
   });
   await page.getByRole("button", { name: /^All$/i }).click();
   await page.waitForTimeout(600);

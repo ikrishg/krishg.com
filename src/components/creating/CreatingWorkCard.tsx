@@ -87,8 +87,12 @@ export function CreatingWorkCard({
           {variant === "listicle" ? (
             textCard ? (
               <span
-                className="creating-card__swatch"
-                style={{ background: accent }}
+                className={`creating-card__swatch${entry.category === "poetry" ? " creating-card__swatch--on-stage" : ""}`}
+                style={
+                  entry.category === "poetry"
+                    ? undefined
+                    : { background: accent }
+                }
                 aria-hidden="true"
               />
             ) : (
