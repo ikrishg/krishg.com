@@ -9,8 +9,8 @@ import { dispatchSplashScheduleClear } from "./HomeSplashOverlay";
 function StarSeparator() {
   return (
     <span
-      className="home-closing-star relative z-[40] select-none px-[0.35em] text-[0.95em] leading-none opacity-80"
-      style={{ color: "var(--home-closing-ink, var(--home-educator-fg))" }}
+      className="home-closing-star relative z-[40] select-none px-[0.45em] text-[1.35em] font-bold leading-none"
+      style={{ color: "var(--home-closing-ink, var(--home-closing-fg))" }}
       aria-hidden="true"
     >
       ✱
@@ -18,16 +18,26 @@ function StarSeparator() {
   );
 }
 
-function ClosingRow({ links }: { links: typeof closingBandRow }) {
+function NavRow() {
   return (
-    <p className="relative z-[40] m-0 flex flex-wrap items-center justify-center gap-y-1 text-center">
-      {links.map((link, index) => (
+    <p className="home-closing-nav-row relative z-[40] m-0 flex flex-wrap items-center justify-center gap-y-1 text-center">
+      {closingNavRow.map((link, index) => (
         <span key={link.key} className="inline-flex items-center">
           {index > 0 ? <StarSeparator /> : null}
-          <HomeClosingLink link={link} />
+          <HomeClosingLink link={link} variant="nav" />
         </span>
       ))}
     </p>
+  );
+}
+
+function PrimaryRow() {
+  return (
+    <div className="home-closing-primary-row relative z-[40] flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-4 md:flex-row md:gap-[clamp(1.5rem,6vw,5rem)]">
+      {closingBandRow.map((link) => (
+        <HomeClosingLink key={link.key} link={link} variant="primary" />
+      ))}
+    </div>
   );
 }
 
@@ -76,13 +86,17 @@ export default function HomeClosingIndex() {
     <section
       ref={sectionRef}
       id="home-closing-index"
-      data-home-nav-theme="educator"
-      className="home-closing-index relative z-[39] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] py-8 text-[var(--home-educator-fg)] md:py-12"
+      data-home-nav-theme="closing"
+      className="home-closing-index relative z-[40] snap-start px-[var(--gutter)] text-[var(--home-closing-fg)]"
       aria-label="Site index"
     >
-      <div className="relative z-[40] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center gap-6 md:gap-8">
-        <ClosingRow links={closingBandRow} />
-        <ClosingRow links={closingNavRow} />
+      <div className="home-closing-index__layout relative z-[40] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
+        <div className="home-closing-index__primary flex flex-1 flex-col items-center justify-center py-8 md:py-12">
+          <PrimaryRow />
+        </div>
+        <div className="home-closing-index__nav pb-6 pt-2 md:pb-8">
+          <NavRow />
+        </div>
       </div>
     </section>
   );

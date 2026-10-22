@@ -23,6 +23,9 @@
   --home-educator-fg: #252d45;
   --home-educator-muted: color-mix(in srgb, var(--home-educator-fg) 55%, var(--home-educator-bg));
 
+  --home-closing-bg: #e7ddcc;
+  --home-closing-fg: #141a2b;
+
   /* Closing index splash colours (secondary row) */
   --home-about-bg: #7459bd;
   --home-now-bg: #1f8254;
@@ -132,39 +135,79 @@ body.site-body {
 }
 
 .home-closing-tail {
-  position: relative;
-  background-color: var(--home-educator-bg);
+  position: sticky;
+  top: var(--home-nav-height);
+  z-index: 45;
+  isolation: isolate;
+  background-color: var(--home-closing-bg);
   min-height: calc(100svh - var(--home-nav-height));
   min-height: calc(100lvh - var(--home-nav-height));
   display: flex;
   flex-direction: column;
 }
 
-.home-closing-tail .home-closing-index {
-  flex: 1 1 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.home-closing-index {
+  flex: 1 1 auto;
+  min-height: calc(100svh - var(--home-nav-height));
+  min-height: calc(100lvh - var(--home-nav-height));
+  background-color: var(--home-closing-bg);
+  box-shadow: 0 -1.5rem 0 0 var(--home-closing-bg);
+}
+
+.home-closing-index__layout {
+  min-height: inherit;
 }
 
 .home-closing-tail .home-footer {
   flex-shrink: 0;
+  background-color: var(--home-closing-bg);
 }
 
-.home-closing-index,
 .home-footer {
-  box-shadow: 0 -1.5rem 0 0 var(--home-educator-bg);
-}
-
-html[data-home-splash] .home-closing-tail {
-  background-color: transparent;
+  box-shadow: 0 -1.5rem 0 0 var(--home-closing-bg);
 }
 
 html[data-home-splash] .home-closing-index,
 html[data-home-splash] .home-footer {
   background-color: transparent;
   box-shadow: none;
+}
+
+html[data-home-past-bands] .home-scroll-surface > section.home-band-min-h {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html[data-home-splash] .home-navbar {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+html[data-home-splash="building"] .home-navbar,
+html[data-home-splash="building"] .home-navbar .home-logo,
+html[data-home-splash="building"] .home-navbar-search__trigger {
+  color: #141a2b;
+}
+
+html[data-home-splash="educating"] .home-navbar,
+html[data-home-splash="educating"] .home-navbar .home-logo,
+html[data-home-splash="educating"] .home-navbar-search__trigger {
+  color: #141a2b;
+}
+
+html[data-home-splash="creating"] .home-navbar,
+html[data-home-splash="creating"] .home-navbar .home-logo,
+html[data-home-splash="creating"] .home-navbar-search__trigger,
+html[data-home-splash="about"] .home-navbar,
+html[data-home-splash="about"] .home-navbar .home-logo,
+html[data-home-splash="about"] .home-navbar-search__trigger,
+html[data-home-splash="now"] .home-navbar,
+html[data-home-splash="now"] .home-navbar .home-logo,
+html[data-home-splash="now"] .home-navbar-search__trigger,
+html[data-home-splash="sitemap"] .home-navbar,
+html[data-home-splash="sitemap"] .home-navbar .home-logo,
+html[data-home-splash="sitemap"] .home-navbar-search__trigger {
+  color: #fff9ec;
 }
 
 html[data-home-splash="building"] .home-closing-index .home-closing-link,
@@ -363,6 +406,19 @@ html[data-page-accent="educator"] {
     transparent
   );
   color: var(--home-educator-fg);
+}
+
+html[data-page-accent="closing"] {
+  --home-canvas: var(--home-closing-bg);
+  --home-nav-bg: var(--home-closing-bg);
+  --home-nav-fg: var(--home-closing-fg);
+  --home-nav-logo: var(--home-closing-fg);
+  --home-nav-muted: color-mix(
+    in srgb,
+    var(--home-closing-fg) 45%,
+    var(--home-closing-bg)
+  );
+  color: var(--home-closing-fg);
 }
 
 @media (prefers-reduced-motion: no-preference) {

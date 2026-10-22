@@ -1,15 +1,14 @@
-import type { MouseEvent, PointerEvent } from "react";
+import type { PointerEvent } from "react";
 import type { ClosingLink } from "./home-closing";
 import { closingSplashInkHex } from "./home-closing";
 import {
   dispatchSplashActivate,
-  dispatchSplashImmediateClear,
   dispatchSplashScheduleClear,
 } from "./HomeSplashOverlay";
-import { scrollToHomeBand } from "./scrollToHomeBand";
 
 type Props = {
   link: ClosingLink;
+  variant: "primary" | "nav";
 };
 
 function canUseHoverSplash() {
@@ -17,37 +16,31 @@ function canUseHoverSplash() {
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-const baseClass =
-  "home-closing-link relative z-[40] inline-block min-h-11 py-2 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.125rem,2.2vw,1.625rem)] font-medium lowercase tracking-[-0.02em] underline underline-offset-[0.28em] decoration-[1.5px] transition-[color,opacity] duration-[400ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
+const primaryClass =
+  "home-closing-link home-closing-link--primary relative z-[40] inline-block min-h-11 py-2 text-center font-[family-name:var(--font-inter-tight),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(2.25rem,9vw,5.5rem)] font-extrabold lowercase tracking-[-0.045em] underline underline-offset-[0.22em] decoration-[2px] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
 
-export default function HomeClosingLink({ link }: Props) {
+const navClass =
+  "home-closing-link home-closing-link--nav relative z-[40] inline-block min-h-11 py-2 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1rem,2.4vw,1.375rem)] font-normal lowercase tracking-[-0.02em] underline underline-offset-[0.32em] decoration-[1.5px] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
+
+export default function HomeClosingLink({ link, variant }: Props) {
   const ink = closingSplashInkHex[link.key];
-
-  const navigateToBand = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!link.bandId) return;
-    event.preventDefault();
-    dispatchSplashImmediateClear();
-    document.documentElement.style.removeProperty("--home-closing-ink");
-    scrollToHomeBand(link.bandId);
-  };
+  const className = variant === "primary" ? primaryClass : navClass;
 
   const onBandPointerDown = (event: PointerEvent<HTMLAnchorElement>) => {
-    if (!link.bandId || event.pointerType === "mouse") return;
-    dispatchSplashImmediateClear();
+    if (event.pointerType === "mouse") return;
     document.documentElement.style.removeProperty("--home-closing-ink");
   };
 
   return (
     <a
-      className={baseClass}
+      className={className}
       style={{
-        color: `var(--home-closing-ink, var(--home-educator-fg))`,
-        outlineColor: `var(--home-closing-ink, var(--home-educator-fg))`,
+        color: `var(--home-closing-ink, var(--home-closing-fg))`,
+        outlineColor: `var(--home-closing-ink, var(--home-closing-fg))`,
       }}
       href={link.href}
       data-splash-key={link.key}
       data-splash-ink={ink}
-      onClick={navigateToBand}
       onPointerDown={onBandPointerDown}
       onPointerEnter={(event) => {
         if (!canUseHoverSplash() || event.pointerType !== "mouse") return;
