@@ -5,6 +5,7 @@ const ART_2X = "/images/starry-night-1800.webp";
 const FOOTER_SELECTOR = ".home-footer";
 
 export default function HomeOverscrollPainting() {
+  const artRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -18,10 +19,7 @@ export default function HomeOverscrollPainting() {
       const dpr = window.devicePixelRatio || 1;
 
       const apply = (url: string) => {
-        layerRef.current?.style.setProperty(
-          "background-image",
-          `url("${url}")`,
-        );
+        artRef.current?.style.setProperty("background-image", `url("${url}")`);
         setLoaded(true);
       };
 
@@ -68,14 +66,22 @@ export default function HomeOverscrollPainting() {
     if (!layer) return;
 
     const sync = () => {
+      const root = document.documentElement;
       const pull = Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--home-overscroll-pull",
-        ),
+        getComputedStyle(root).getPropertyValue("--home-overscroll-pull"),
+      );
+      const revealVar = Number.parseFloat(
+        getComputedStyle(root).getPropertyValue("--home-overscroll-reveal"),
       );
       const reveal =
-        document.documentElement.dataset.overscrollReveal === "true";
-      layer.dataset.visible = reveal === "true" || pull > 24 ? "true" : "false";
+        root.dataset.overscrollReveal === "true" ||
+        revealVar > 0.08 ||
+        pull > 24;
+      const opacity = reveal
+        ? Math.min(1, revealVar > 0 ? revealVar : pull > 24 ? 1 : pull / 24)
+        : 0;
+      layer.style.opacity = String(opacity);
+      layer.dataset.visible = opacity > 0.04 ? "true" : "false";
     };
 
     sync();
@@ -97,6 +103,12 @@ export default function HomeOverscrollPainting() {
       className="home-overscroll-painting"
       aria-hidden="true"
       data-loaded={loaded ? "true" : "false"}
-    />
+    >
+      <div className="home-overscroll-painting__inset">
+        <div className="home-overscroll-painting__frame">
+          <div ref={artRef} className="home-overscroll-painting__art" />
+        </div>
+      </div>
+    </div>
   );
 }

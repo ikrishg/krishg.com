@@ -1,8 +1,4 @@
-import {
-  pauseHomeLenisSnap,
-  resumeHomeLenisSnap,
-} from "~motion/homeLenisSnapControl";
-import { getLenis, siteScrollTo } from "~motion/lenisStore";
+import { siteScrollTo } from "~motion/lenisStore";
 
 const SURFACE_SELECTOR = ".home-scroll-surface";
 const NAV_SELECTOR = ".home-navbar";
@@ -49,47 +45,7 @@ export function scrollToHomeBand(bandId: string) {
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  pauseHomeLenisSnap();
-
-  const restoreSnap = () => {
-    resumeHomeLenisSnap();
-  };
-
   siteScrollTo(target, {
     immediate: reduced,
-    onComplete: restoreSnap,
   });
-
-  if (reduced) {
-    restoreSnap();
-    return;
-  }
-
-  const lenis = getLenis();
-  const fallback = window.setTimeout(restoreSnap, 900);
-
-  if (lenis) {
-    const onScroll = () => {
-      if (Math.abs(lenis.scroll - target) < 2) {
-        lenis.off("scroll", onScroll);
-        window.clearTimeout(fallback);
-        restoreSnap();
-      }
-    };
-    lenis.on("scroll", onScroll);
-    return;
-  }
-
-  if ("onscrollend" in window) {
-    window.addEventListener(
-      "scrollend",
-      () => {
-        window.clearTimeout(fallback);
-        restoreSnap();
-      },
-      { once: true },
-    );
-  } else {
-    window.setTimeout(restoreSnap, 700);
-  }
 }

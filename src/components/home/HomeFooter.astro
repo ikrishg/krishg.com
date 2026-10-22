@@ -1,28 +1,20 @@
 ---
 import HomeDriftingCursors from "~components/home/HomeDriftingCursors";
-import { renderSiteIcon, renderSiteSocialIcon } from "~components/icons/siteIcon";
+import { renderSiteSocialIcon } from "~components/icons/siteIcon";
 import { contactEmail, footerSocials } from "~site-links";
-
-const mailIconHtml = renderSiteIcon("mail", {
-  className: "home-footer__mail-icon",
-  weight: "bold",
-});
 ---
 
 <footer
-  class="home-footer relative snap-start bg-[var(--home-closing-bg)] text-[var(--home-closing-fg)]"
+  class="home-footer relative bg-[var(--home-closing-bg)] text-[var(--home-closing-fg)]"
   data-home-nav-theme="closing"
 >
-  <HomeDriftingCursors client:visible />
+  <HomeDriftingCursors client:load />
   <div class="home-footer__layout relative z-[46] px-[var(--gutter)]">
     <a
       class="home-footer__email group"
       href={`mailto:${contactEmail}`}
     >
-      <span class="home-footer__email-inner">
-        <Fragment set:html={mailIconHtml} />
-        <span class="home-footer__email-text">{contactEmail}</span>
-      </span>
+      <span class="home-footer__email-text">{contactEmail}</span>
     </a>
 
     <nav aria-label="Social links" class="home-footer__social">
