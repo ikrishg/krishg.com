@@ -141,7 +141,6 @@
   font-size: 0.95rem;
   line-height: 1.45;
   color: var(--creating-on-canvas);
-  opacity: 0.95;
 }
 
 .creating-card__demo {
@@ -264,8 +263,13 @@
   gap: 1.25rem;
   align-items: flex-end;
   min-height: min(70vh, 28rem);
-  padding: 2rem 3.5rem 3rem;
+  padding: 0.65rem 3.5rem 2rem;
   width: max-content;
+}
+
+.creating-timeline__scroller img {
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .creating-card--timeline {
@@ -458,7 +462,6 @@
   justify-self: center;
   margin: 0.35rem 0 0;
   font-size: 0.75rem;
-  opacity: 0.7;
   pointer-events: none;
 }
 
@@ -496,7 +499,7 @@
 .creating-page[data-phase="gallery"] .creating-filter-btn[data-active="true"],
 .creating-page[data-phase="detail"] .creating-filter-btn[data-active="true"] {
   background: var(--filter-accent, var(--creating-red));
-  border-color: var(--filter-accent, var(--creating-red));
+  border-color: var(--creating-on-canvas);
   color: var(--creating-on-canvas);
 }
 
@@ -585,6 +588,7 @@
   bottom: 0;
   left: 0;
   transform: none;
+  background: var(--creating-red);
 }
 
 .creating-view-btn__label {
@@ -624,19 +628,6 @@
   cursor: pointer;
 }
 
-.creating-filter-btn[data-active="true"] {
-  background: var(--filter-accent, var(--creating-red));
-  border-color: var(--filter-accent, var(--creating-red));
-  color: var(--creating-ink);
-}
-
-.creating-page[data-phase="gallery"] .creating-filter-btn[data-active="true"],
-.creating-page[data-phase="detail"] .creating-filter-btn[data-active="true"] {
-  background: var(--filter-accent, var(--creating-red));
-  border-color: var(--filter-accent, var(--creating-red));
-  color: var(--creating-on-canvas);
-}
-
 .creating-page[data-phase="gallery"]
   .creating-filter-btn[data-active="true"][data-filter="prose"],
 .creating-page[data-phase="detail"]
@@ -646,11 +637,6 @@
 .creating-page[data-phase="detail"]
   .creating-filter-btn[data-active="true"][data-filter="photography"] {
   color: var(--creating-ink);
-}
-
-.creating-filter-btn[data-active="true"][data-filter="all"] {
-  background: var(--creating-red);
-  border-color: var(--creating-red);
 }
 
 .creating-tutorial {

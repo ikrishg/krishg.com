@@ -5,6 +5,9 @@ import { registerCreatingEasings } from "./easings";
 registerCreatingEasings();
 gsap.registerPlugin(Flip);
 
+const CARD_FLIP_SELECTOR = ".creating-card[data-flip-id]";
+const MEDIA_FLIP_SELECTOR = "[data-flip-id$='--media']";
+
 export type CapturedFlip = {
   cards: Flip.FlipState;
   media: Flip.FlipState | null;
@@ -12,15 +15,13 @@ export type CapturedFlip = {
 
 export function captureFlipTargets(root: ParentNode | null): Element[] {
   if (!root) return [];
-  return [...root.querySelectorAll("[data-flip-id]")];
+  return [...root.querySelectorAll(CARD_FLIP_SELECTOR)];
 }
 
 export function captureFlipState(root: ParentNode | null): CapturedFlip | null {
   const cards = captureFlipTargets(root);
   if (cards.length === 0) return null;
-  const media = [
-    ...root!.querySelectorAll("[data-flip-id] .creating-card__media"),
-  ];
+  const media = [...root!.querySelectorAll(MEDIA_FLIP_SELECTOR)];
   return {
     cards: Flip.getState(cards, {
       props: "transform,opacity",
@@ -41,18 +42,20 @@ export function runFlipFrom(
   state: CapturedFlip,
   root: ParentNode | null,
   reducedMotion: boolean,
-  options?: { stagger?: number; duration?: number },
+  options?: { duration?: number },
 ) {
   if (reducedMotion || !state || !root) return;
 
-  const cardTargets = root.querySelectorAll("[data-flip-id]");
-  const mediaTargets = root.querySelectorAll(
-    "[data-flip-id] .creating-card__media",
-  );
+  const cardTargets = root.querySelectorAll(CARD_FLIP_SELECTOR);
+  const mediaTargets = root.querySelectorAll(MEDIA_FLIP_SELECTOR);
 
   const duration = options?.duration ?? 0.72;
-  const stagger = options?.stagger ?? 0.035;
+  const stagger = { amount: 0.25 };
   const ease = "creating.cubicInOut";
+
+  const notifyDone = () => {
+    window.dispatchEvent(new CustomEvent("creating-flip-complete"));
+  };
 
   Flip.from(state.cards, {
     targets: cardTargets,
@@ -61,6 +64,7 @@ export function runFlipFrom(
     stagger,
     nested: true,
     prune: true,
+    fade: true,
     onEnter: (els) => {
       gsap.fromTo(
         els,
@@ -81,6 +85,7 @@ export function runFlipFrom(
         ease: "creating.cubicInOut",
       });
     },
+    onComplete: notifyDone,
   });
 
   if (state.media && mediaTargets.length > 0) {
@@ -98,7 +103,7 @@ export function runFlipFrom(
 export function staggerCardsIn(
   root: ParentNode | null,
   reducedMotion: boolean,
-  selector = "[data-flip-id]",
+  selector = CARD_FLIP_SELECTOR,
 ) {
   if (reducedMotion || !root) return;
   const cards = [...root.querySelectorAll(selector)];

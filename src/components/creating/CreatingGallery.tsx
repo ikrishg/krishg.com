@@ -72,15 +72,17 @@ function getScrollRoot(): HTMLElement | null {
 }
 
 function focusEntryOpener(entryId: string | null, opener: HTMLElement | null) {
-  if (opener && document.contains(opener)) {
-    opener.focus();
-    return;
-  }
-  if (!entryId) return;
-  const el = document.querySelector(
-    `[data-entry-id="${entryId}"] .creating-card__open`,
-  );
-  if (el instanceof HTMLElement) el.focus();
+  const target =
+    opener && document.contains(opener)
+      ? opener
+      : entryId
+        ? document.querySelector(
+            `[data-entry-id="${entryId}"] .creating-card__open`,
+          )
+        : null;
+  if (!(target instanceof HTMLElement)) return;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 export default function CreatingGallery({ entries }: Props) {
@@ -122,6 +124,14 @@ export default function CreatingGallery({ entries }: Props) {
   useEffect(() => {
     if (activeId) lastFocusedEntryRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    const piece = readPieceFromUrl();
+    if (!piece || typeof window === "undefined") return;
+    if (window.history.state?.creatingPiece) return;
+    const url = new URL(window.location.href);
+    history.replaceState({ creatingPiece: piece }, "", url);
+  }, []);
 
   const hoveredTitle = useMemo(() => {
     if (!hoveredId) return null;
@@ -194,20 +204,19 @@ export default function CreatingGallery({ entries }: Props) {
 
   const closeEntry = useCallback(async () => {
     const closingId = activeId;
-    const useBack = historyPushedRef.current;
+    const pushedDetail = historyPushedRef.current;
     setTransitionEntryId(activeId);
     await withViewTransition(reducedMotion, () => {
       setActiveId(null);
-      if (useBack) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("piece");
+      if (pushedDetail && window.history.state?.creatingPiece) {
         skipPopFromCloseRef.current = true;
         history.back();
-        historyPushedRef.current = false;
       } else {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("piece");
         history.replaceState({}, "", url.pathname + url.search);
-        historyPushedRef.current = false;
       }
+      historyPushedRef.current = false;
     });
     setTransitionEntryId(null);
     restoreScroll();
@@ -290,11 +299,14 @@ export default function CreatingGallery({ entries }: Props) {
         inert={detailOpen ? true : undefined}
         aria-hidden={detailOpen ? true : undefined}
       >
-        {!detailOpen && (
-          <p className="creating-tutorial" role="status">
-            {tutorialText}
-          </p>
-        )}
+        <p
+          className="creating-tutorial"
+          role="status"
+          aria-hidden={detailOpen ? true : undefined}
+          style={detailOpen ? { visibility: "hidden" } : undefined}
+        >
+          {tutorialText}
+        </p>
         <div ref={flipRootRef} className="creating-flip-root">
           {view === "gallery" && (
             <CreatingGalleryGrid

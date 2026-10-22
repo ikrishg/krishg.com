@@ -5,6 +5,7 @@ import { timelineYearMarkers } from "~lib/creating/entries";
 import { CreatingWorkCard } from "./CreatingWorkCard";
 
 const DRAG_THRESHOLD_PX = 6;
+const FLING_RECENT_MS = 80;
 
 type Props = {
   entries: CreatingEntry[];
@@ -36,6 +37,9 @@ export function CreatingTimelineView({
     if (!markerEls) return;
 
     const syncYears = () => {
+      const yearsRow = markerEls[0]?.parentElement;
+      if (!yearsRow) return;
+      const rowPad = parseFloat(getComputedStyle(yearsRow).paddingLeft) || 0;
       markerEls.forEach((marker) => {
         const entryId = marker.getAttribute("data-year-for");
         if (!entryId) return;
@@ -43,10 +47,9 @@ export function CreatingTimelineView({
           `[data-entry-id="${entryId}"]`,
         );
         if (!card) return;
-        const cardRect = card.getBoundingClientRect();
-        const rowRect = marker.parentElement?.getBoundingClientRect();
-        if (!rowRect) return;
-        marker.style.transform = `translateX(${cardRect.left - rowRect.left}px)`;
+        const x =
+          track.offsetLeft + card.offsetLeft - scroller.scrollLeft - rowPad;
+        marker.style.transform = `translateX(${x}px)`;
       });
     };
 
@@ -54,9 +57,13 @@ export function CreatingTimelineView({
     const ro = new ResizeObserver(syncYears);
     ro.observe(track);
     scroller.addEventListener("scroll", syncYears, { passive: true });
+    window.addEventListener("creating-flip-complete", syncYears);
+    const t = window.setTimeout(syncYears, 950);
     return () => {
       ro.disconnect();
       scroller.removeEventListener("scroll", syncYears);
+      window.removeEventListener("creating-flip-complete", syncYears);
+      window.clearTimeout(t);
     };
   }, [entries]);
 
@@ -73,15 +80,17 @@ export function CreatingTimelineView({
     let velocity = 0;
     let lastX = 0;
     let lastT = 0;
-    let downT = 0;
     let inertiaTween: gsap.core.Tween | null = null;
     let suppressClick = false;
 
+    const resetPointer = () => {
+      pointerId = null;
+      captured = false;
+      didDrag = false;
+    };
+
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
-      if ((e.target as Element).closest(".creating-card__open")) {
-        /* allow card buttons to receive plain clicks */
-      }
       pointerId = e.pointerId;
       didDrag = false;
       captured = false;
@@ -90,7 +99,6 @@ export function CreatingTimelineView({
       scrollStart = scroller.scrollLeft;
       lastX = e.clientX;
       lastT = performance.now();
-      downT = lastT;
       inertiaTween?.kill();
     };
 
@@ -111,7 +119,7 @@ export function CreatingTimelineView({
       scroller.scrollLeft = scrollStart - dx;
     };
 
-    const onUp = (e: PointerEvent) => {
+    const endDrag = (e: PointerEvent, allowFling: boolean) => {
       if (pointerId !== e.pointerId) return;
       if (captured) {
         try {
@@ -125,8 +133,8 @@ export function CreatingTimelineView({
         window.setTimeout(() => {
           suppressClick = false;
         }, 0);
-        const heldMs = performance.now() - downT;
-        if (allowInertia && heldMs < 120) {
+        const recentMs = performance.now() - lastT;
+        if (allowInertia && allowFling && recentMs < FLING_RECENT_MS) {
           const target = scroller.scrollLeft - velocity * 120;
           inertiaTween = gsap.to(scroller, {
             scrollLeft: Math.max(
@@ -138,10 +146,11 @@ export function CreatingTimelineView({
           });
         }
       }
-      pointerId = null;
-      captured = false;
-      didDrag = false;
+      resetPointer();
     };
+
+    const onUp = (e: PointerEvent) => endDrag(e, true);
+    const onCancel = (e: PointerEvent) => endDrag(e, false);
 
     const onClick = (e: MouseEvent) => {
       if (suppressClick) {
@@ -153,13 +162,13 @@ export function CreatingTimelineView({
     scroller.addEventListener("pointerdown", onDown);
     scroller.addEventListener("pointermove", onMove);
     scroller.addEventListener("pointerup", onUp);
-    scroller.addEventListener("pointercancel", onUp);
+    scroller.addEventListener("pointercancel", onCancel);
     scroller.addEventListener("click", onClick, true);
     return () => {
       scroller.removeEventListener("pointerdown", onDown);
       scroller.removeEventListener("pointermove", onMove);
       scroller.removeEventListener("pointerup", onUp);
-      scroller.removeEventListener("pointercancel", onUp);
+      scroller.removeEventListener("pointercancel", onCancel);
       scroller.removeEventListener("click", onClick, true);
       inertiaTween?.kill();
     };
