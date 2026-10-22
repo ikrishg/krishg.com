@@ -253,8 +253,12 @@ body.site-body {
 }
 
 .home-footer__mail-icon {
-  width: clamp(3rem, 9vw, 5.25rem);
-  height: clamp(3rem, 9vw, 5.25rem);
+  /*
+   * Match the email cap height: Tabler SVG size follows this em box.
+   */
+  width: 1em;
+  height: 1em;
+  font-size: clamp(2rem, 7.5vw, 4.75rem);
 }
 
 .home-footer__email-text {
@@ -302,6 +306,7 @@ body.site-body {
 }
 
 .home-footer__social-icon {
+  display: block;
   width: 1.5rem;
   height: 1.5rem;
 }
@@ -316,6 +321,10 @@ body.site-body {
     font-size: clamp(1.65rem, 9.5vw, 2.35rem);
     max-width: 100%;
     padding-inline: 0.25rem;
+  }
+
+  .home-footer__mail-icon {
+    font-size: clamp(1.65rem, 9.5vw, 2.35rem);
   }
 
   .home-footer__layout {

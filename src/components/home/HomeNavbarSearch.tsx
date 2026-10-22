@@ -6,6 +6,8 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { IconSearch } from "@tabler/icons-react";
+import { TablerIcon } from "~components/icons/tablerIcon";
 import {
   filterSiteSearch,
   type SiteSearchEntry,
@@ -14,22 +16,6 @@ import { navigateSearchEntry } from "./home-search-nav";
 
 const PANEL_INK = "#141a2b";
 const PANEL_SURFACE = "#fff9ec";
-
-function SearchIcon() {
-  return (
-    <svg
-      className="h-[1.35rem] w-[1.35rem] shrink-0"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="6.25" />
-      <path strokeLinecap="round" d="M16.25 16.25 20.5 20.5" />
-    </svg>
-  );
-}
 
 export default function HomeNavbarSearch() {
   const [open, setOpen] = useState(false);
@@ -125,7 +111,11 @@ export default function HomeNavbarSearch() {
         aria-controls={open ? listId : undefined}
         onClick={() => (open ? close() : openSearch())}
       >
-        <SearchIcon />
+        <TablerIcon
+          icon={IconSearch}
+          className="h-[1.35rem] w-[1.35rem] shrink-0"
+          size="1.35rem"
+        />
       </button>
 
       {open ? (
