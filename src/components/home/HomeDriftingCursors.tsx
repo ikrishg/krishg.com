@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
-declare global {
-  interface Window {
-    __driftCursorRafFrames?: number;
-  }
-}
-
 type CursorTheme = {
   color: string;
   label: string;
@@ -323,9 +317,9 @@ export default function HomeDriftingCursors({ className }: Props) {
         el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
       }
 
-      if (typeof window !== "undefined") {
-        window.__driftCursorRafFrames =
-          (window.__driftCursorRafFrames ?? 0) + 1;
+      if (import.meta.env.DEV && typeof window !== "undefined") {
+        const w = window as Window & { __driftCursorRafFrames?: number };
+        w.__driftCursorRafFrames = (w.__driftCursorRafFrames ?? 0) + 1;
       }
     };
 

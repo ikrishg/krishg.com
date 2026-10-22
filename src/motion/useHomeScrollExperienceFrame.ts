@@ -43,11 +43,14 @@ type BandCache = {
   artifact: number;
 };
 
-type BandSample = {
+type BandTargets = {
   band: HTMLElement;
   paint: HTMLElement | null;
   artifactParallax: HTMLElement | null;
   copy: HTMLElement | null;
+};
+
+type BandSample = BandTargets & {
   progress: number;
   parallax: number;
   artifact: number;
@@ -58,17 +61,43 @@ type LinkSample = {
   p: number;
 };
 
+function collectBandTargets(bands: HTMLElement[]): BandTargets[] {
+  return bands.map((band) => ({
+    band,
+    paint: band.querySelector<HTMLElement>(".hero-band-paint"),
+    artifactParallax: band.querySelector<HTMLElement>(
+      ".artifact-stage__parallax",
+    ),
+    copy: band.querySelector<HTMLElement>(".hero-copy"),
+  }));
+}
+
 /** Returns a frame tick for homepage scroll-linked CSS vars (no Tempus subscription). */
 export function useHomeScrollExperienceFrame() {
   const reducedRef = useRef(true);
   const bandCacheRef = useRef(new WeakMap<HTMLElement, BandCache>());
   const linkCacheRef = useRef(new WeakMap<HTMLElement, number>());
+  const paintParallaxRef = useRef(new WeakMap<HTMLElement, string>());
+  const artifactParallaxRef = useRef(new WeakMap<HTMLElement, string>());
+  const copyProgressRef = useRef(new WeakMap<HTMLElement, string>());
   const closingProgressRef = useRef<number | null>(null);
   const bandsRef = useRef<HTMLElement[]>([]);
+  const bandTargetsRef = useRef<BandTargets[]>([]);
   const linksRef = useRef<HTMLElement[]>([]);
   const closingRef = useRef<HTMLElement | null>(null);
   const lastScrollRef = useRef(0);
   const forceTickRef = useRef(false);
+
+  const refreshDomCache = () => {
+    bandsRef.current = [
+      ...document.querySelectorAll<HTMLElement>(BAND_SELECTOR),
+    ];
+    bandTargetsRef.current = collectBandTargets(bandsRef.current);
+    linksRef.current = [
+      ...document.querySelectorAll<HTMLElement>(CLOSING_PRIMARY),
+    ];
+    closingRef.current = document.getElementById(CLOSING_ID);
+  };
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -78,15 +107,12 @@ export function useHomeScrollExperienceFrame() {
     sync();
     mq.addEventListener("change", sync);
 
-    bandsRef.current = [
-      ...document.querySelectorAll<HTMLElement>(BAND_SELECTOR),
-    ];
-    linksRef.current = [
-      ...document.querySelectorAll<HTMLElement>(CLOSING_PRIMARY),
-    ];
-    closingRef.current = document.getElementById(CLOSING_ID);
+    refreshDomCache();
+    forceTickRef.current = true;
+    lastScrollRef.current = Number.NaN;
 
     const onResize = () => {
+      refreshDomCache();
       forceTickRef.current = true;
       lastScrollRef.current = Number.NaN;
     };
@@ -119,17 +145,12 @@ export function useHomeScrollExperienceFrame() {
     const vh = window.innerHeight;
 
     if (bandsRef.current.length === 0) {
-      bandsRef.current = [
-        ...document.querySelectorAll<HTMLElement>(BAND_SELECTOR),
-      ];
-      linksRef.current = [
-        ...document.querySelectorAll<HTMLElement>(CLOSING_PRIMARY),
-      ];
-      closingRef.current = document.getElementById(CLOSING_ID);
+      refreshDomCache();
     }
 
     const bandSamples: BandSample[] = [];
-    for (const band of bandsRef.current) {
+    for (const targets of bandTargetsRef.current) {
+      const { band } = targets;
       const rect = band.getBoundingClientRect();
       if (rect.bottom < 0 || rect.top > vh) continue;
 
@@ -148,12 +169,7 @@ export function useHomeScrollExperienceFrame() {
       }
 
       bandSamples.push({
-        band,
-        paint: band.querySelector<HTMLElement>(".hero-band-paint"),
-        artifactParallax: band.querySelector<HTMLElement>(
-          ".artifact-stage__parallax",
-        ),
-        copy: band.querySelector<HTMLElement>(".hero-copy"),
+        ...targets,
         progress,
         parallax,
         artifact: artifactShift,
@@ -194,17 +210,32 @@ export function useHomeScrollExperienceFrame() {
         artifact: sample.artifact,
       });
       const progressCss = sample.progress.toFixed(4);
+      const parallaxCss = `${sample.parallax}px`;
+      const artifactCss = `${sample.artifact}px`;
+
       if (sample.paint) {
-        sample.paint.style.setProperty("--band-parallax", `${sample.parallax}px`);
+        const prev = paintParallaxRef.current.get(sample.paint);
+        if (prev !== parallaxCss) {
+          paintParallaxRef.current.set(sample.paint, parallaxCss);
+          sample.paint.style.setProperty("--band-parallax", parallaxCss);
+        }
       }
       if (sample.artifactParallax) {
-        sample.artifactParallax.style.setProperty(
-          "--artifact-parallax",
-          `${sample.artifact}px`,
-        );
+        const prev = artifactParallaxRef.current.get(sample.artifactParallax);
+        if (prev !== artifactCss) {
+          artifactParallaxRef.current.set(sample.artifactParallax, artifactCss);
+          sample.artifactParallax.style.setProperty(
+            "--artifact-parallax",
+            artifactCss,
+          );
+        }
       }
       if (sample.copy) {
-        sample.copy.style.setProperty("--band-progress", progressCss);
+        const prev = copyProgressRef.current.get(sample.copy);
+        if (prev !== progressCss) {
+          copyProgressRef.current.set(sample.copy, progressCss);
+          sample.copy.style.setProperty("--band-progress", progressCss);
+        }
       }
     }
 

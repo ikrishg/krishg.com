@@ -209,6 +209,9 @@ export function stepOverscrollSpring(dt: number) {
     pullVelocity = 0;
   }
 
+  pull = Math.min(pull, maxPullPx);
+  pullTarget = Math.min(pullTarget, maxPullPx);
+
   applyPullVisual(pull);
 }
 
