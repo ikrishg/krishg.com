@@ -8,26 +8,42 @@ export type ClosingSplashKey =
   | "now"
   | "sitemap";
 
+/** Full-screen splash fill colours */
 export const closingSplashHex: Record<ClosingSplashKey, string> = {
   building: "#398fd0",
   creating: "#b94a3f",
-  educating: "#d8a12a",
-  about: "#7a52c4",
-  now: "#3a9660",
-  sitemap: "#b44787",
+  educating: "#c99220",
+  about: "#7459bd",
+  now: "#1f8254",
+  sitemap: "#a8488d",
+};
+
+/** Link + focus ring ink while a splash is active */
+export const closingSplashInkHex: Record<ClosingSplashKey, string> = {
+  building: "#141a2b",
+  creating: "#fff9ec",
+  educating: "#252d45",
+  about: "#fff9ec",
+  now: "#fff9ec",
+  sitemap: "#fff9ec",
 };
 
 export type ClosingLink = {
   key: ClosingSplashKey;
   label: string;
   href: string;
-  underlined?: boolean;
+  bandId?: string;
 };
 
 export const closingBandRow: ClosingLink[] = [
-  { key: "building", label: "building", href: "#builder", underlined: true },
-  { key: "creating", label: "creating", href: "#creator", underlined: true },
-  { key: "educating", label: "educating", href: "#educator", underlined: true },
+  { key: "building", label: "building", href: "#builder", bandId: "builder" },
+  { key: "creating", label: "creating", href: "#creator", bandId: "creator" },
+  {
+    key: "educating",
+    label: "educating",
+    href: "#educator",
+    bandId: "educator",
+  },
 ];
 
 export const closingNavRow: ClosingLink[] = [

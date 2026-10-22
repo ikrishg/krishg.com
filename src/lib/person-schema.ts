@@ -8,12 +8,6 @@ export function getPersonSchema(siteUrl: string) {
     url: siteUrl,
     email: "send@krishg.com",
     jobTitle: "Engineer, builder, educator",
-    sameAs: [
-      socials.github,
-      socials.linkedin,
-      socials.x,
-      socials.instagram,
-      socials.substack,
-    ],
+    sameAs: [socials.x, socials.instagram, socials.linkedin],
   };
 }

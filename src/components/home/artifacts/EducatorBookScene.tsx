@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Center, ContactShadows, useGLTF } from "@react-three/drei";
+import { Center, useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { attachAppearance } from "~lib/krish-3d/appearance.js";
@@ -173,15 +173,19 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
           </HeroCursorTilt>
         </Center>
       </HeroCameraFit>
-      <ContactShadows
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
         position={[0, shadowY, 0]}
-        opacity={0.34}
-        scale={12}
-        blur={2.4}
-        far={5}
-        color="#1a1410"
-        frames={1}
-      />
+        renderOrder={-1}
+      >
+        <circleGeometry args={[6, 64]} />
+        <meshBasicMaterial
+          color="#1a1410"
+          transparent
+          opacity={0.34}
+          depthWrite={false}
+        />
+      </mesh>
     </>
   );
 }

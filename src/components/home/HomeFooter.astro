@@ -1,5 +1,4 @@
 ---
-import KrishLogo from "./KrishLogo.astro";
 import {
   contactEmail,
   footerSocials,
@@ -8,7 +7,7 @@ import {
 ---
 
 <footer
-  class="home-footer relative z-[1] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] pb-12 pt-4 text-[var(--home-educator-fg)]"
+  class="home-footer relative z-[5] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] pb-12 pt-4 text-[var(--home-educator-fg)]"
   data-home-nav-theme="educator"
 >
   <div
@@ -17,34 +16,30 @@ import {
     <a
       class="home-footer__resume min-h-11 py-2 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.125rem,2vw,1.5rem)] font-medium lowercase tracking-[-0.02em] underline underline-offset-4 decoration-[1.5px] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-educator-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
       href={resumeHref}
-      data-todo="resume-href"
     >
       résumé
     </a>
 
-    <div class="flex flex-col items-center gap-4">
-      <KrishLogo class="home-footer__logo" />
-      <a
-        class="home-footer__email inline-flex min-h-11 items-center gap-2.5 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1rem,1.8vw,1.25rem)] font-medium tracking-[-0.01em] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-educator-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
-        href={`mailto:${contactEmail}`}
+    <a
+      class="home-footer__email inline-flex min-h-11 items-center gap-2.5 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1rem,1.8vw,1.25rem)] font-medium tracking-[-0.01em] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-educator-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
+      href={`mailto:${contactEmail}`}
+    >
+      <svg
+        class="h-[1.15em] w-[1.15em] shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        aria-hidden="true"
       >
-        <svg
-          class="h-[1.15em] w-[1.15em] shrink-0"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M4 7.5 12 13l8-5.5M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-          ></path>
-        </svg>
-        <span>{contactEmail}</span>
-      </a>
-    </div>
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M4 7.5 12 13l8-5.5M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+        ></path>
+      </svg>
+      <span>{contactEmail}</span>
+    </a>
 
     <nav aria-label="Social links" class="home-footer__social">
       <ul class="m-0 flex list-none flex-wrap items-center justify-center gap-1 p-0">
@@ -110,15 +105,3 @@ import {
     </nav>
   </div>
 </footer>
-
-<style>
-  .home-footer__logo :global(.home-logo__svg) {
-    height: 2.75rem;
-  }
-
-  @media (min-width: 768px) {
-    .home-footer__logo :global(.home-logo__svg) {
-      height: 3.25rem;
-    }
-  }
-</style>

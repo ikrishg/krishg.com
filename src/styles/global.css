@@ -24,9 +24,9 @@
   --home-educator-muted: color-mix(in srgb, var(--home-educator-fg) 55%, var(--home-educator-bg));
 
   /* Closing index splash colours (secondary row) */
-  --home-about-bg: #7a52c4;
-  --home-now-bg: #3a9660;
-  --home-sitemap-bg: #b44787;
+  --home-about-bg: #7459bd;
+  --home-now-bg: #1f8254;
+  --home-sitemap-bg: #a8488d;
 
   --home-overscroll-pull: 0px;
 
@@ -93,11 +93,6 @@ html {
   scroll-padding-top: var(--home-nav-height);
   scroll-snap-type: y proximity;
   background-color: var(--home-canvas);
-  background-image: url("/images/starry-night.webp");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
 }
 
 body.site-body {
@@ -108,12 +103,44 @@ body.site-body {
   font-feature-settings: "ss01" on;
   background-color: var(--home-canvas);
   overscroll-behavior-y: auto;
-  transform: translate3d(0, calc(var(--home-overscroll-pull) * -1), 0);
-  transition: transform 0.18s ease-out;
 }
 
-html[data-overscroll-reveal="true"] body.site-body {
+.home-scroll-surface {
+  position: relative;
+  z-index: 1;
+  background-color: var(--home-canvas);
+}
+
+.home-scroll-surface[data-overscroll-pulling="true"] {
   transition: none;
+}
+
+.home-overscroll-painting {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #0a1628;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.home-overscroll-painting[data-visible="true"] {
+  opacity: 1;
+}
+
+#educator {
+  z-index: 2;
+}
+
+.home-closing-index,
+.home-footer {
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 -1.5rem 0 0 var(--home-educator-bg);
 }
 
 .sr-only {

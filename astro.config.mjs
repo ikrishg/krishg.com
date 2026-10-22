@@ -10,7 +10,6 @@ export default defineConfig({
   site: "https://krishg.com",
   output: "static",
   redirects: {
-    "/about": "/",
     "/articles": "/",
     "/talks": "/",
     "/work": "/",
