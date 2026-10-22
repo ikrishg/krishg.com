@@ -23,17 +23,19 @@ async function recordViewport({ name, width, height, touch }) {
   const url = `${preview.replace(/\/$/, "")}/creating`;
   await page.goto(url, { waitUntil: "networkidle", timeout: 120_000 });
   await page.waitForSelector(".creating-surface", { timeout: 30_000 });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(700);
 
   const click = async (label) => {
     await page.getByRole("button", { name: label }).click();
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1300);
   };
 
   await click(/^Design$/i);
   await click(/^All$/i);
+  await click(/^Gallery$/i);
+  await click(/^Timeline$/i);
 
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(600);
   await context.close();
   await browser.close();
 
@@ -56,6 +58,6 @@ for (const spec of [
 
 await writeFile(
   path.join(outDir, "flip-proof.json"),
-  JSON.stringify({ results }, null, 2),
+  JSON.stringify({ preview, results }, null, 2),
 );
-console.log(JSON.stringify({ results }, null, 2));
+console.log(JSON.stringify({ preview, results }, null, 2));

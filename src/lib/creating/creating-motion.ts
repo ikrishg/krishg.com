@@ -37,19 +37,16 @@ export function runFlipFrom(
   const cardTargets = root.querySelectorAll(CARD_FLIP_SELECTOR);
 
   const duration = options?.duration ?? 0.72;
-  const stagger = { amount: 0.25 };
+  const staggerAmount = Math.min(0.15, 0.25);
+  const stagger = { amount: staggerAmount };
   const ease = "creating.cubicInOut";
 
   const flipRoot = root instanceof HTMLElement ? root : null;
   if (flipRoot) flipRoot.dataset.flipActive = "true";
 
   const notifyDone = () => {
-    window.dispatchEvent(new CustomEvent("creating-flip-complete"));
-  };
-
-  const finishFlip = () => {
     if (flipRoot) delete flipRoot.dataset.flipActive;
-    options?.onComplete?.();
+    window.dispatchEvent(new CustomEvent("creating-flip-complete"));
   };
 
   Flip.from(state, {
@@ -81,7 +78,9 @@ export function runFlipFrom(
     onComplete: notifyDone,
   });
 
-  gsap.delayedCall(duration + stagger.amount, finishFlip);
+  gsap.delayedCall(duration + staggerAmount, () => {
+    options?.onComplete?.();
+  });
 }
 
 export function staggerCardsIn(
