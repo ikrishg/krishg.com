@@ -4,9 +4,12 @@ import type { CreatingEntry } from "~lib/creating/types";
 import { timelineYearMarkers } from "~lib/creating/entries";
 import { CreatingWorkCard } from "./CreatingWorkCard";
 
+const DRAG_THRESHOLD_PX = 6;
+
 type Props = {
   entries: CreatingEntry[];
   reducedMotion: boolean;
+  transitionEntryId: string | null;
   onOpen: (id: string, el: HTMLElement) => void;
   onHover: (id: string | null) => void;
 };
@@ -14,6 +17,7 @@ type Props = {
 export function CreatingTimelineView({
   entries,
   reducedMotion,
+  transitionEntryId,
   onOpen,
   onHover,
 }: Props) {
@@ -23,58 +27,131 @@ export function CreatingTimelineView({
 
   useEffect(() => {
     const scroller = scrollerRef.current;
+    const track = trackRef.current;
+    if (!scroller || !track) return;
+
+    const yearEls = track.querySelectorAll<HTMLElement>(".creating-card");
+    const markerEls = scroller.parentElement?.querySelectorAll<HTMLElement>(
+      ".creating-timeline__year",
+    );
+    if (!markerEls) return;
+
+    const syncYears = () => {
+      yearEls.forEach((card, i) => {
+        const marker = markerEls[i];
+        if (!marker) return;
+        const cardRect = card.getBoundingClientRect();
+        const rowRect = marker.parentElement?.getBoundingClientRect();
+        if (!rowRect) return;
+        marker.style.transform = `translateX(${cardRect.left - rowRect.left}px)`;
+      });
+    };
+
+    syncYears();
+    const ro = new ResizeObserver(syncYears);
+    ro.observe(track);
+    scroller.addEventListener("scroll", syncYears, { passive: true });
+    return () => {
+      ro.disconnect();
+      scroller.removeEventListener("scroll", syncYears);
+    };
+  }, [entries]);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
     if (!scroller || reducedMotion) return;
 
-    let dragging = false;
+    let pointerId: number | null = null;
+    let didDrag = false;
+    let captured = false;
     let startX = 0;
     let scrollStart = 0;
     let velocity = 0;
     let lastX = 0;
     let lastT = 0;
     let inertiaTween: gsap.core.Tween | null = null;
+    let suppressClick = false;
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
-      dragging = true;
-      inertiaTween?.kill();
+      if ((e.target as Element).closest(".creating-card__open")) {
+        /* allow card buttons to receive plain clicks */
+      }
+      pointerId = e.pointerId;
+      didDrag = false;
+      captured = false;
+      velocity = 0;
       startX = e.clientX;
       scrollStart = scroller.scrollLeft;
       lastX = e.clientX;
       lastT = performance.now();
-      scroller.setPointerCapture(e.pointerId);
+      inertiaTween?.kill();
     };
 
     const onMove = (e: PointerEvent) => {
-      if (!dragging) return;
+      if (pointerId !== e.pointerId) return;
+      const dx = e.clientX - startX;
+      if (!captured) {
+        if (Math.abs(dx) <= DRAG_THRESHOLD_PX) return;
+        didDrag = true;
+        captured = true;
+        scroller.setPointerCapture(e.pointerId);
+      }
       const now = performance.now();
       const dt = Math.max(1, now - lastT);
       velocity = (e.clientX - lastX) / dt;
       lastX = e.clientX;
       lastT = now;
-      scroller.scrollLeft = scrollStart - (e.clientX - startX);
+      scroller.scrollLeft = scrollStart - dx;
     };
 
     const onUp = (e: PointerEvent) => {
-      if (!dragging) return;
-      dragging = false;
-      scroller.releasePointerCapture(e.pointerId);
-      const target = scroller.scrollLeft - velocity * 120;
-      inertiaTween = gsap.to(scroller, {
-        scrollLeft: Math.max(0, Math.min(scroller.scrollWidth, target)),
-        duration: 0.85,
-        ease: "power3.out",
-      });
+      if (pointerId !== e.pointerId) return;
+      if (captured) {
+        try {
+          scroller.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (didDrag) {
+        suppressClick = true;
+        window.setTimeout(() => {
+          suppressClick = false;
+        }, 0);
+        const target = scroller.scrollLeft - velocity * 120;
+        inertiaTween = gsap.to(scroller, {
+          scrollLeft: Math.max(
+            0,
+            Math.min(scroller.scrollWidth - scroller.clientWidth, target),
+          ),
+          duration: 0.85,
+          ease: "power3.out",
+        });
+      }
+      pointerId = null;
+      captured = false;
+      didDrag = false;
+    };
+
+    const onClick = (e: MouseEvent) => {
+      if (suppressClick) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
     scroller.addEventListener("pointerdown", onDown);
     scroller.addEventListener("pointermove", onMove);
     scroller.addEventListener("pointerup", onUp);
     scroller.addEventListener("pointercancel", onUp);
+    scroller.addEventListener("click", onClick, true);
     return () => {
       scroller.removeEventListener("pointerdown", onDown);
       scroller.removeEventListener("pointermove", onMove);
       scroller.removeEventListener("pointerup", onUp);
       scroller.removeEventListener("pointercancel", onUp);
+      scroller.removeEventListener("click", onClick, true);
       inertiaTween?.kill();
     };
   }, [entries, reducedMotion]);
@@ -91,7 +168,8 @@ export function CreatingTimelineView({
       requestAnimationFrame(() => {
         ticking = false;
         const progress =
-          scroller.scrollLeft / Math.max(1, scroller.scrollWidth - scroller.clientWidth);
+          scroller.scrollLeft /
+          Math.max(1, scroller.scrollWidth - scroller.clientWidth);
         track.style.setProperty("--timeline-progress", String(progress));
         const cards = track.querySelectorAll<HTMLElement>(".creating-card");
         cards.forEach((card, i) => {
@@ -136,6 +214,7 @@ export function CreatingTimelineView({
               entry={entry}
               variant="timeline"
               reducedMotion={reducedMotion}
+              transitionEntryId={transitionEntryId}
               onOpen={onOpen}
               onHover={onHover}
             />

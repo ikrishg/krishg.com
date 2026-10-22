@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { registerCreatingEasings } from "~lib/creating/easings";
 import type { CreatingEntry } from "~lib/creating/types";
 import { CATEGORY_ACCENT } from "~lib/creating/types";
+import { isTextForwardCategory } from "~lib/creating/entries";
 import { useFocusTrap } from "./useFocusTrap";
 
 registerCreatingEasings();
@@ -22,13 +23,16 @@ export function CreatingDetailPanel({
 }: Props) {
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
+  const textCard = isTextForwardCategory(entry.category);
 
   useFocusTrap(panelRef, true);
 
   useEffect(() => {
     const panel = panelRef.current;
-    if (!panel || reducedMotion) return;
+    if (!panel || reducedMotion) {
+      closeRef.current?.focus();
+      return;
+    }
     gsap.fromTo(
       panel,
       { opacity: 0, y: 28 },
@@ -47,33 +51,10 @@ export function CreatingDetailPanel({
 
   useEffect(() => {
     return () => {
-      returnFocusRef.current?.focus();
+      const target = returnFocusRef.current;
+      if (target && document.contains(target)) target.focus();
     };
   }, [returnFocusRef]);
-
-  useEffect(() => {
-    const panel = panelRef.current;
-    const body = bodyRef.current;
-    if (!panel || !body || reducedMotion) return;
-
-    const onPointer = (e: PointerEvent) => {
-      const r = panel.getBoundingClientRect();
-      const px = ((e.clientX - r.left) / r.width - 0.5) * 2;
-      const py = ((e.clientY - r.top) / r.height - 0.5) * 2;
-      body.style.transform = `perspective(900px) rotateX(${(-py * 4).toFixed(2)}deg) rotateY(${(px * 5).toFixed(2)}deg)`;
-    };
-    const onLeave = () => {
-      body.style.transform = "";
-    };
-
-    panel.addEventListener("pointermove", onPointer);
-    panel.addEventListener("pointerleave", onLeave);
-    return () => {
-      panel.removeEventListener("pointermove", onPointer);
-      panel.removeEventListener("pointerleave", onLeave);
-      body.style.transform = "";
-    };
-  }, [entry.id, reducedMotion]);
 
   const accent = CATEGORY_ACCENT[entry.category];
 
@@ -94,17 +75,29 @@ export function CreatingDetailPanel({
         Close
       </button>
       <div className="creating-detail__hero-wrap">
-        <img
-          className="creating-detail__hero"
-          src={entry.cover}
-          alt=""
-          width={512}
-          height={640}
-          style={{
-            borderColor: accent,
-            viewTransitionName: `creating-entry-${entry.id}`,
-          }}
-        />
+        {textCard ? (
+          <div
+            className="creating-detail__hero creating-detail__hero--text"
+            style={{
+              borderColor: accent,
+              viewTransitionName: `creating-entry-${entry.id}`,
+            }}
+          >
+            <p className="creating-detail__hero-excerpt">{entry.body}</p>
+          </div>
+        ) : (
+          <img
+            className="creating-detail__hero"
+            src={entry.cover}
+            alt=""
+            width={512}
+            height={640}
+            style={{
+              borderColor: accent,
+              viewTransitionName: `creating-entry-${entry.id}`,
+            }}
+          />
+        )}
       </div>
       <div className="creating-detail__copy">
         {entry.demo ? (
@@ -125,7 +118,7 @@ export function CreatingDetailPanel({
                 .filter(Boolean)
                 .join(" · ")}
         </p>
-        <div ref={bodyRef} className="creating-detail__body">
+        <div className="creating-detail__body">
           <p>{entry.body}</p>
         </div>
       </div>

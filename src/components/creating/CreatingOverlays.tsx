@@ -1,6 +1,7 @@
 import {
   useEffect,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -28,6 +29,7 @@ type Props = {
   showTutorial: boolean;
   hoveredTitle: string | null;
   reducedMotion: boolean;
+  detailOpen: boolean;
 };
 
 function MagneticFilterButton({
@@ -51,6 +53,7 @@ function MagneticFilterButton({
       type="button"
       className="creating-filter-btn"
       data-active={active ? "true" : undefined}
+      aria-pressed={active ? true : false}
       style={style}
       onClick={onClick}
     >
@@ -69,11 +72,37 @@ export function CreatingOverlays({
   showTutorial,
   hoveredTitle,
   reducedMotion,
+  detailOpen,
 }: Props) {
   const cursorRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const [coarsePointer, setCoarsePointer] = useState(false);
 
   useEffect(() => {
-    if (reducedMotion) return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    setCoarsePointer(mq.matches);
+    const fn = () => setCoarsePointer(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const setHeight = () => {
+      document.documentElement.style.setProperty(
+        "--creating-header-height",
+        `${header.offsetHeight}px`,
+      );
+    };
+    setHeight();
+    const ro = new ResizeObserver(setHeight);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (reducedMotion || detailOpen) return;
     const label = cursorRef.current;
     if (!label) return;
 
@@ -99,11 +128,26 @@ export function CreatingOverlays({
 
     window.addEventListener("pointermove", onMove);
     return () => window.removeEventListener("pointermove", onMove);
-  }, [hoveredTitle, reducedMotion]);
+  }, [hoveredTitle, reducedMotion, detailOpen]);
+
+  useEffect(() => {
+    const label = cursorRef.current;
+    if (!label) return;
+    if (detailOpen) label.style.opacity = "0";
+  }, [detailOpen]);
+
+  const tutorial =
+    coarsePointer
+      ? "Tap any piece to open its detail view."
+      : "Click any piece to open its detail view.";
 
   return (
     <>
-      <header className="creating-header" aria-label="Gallery controls">
+      <header
+        ref={headerRef}
+        className="creating-header"
+        aria-label="Gallery controls"
+      >
         <div className="creating-header__views">
           {views.map((view) => (
             <button
@@ -111,6 +155,7 @@ export function CreatingOverlays({
               type="button"
               className="creating-view-btn"
               data-active={view === activeView ? "true" : undefined}
+              aria-pressed={view === activeView}
               style={
                 {
                   "--btn-accent": VIEW_TINT[view],
@@ -150,15 +195,13 @@ export function CreatingOverlays({
         </div>
       </header>
 
-      <footer className="creating-footer">
-        {showTutorial && (
-          <p className="creating-footer__tutorial">
-            Click any piece to open its detail view.
-          </p>
-        )}
-      </footer>
+      {showTutorial && (
+        <p className="creating-tutorial" role="status">
+          {tutorial}
+        </p>
+      )}
 
-      {!reducedMotion && (
+      {!reducedMotion && !detailOpen && (
         <div
           ref={cursorRef}
           className="creating-cursor-label"

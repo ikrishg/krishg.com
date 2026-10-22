@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Flip } from "gsap/Flip";
 import gsap from "gsap";
 import type {
   CreatingCategoryFilter,
@@ -18,7 +17,7 @@ import {
   filteredEntries,
 } from "~lib/creating/entries";
 import {
-  captureFlipTargets,
+  captureFlipState,
   runFlipFrom,
   staggerCardsIn,
   withViewTransition,
@@ -30,10 +29,8 @@ import { CreatingOverlays } from "./CreatingOverlays";
 import { CreatingGalleryGrid } from "./CreatingGalleryGrid";
 import { CreatingListicleView } from "./CreatingListicleView";
 import { CreatingTimelineView } from "./CreatingTimelineView";
-import { WorksIndexNav } from "./WorksIndexNav";
 
 registerCreatingEasings();
-gsap.registerPlugin(Flip);
 
 type Props = {
   entries: CreatingEntry[];
@@ -58,6 +55,11 @@ function readPieceFromUrl(): string | null {
   return piece && piece.length > 0 ? piece : null;
 }
 
+function getScrollRoot(): HTMLElement | null {
+  const el = document.querySelector(".creating-flip-root");
+  return el instanceof HTMLElement ? el : null;
+}
+
 export default function CreatingGallery({ entries }: Props) {
   const reducedMotion = useReducedMotion();
   const view = useCreatingStore((s) => s.view);
@@ -70,12 +72,16 @@ export default function CreatingGallery({ entries }: Props) {
   const [activeId, setActiveId] = useState<string | null>(() =>
     readPieceFromUrl(),
   );
+  const [transitionEntryId, setTransitionEntryId] = useState<string | null>(
+    null,
+  );
   const flipRootRef = useRef<HTMLDivElement>(null);
   const scrollSaveRef = useRef(0);
   const detailOpenerRef = useRef<HTMLElement | null>(null);
-  const pendingFlipRef = useRef<Flip.FlipState | null>(null);
+  const pendingFlipRef = useRef<ReturnType<typeof captureFlipState>>(null);
   const didIntroRef = useRef(false);
   const historyPushedRef = useRef(false);
+  const closingViaBackRef = useRef(false);
 
   const categories = useMemo(() => categoriesPresent(entries), [entries]);
   const visibleEntries = useMemo(
@@ -104,7 +110,7 @@ export default function CreatingGallery({ entries }: Props) {
     (next: { view?: CreatingView; filter?: CreatingCategoryFilter }) => {
       const root = flipRootRef.current;
       if (!reducedMotion && root) {
-        pendingFlipRef.current = Flip.getState(captureFlipTargets(root));
+        pendingFlipRef.current = captureFlipState(root);
       }
       if (next.view != null) setView(next.view);
       if (next.filter != null) setFilter(next.filter);
@@ -114,7 +120,7 @@ export default function CreatingGallery({ entries }: Props) {
 
   useLayoutEffect(() => {
     runFlipAfterUpdate();
-  }, [view, filter, visibleEntries.length, runFlipAfterUpdate]);
+  }, [view, filter, visibleEntries, runFlipAfterUpdate]);
 
   useEffect(() => {
     if (didIntroRef.current || reducedMotion) return;
@@ -125,17 +131,22 @@ export default function CreatingGallery({ entries }: Props) {
     return () => window.clearTimeout(t);
   }, [reducedMotion]);
 
+  const restoreScroll = useCallback(() => {
+    const root = getScrollRoot();
+    const y = scrollSaveRef.current;
+    if (!root) return;
+    root.scrollTop = y;
+    requestAnimationFrame(() => {
+      root.scrollTop = y;
+    });
+  }, []);
+
   const openEntry = useCallback(
     async (id: string, el: HTMLElement) => {
-      const scrollRoot = flipRootRef.current?.querySelector(
-        "[data-view-region]",
-      );
-      if (scrollRoot instanceof HTMLElement) {
-        scrollSaveRef.current = scrollRoot.scrollTop;
-      } else if (flipRootRef.current) {
-        scrollSaveRef.current = flipRootRef.current.scrollTop;
-      }
+      const scrollRoot = getScrollRoot();
+      if (scrollRoot) scrollSaveRef.current = scrollRoot.scrollTop;
       detailOpenerRef.current = el;
+      setTransitionEntryId(id);
       await withViewTransition(reducedMotion, () => {
         setActiveId(id);
         const url = new URL(window.location.href);
@@ -152,42 +163,48 @@ export default function CreatingGallery({ entries }: Props) {
   );
 
   const closeEntry = useCallback(async () => {
+    const useBack = historyPushedRef.current && !closingViaBackRef.current;
+    closingViaBackRef.current = false;
+    setTransitionEntryId(activeId);
     await withViewTransition(reducedMotion, () => {
       setActiveId(null);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("piece");
-      history.replaceState({}, "", url.pathname + url.search);
-      historyPushedRef.current = false;
+      if (useBack) {
+        history.back();
+        historyPushedRef.current = false;
+      } else {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("piece");
+        history.replaceState({}, "", url.pathname + url.search);
+        historyPushedRef.current = false;
+      }
     });
-    const scrollRoot = flipRootRef.current?.querySelector("[data-view-region]");
-    const y = scrollSaveRef.current;
+    setTransitionEntryId(null);
+    restoreScroll();
     requestAnimationFrame(() => {
-      if (scrollRoot instanceof HTMLElement) scrollRoot.scrollTop = y;
+      detailOpenerRef.current?.focus();
     });
-    detailOpenerRef.current?.focus();
-  }, [reducedMotion]);
+  }, [activeId, reducedMotion, restoreScroll]);
 
   useEffect(() => {
     const onPop = () => {
       const piece = readPieceFromUrl();
+      closingViaBackRef.current = true;
       setActiveId(piece);
       if (!piece) {
         historyPushedRef.current = false;
-        const scrollRoot = flipRootRef.current?.querySelector(
-          "[data-view-region]",
-        );
-        const y = scrollSaveRef.current;
+        setTransitionEntryId(null);
+        restoreScroll();
         requestAnimationFrame(() => {
-          if (scrollRoot instanceof HTMLElement) scrollRoot.scrollTop = y;
+          detailOpenerRef.current?.focus();
         });
       }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [restoreScroll]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!import.meta.env.DEV || typeof window === "undefined") return;
     type VerifyWindow = Window & {
       __creatingVerify?: () => Record<string, unknown>;
     };
@@ -226,6 +243,7 @@ export default function CreatingGallery({ entries }: Props) {
         showTutorial={!detailOpen}
         hoveredTitle={hoveredTitle}
         reducedMotion={reducedMotion}
+        detailOpen={detailOpen}
       />
 
       <div
@@ -238,6 +256,7 @@ export default function CreatingGallery({ entries }: Props) {
             <CreatingGalleryGrid
               entries={visibleEntries}
               reducedMotion={reducedMotion}
+              transitionEntryId={transitionEntryId}
               onOpen={openEntry}
               onHover={setHoveredId}
             />
@@ -246,6 +265,7 @@ export default function CreatingGallery({ entries }: Props) {
             <CreatingListicleView
               entries={visibleEntries}
               reducedMotion={reducedMotion}
+              transitionEntryId={transitionEntryId}
               onOpen={openEntry}
               onHover={setHoveredId}
             />
@@ -254,29 +274,13 @@ export default function CreatingGallery({ entries }: Props) {
             <CreatingTimelineView
               entries={visibleEntries}
               reducedMotion={reducedMotion}
+              transitionEntryId={transitionEntryId}
               onOpen={openEntry}
               onHover={setHoveredId}
             />
           )}
         </div>
       </div>
-
-      {!detailOpen && (
-        <WorksIndexNav
-          entries={visibleEntries}
-          pointerFine={!reducedMotion}
-          onOpen={(id) => {
-            const el = document.querySelector(
-              `[data-entry-id="${id}"] .creating-card__open`,
-            );
-            openEntry(
-              id,
-              el instanceof HTMLElement ? el : document.body,
-            );
-          }}
-          onHover={setHoveredId}
-        />
-      )}
 
       {activeEntry && (
         <CreatingDetailPanel
