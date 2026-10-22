@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 const MAX_PULL = 140;
 const BOTTOM_EPSILON = 2;
+const SURFACE_SELECTOR = ".home-scroll-surface";
 
 function atScrollBottom() {
   const root = document.documentElement;
@@ -11,26 +12,44 @@ function atScrollBottom() {
   );
 }
 
+function touchPullPx(delta: number) {
+  return MAX_PULL * (1 - Math.exp(-delta / 200));
+}
+
 /**
- * Surfaces the Starry Night layer when the visitor pulls past the document end.
- * Native rubber-band overscroll reads `html` background; wheel/touch pull sets
- * `--home-overscroll-pull` for desktops without bounce.
+ * Pulls the homepage scroll surface (not the navbar or splash overlay) to reveal
+ * the Starry Night layer beneath.
  */
 export default function HomeOverscrollReveal() {
   useEffect(() => {
     const root = document.documentElement;
+    const surface = document.querySelector<HTMLElement>(SURFACE_SELECTOR);
+    if (!surface) return;
+
     let pull = 0;
     let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    let touchAnchorY = 0;
+    let bottomTouchStartY = 0;
+    let trackingBottomPull = false;
 
-    const setPull = (value: number) => {
+    const applyPull = (value: number) => {
       pull = Math.max(0, Math.min(MAX_PULL, value));
+      if (pull <= 0.5) {
+        root.style.removeProperty("--home-overscroll-pull");
+        surface.style.removeProperty("transform");
+        surface.dataset.overscrollPulling = "false";
+        root.dataset.overscrollReveal = "false";
+        return;
+      }
       root.style.setProperty("--home-overscroll-pull", `${pull}px`);
-      root.dataset.overscrollReveal = pull > 0.5 ? "true" : "false";
+      surface.style.transform = `translate3d(0, ${-pull}px, 0)`;
+      surface.dataset.overscrollPulling = "true";
+      root.dataset.overscrollReveal = "true";
     };
 
     const scheduleReset = () => {
       if (resetTimer) clearTimeout(resetTimer);
-      resetTimer = setTimeout(() => setPull(0), 120);
+      resetTimer = setTimeout(() => applyPull(0), 120);
     };
 
     const onWheel = (event: WheelEvent) => {
@@ -38,28 +57,34 @@ export default function HomeOverscrollReveal() {
         if (pull > 0) scheduleReset();
         return;
       }
-      setPull(pull + event.deltaY * 0.35);
+      applyPull(pull + event.deltaY * 0.35);
       scheduleReset();
     };
 
-    let touchStartY = 0;
     const onTouchStart = (event: TouchEvent) => {
-      touchStartY = event.touches[0]?.clientY ?? 0;
+      touchAnchorY = event.touches[0]?.clientY ?? 0;
+      trackingBottomPull = atScrollBottom();
+      if (trackingBottomPull) bottomTouchStartY = touchAnchorY;
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (!atScrollBottom()) return;
-      const y = event.touches[0]?.clientY ?? touchStartY;
-      const delta = touchStartY - y;
-      if (delta > 0) setPull(delta * 0.65);
+      if (!trackingBottomPull || !atScrollBottom()) return;
+      const y = event.touches[0]?.clientY ?? touchAnchorY;
+      const delta = bottomTouchStartY - y;
+      if (delta <= 0) {
+        applyPull(0);
+        return;
+      }
+      applyPull(touchPullPx(delta));
     };
 
     const onTouchEnd = () => {
+      trackingBottomPull = false;
       scheduleReset();
     };
 
     const onScroll = () => {
-      if (!atScrollBottom() && pull > 0) setPull(0);
+      if (!atScrollBottom() && pull > 0) applyPull(0);
     };
 
     window.addEventListener("wheel", onWheel, { passive: true });
@@ -75,7 +100,7 @@ export default function HomeOverscrollReveal() {
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("scroll", onScroll);
-      setPull(0);
+      applyPull(0);
     };
   }, []);
 

@@ -1,7 +1,6 @@
 import { socials } from "~shared";
 
-/** TODO: replace with the live résumé URL when ready. */
-export const resumeHref = "#TODO-resume";
+export const resumeHref = "/resume";
 
 export const contactEmail = "krish@krishg.com";
 

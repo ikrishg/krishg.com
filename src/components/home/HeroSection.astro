@@ -11,6 +11,8 @@ export interface Props {
   ctaExternal?: boolean;
   artifactFirst?: boolean;
   copyAlign?: "left" | "right";
+  /** When false, band content may extend past the sticky frame (e.g. educator book). */
+  clipOverflow?: boolean;
 }
 
 const {
@@ -23,6 +25,7 @@ const {
   ctaExternal = false,
   artifactFirst = false,
   copyAlign = "left",
+  clipOverflow = true,
 } = Astro.props;
 
 const ctaRel = ctaExternal ? "noopener noreferrer" : undefined;
@@ -39,7 +42,8 @@ const ctaTarget = ctaExternal ? "_blank" : undefined;
     /* Sticky parent stays transparent: Safari 26 Liquid Glass samples
        sticky/fixed background-color near the chrome. Band paint lives on
        an absolute child so stuck lower bands do not tint the toolbar. */
-    "home-band-min-h sticky top-[var(--home-nav-height)] isolate snap-start flex items-center justify-center overflow-hidden box-border text-[var(--hero-fg)]",
+    "home-band-min-h sticky top-[var(--home-nav-height)] isolate snap-start flex items-center justify-center box-border text-[var(--hero-fg)]",
+    clipOverflow ? "overflow-hidden" : "overflow-visible",
     "py-8 md:py-14",
     "max-md:px-[var(--gutter)]",
   ]}

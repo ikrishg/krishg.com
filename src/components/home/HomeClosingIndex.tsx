@@ -1,14 +1,16 @@
+import { useEffect, useRef } from "react";
 import HomeClosingLink from "./HomeClosingLink";
-import HomeSplashOverlay from "./HomeSplashOverlay";
 import {
   closingBandRow,
   closingNavRow,
 } from "./home-closing";
+import { dispatchSplashScheduleClear } from "./HomeSplashOverlay";
 
 function StarSeparator() {
   return (
     <span
-      className="home-closing-star select-none px-[0.35em] text-[0.95em] leading-none text-[var(--home-educator-fg)] opacity-80"
+      className="home-closing-star select-none px-[0.35em] text-[0.95em] leading-none opacity-80"
+      style={{ color: "var(--home-closing-ink, var(--home-educator-fg))" }}
       aria-hidden="true"
     >
       ✱
@@ -30,20 +32,36 @@ function ClosingRow({ links }: { links: typeof closingBandRow }) {
 }
 
 export default function HomeClosingIndex() {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const onLeave = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+      const next = event.relatedTarget as Node | null;
+      if (next && section.contains(next)) return;
+      dispatchSplashScheduleClear();
+      document.documentElement.style.removeProperty("--home-closing-ink");
+    };
+
+    section.addEventListener("pointerleave", onLeave);
+    return () => section.removeEventListener("pointerleave", onLeave);
+  }, []);
+
   return (
-    <>
-      <HomeSplashOverlay />
-      <section
-        id="home-closing-index"
-        data-home-nav-theme="educator"
-        className="home-closing-index relative z-[1] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] py-16 text-[var(--home-educator-fg)] md:py-20"
-        aria-label="Site index"
-      >
-        <div className="mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center gap-6 md:gap-8">
-          <ClosingRow links={closingBandRow} />
-          <ClosingRow links={closingNavRow} />
-        </div>
-      </section>
-    </>
+    <section
+      ref={sectionRef}
+      id="home-closing-index"
+      data-home-nav-theme="educator"
+      className="home-closing-index relative z-[39] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] py-16 text-[var(--home-educator-fg)] md:py-20"
+      aria-label="Site index"
+    >
+      <div className="relative z-[1] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center gap-6 md:gap-8">
+        <ClosingRow links={closingBandRow} />
+        <ClosingRow links={closingNavRow} />
+      </div>
+    </section>
   );
 }

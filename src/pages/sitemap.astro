@@ -1,0 +1,100 @@
+---
+import RootLayout from "~layouts/RootLayout.astro";
+
+const routes = [
+  { href: "/", label: "Home" },
+  { href: "/building", label: "The makerhouse" },
+  { href: "/creating", label: "The atelier" },
+  { href: "/educating", label: "The library" },
+  { href: "/about", label: "About" },
+  { href: "/now", label: "Now" },
+  { href: "/resume", label: "Résumé" },
+  { href: "/sitemap", label: "Sitemap" },
+];
+---
+
+<RootLayout
+  head={{
+    title: "Sitemap — Krish Gupta",
+    description: "Sitemap for krishg.com.",
+  }}
+  pageAccent="educator"
+>
+  <section class="stub-page home-band-min-h" aria-labelledby="sitemap-title">
+    <div class="stub-page__inner">
+      <h1 id="sitemap-title" class="stub-page__title">Sitemap</h1>
+      <p class="stub-page__lead">This page is coming soon.</p>
+      <nav aria-label="Site routes">
+        <ul class="sitemap-list">
+          {
+            routes.map((route) => (
+              <li>
+                <a href={route.href}>{route.label}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+      <a class="stub-page__back" href="/">← Back home</a>
+    </div>
+  </section>
+</RootLayout>
+
+<style>
+  .stub-page {
+    display: grid;
+    place-items: center;
+    padding: 4rem var(--gutter);
+    background-color: var(--home-canvas);
+    color: var(--home-nav-fg);
+  }
+
+  .stub-page__inner {
+    max-width: 28rem;
+    text-align: center;
+  }
+
+  .stub-page__title {
+    margin: 0;
+    font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
+      sans-serif;
+    font-size: clamp(2.25rem, 8vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+  }
+
+  .stub-page__lead {
+    margin: 1rem 0 0;
+    font-size: 1.125rem;
+    line-height: 1.55;
+  }
+
+  .sitemap-list {
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+  }
+
+  .sitemap-list a {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+  }
+
+  .stub-page__back {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin-top: 1.75rem;
+    padding-block: 0.35rem;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+  }
+</style>

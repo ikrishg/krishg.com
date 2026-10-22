@@ -7,17 +7,21 @@ import CreatorArtifact from "~components/home/artifacts/CreatorArtifact.tsx";
 import EducatorArtifact from "~components/home/artifacts/EducatorArtifact.tsx";
 import HomeClosingIndex from "~components/home/HomeClosingIndex.tsx";
 import HomeFooter from "~components/home/HomeFooter.astro";
+import HomeOverscrollPainting from "~components/home/HomeOverscrollPainting.tsx";
 import HomeOverscrollReveal from "~components/home/HomeOverscrollReveal.tsx";
+import HomeSplashOverlay from "~components/home/HomeSplashOverlay.tsx";
 import { description, title } from "~shared";
 import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.tsx";
 ---
 
 <RootLayout head={{ title, description }}>
   <h1 class="sr-only">Krish Gupta</h1>
+  <HomeOverscrollPainting client:load />
+  <HomeSplashOverlay client:load />
+  <HomeOverscrollReveal client:load />
   <PreloadHomeHeroGlbs client:load />
   <HomeHeroCopyMotion client:load />
-  <HomeOverscrollReveal client:load />
-  <div class="flex flex-col w-full">
+  <div class="home-scroll-surface flex flex-col w-full">
     <input
       type="file"
       id="portrait-file"
@@ -66,6 +70,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
       accent="educator"
       ctaLabel="the library →"
       ctaHref="/educating"
+      clipOverflow={false}
     >
       <EducatorArtifact slot="artifact" client:load />
     </HeroSection>
