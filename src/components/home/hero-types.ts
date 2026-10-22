@@ -1,7 +1,7 @@
 export type HeroAccent = "creator" | "builder" | "educator";
 
 /** Active surface accent on `<html data-page-accent>`. */
-export type PageAccent = HeroAccent;
+export type PageAccent = HeroAccent | "closing";
 
 export const homeGlbPaths = {
   creator: "/home-3d/portrait-frame.glb",
@@ -20,10 +20,16 @@ export const homeAccentCanvasHex: Record<PageAccent, string> = {
   builder: "#398fd0",
   creator: "#b94a3f",
   educator: "#d8a12a",
+  closing: "#e7ddcc",
 };
 
 export function isPageAccent(
   value: string | undefined | null,
 ): value is PageAccent {
-  return value === "builder" || value === "creator" || value === "educator";
+  return (
+    value === "builder" ||
+    value === "creator" ||
+    value === "educator" ||
+    value === "closing"
+  );
 }

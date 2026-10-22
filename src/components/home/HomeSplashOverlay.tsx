@@ -5,64 +5,149 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   closingSplashHex,
   type ClosingSplashKey,
 } from "./home-closing";
+import { HOME_SPLASH_MASK_IMAGE } from "./home-splash-mask";
 
 type Origin = { x: number; y: number };
 
-const BLOB_RADIUS = "42% 58% 48% 52% / 52% 44% 56% 48%";
+type SplashLayer = {
+  id: number;
+  key: ClosingSplashKey;
+  color: string;
+  origin: Origin;
+  phase: "grow" | "full" | "shrink";
+  maskExpanded: boolean;
+};
+
 const CLEAR_DELAY_MS = 250;
-const COLOR_FADE_MS = 400;
+const COLOR_FADE_MS = 320;
 const THROTTLE_MS = 350;
-const SHRINK_MS = 420;
-const EXPAND_MS = 550;
+const GROW_MS = 580;
+const SHRINK_MS = 480;
+const FULL_MASK_SIZE = "420vmax";
 const EDUCATING_WASH_EDGE = "inset 0 0 0 6px rgba(20, 26, 43, 0.3)";
 
-type Phase = "idle" | "expand" | "full" | "shrink";
+let layerId = 0;
+
+function nextLayerId() {
+  layerId += 1;
+  return layerId;
+}
+
+function maskLayerStyle(
+  layer: SplashLayer,
+  reducedMotion: boolean,
+): CSSProperties {
+  const atOrigin = `${layer.origin.x * 100}% ${layer.origin.y * 100}%`;
+  if (reducedMotion) {
+    const visible = layer.phase !== "shrink";
+    return {
+      backgroundColor: layer.color,
+      opacity: visible ? 1 : 0,
+      transition: `opacity ${COLOR_FADE_MS}ms ease`,
+    };
+  }
+
+  if (layer.phase === "shrink") {
+    return {
+      backgroundColor: layer.color,
+      opacity: 0,
+      transition: `opacity ${SHRINK_MS}ms ease`,
+    };
+  }
+
+  if (layer.phase === "full") {
+    return {
+      backgroundColor: layer.color,
+    };
+  }
+
+  const maskSize = layer.maskExpanded ? FULL_MASK_SIZE : "2vmax";
+  const transition = `mask-size ${GROW_MS}ms cubic-bezier(0.23, 1, 0.32, 1), -webkit-mask-size ${GROW_MS}ms cubic-bezier(0.23, 1, 0.32, 1)`;
+
+  return {
+    backgroundColor: layer.color,
+    maskImage: HOME_SPLASH_MASK_IMAGE,
+    WebkitMaskImage: HOME_SPLASH_MASK_IMAGE,
+    maskRepeat: "no-repeat",
+    maskPosition: atOrigin,
+    WebkitMaskPosition: atOrigin,
+    maskSize,
+    WebkitMaskSize: maskSize,
+    transition,
+  };
+}
 
 export default function HomeSplashOverlay() {
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [displayColor, setDisplayColor] = useState("transparent");
-  const [activeKey, setActiveKey] = useState<ClosingSplashKey | null>(null);
-  const [origin, setOrigin] = useState<Origin>({ x: 0.5, y: 0.5 });
+  const [layers, setLayers] = useState<SplashLayer[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [topKey, setTopKey] = useState<ClosingSplashKey | null>(null);
 
   const lastChangeRef = useRef(0);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shrinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingKeyRef = useRef<{
     key: ClosingSplashKey;
     origin?: Origin;
   } | null>(null);
+  const growTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+
+  const syncHtmlSplash = useCallback((key: ClosingSplashKey | null) => {
+    const root = document.documentElement;
+    if (key) {
+      root.dataset.homeSplash = key;
+    } else {
+      delete root.dataset.homeSplash;
+    }
+    setTopKey(key);
+  }, []);
 
   const clearTimers = useCallback(() => {
     if (clearTimerRef.current) {
       clearTimeout(clearTimerRef.current);
       clearTimerRef.current = null;
     }
-    if (shrinkTimerRef.current) {
-      clearTimeout(shrinkTimerRef.current);
-      shrinkTimerRef.current = null;
+    for (const timer of growTimersRef.current.values()) {
+      clearTimeout(timer);
+    }
+    growTimersRef.current.clear();
+  }, []);
+
+  const removeLayer = useCallback((id: number) => {
+    setLayers((prev) => prev.filter((layer) => layer.id !== id));
+    const timer = growTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      growTimersRef.current.delete(id);
     }
   }, []);
 
-  const beginShrink = useCallback(() => {
+  const beginShrinkAll = useCallback(() => {
     clearTimers();
-    setActiveKey(null);
-    delete document.documentElement.dataset.homeSplash;
-    setPhase("shrink");
-    shrinkTimerRef.current = setTimeout(() => {
-      setPhase("idle");
-      setDisplayColor("transparent");
-    }, reducedMotion ? 200 : SHRINK_MS);
-  }, [clearTimers, reducedMotion]);
+    setLayers((prev) => {
+      if (!prev.length) {
+        syncHtmlSplash(null);
+        return prev;
+      }
+      return prev.map((layer) => ({ ...layer, phase: "shrink" as const }));
+    });
+
+    const delay = reducedMotion ? COLOR_FADE_MS : SHRINK_MS;
+    window.setTimeout(() => {
+      setLayers([]);
+      syncHtmlSplash(null);
+    }, delay);
+  }, [clearTimers, reducedMotion, syncHtmlSplash]);
 
   const scheduleClear = useCallback(() => {
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
-    clearTimerRef.current = setTimeout(() => beginShrink(), CLEAR_DELAY_MS);
-  }, [beginShrink]);
+    clearTimerRef.current = setTimeout(() => beginShrinkAll(), CLEAR_DELAY_MS);
+  }, [beginShrinkAll]);
 
   const cancelClear = useCallback(() => {
     if (clearTimerRef.current) {
@@ -71,62 +156,55 @@ export default function HomeSplashOverlay() {
     }
   }, []);
 
-  const applyKey = useCallback(
-    (key: ClosingSplashKey, nextOrigin?: Origin) => {
+  const pushLayer = useCallback(
+    (key: ClosingSplashKey, origin: Origin) => {
       cancelClear();
-      if (nextOrigin) setOrigin(nextOrigin);
+      const id = nextLayerId();
       const color = closingSplashHex[key];
-      setDisplayColor(color);
-      setActiveKey(key);
-      document.documentElement.dataset.homeSplash = key;
+      const layer: SplashLayer = {
+        id,
+        key,
+        color,
+        origin,
+        phase: reducedMotion ? "full" : "grow",
+        maskExpanded: Boolean(reducedMotion),
+      };
+      setLayers((prev) => [...prev, layer]);
+      syncHtmlSplash(key);
       lastChangeRef.current = performance.now();
-      if (reducedMotion) {
-        setPhase("full");
-        return;
+      if (!reducedMotion) {
+        requestAnimationFrame(() => {
+          setLayers((prev) =>
+            prev.map((item) =>
+              item.id === id ? { ...item, maskExpanded: true } : item,
+            ),
+          );
+        });
       }
-      if (phase === "full" || phase === "expand") {
-        setPhase("full");
-        return;
-      }
-      setPhase("expand");
     },
-    [cancelClear, phase, reducedMotion],
+    [cancelClear, reducedMotion, syncHtmlSplash],
   );
-
-  useEffect(() => {
-    if (phase !== "expand") return;
-    const id = requestAnimationFrame(() => setPhase("full"));
-    return () => cancelAnimationFrame(id);
-  }, [phase]);
 
   const activate = useCallback(
     (key: ClosingSplashKey, nextOrigin?: Origin) => {
+      const origin = nextOrigin ?? { x: 0.5, y: 0.5 };
       const now = performance.now();
       const elapsed = now - lastChangeRef.current;
-      if (
-        activeKey &&
-        activeKey !== key &&
-        elapsed < THROTTLE_MS &&
-        phase !== "idle"
-      ) {
-        pendingKeyRef.current = { key, origin: nextOrigin };
+      if (topKey && topKey !== key && elapsed < THROTTLE_MS && layers.length) {
+        pendingKeyRef.current = { key, origin };
         window.setTimeout(() => {
           const pending = pendingKeyRef.current;
           if (pending?.key === key) {
             pendingKeyRef.current = null;
-            applyKey(key, pending.origin);
+            pushLayer(key, pending.origin ?? origin);
           }
         }, THROTTLE_MS - elapsed);
         return;
       }
       pendingKeyRef.current = null;
-      if (shrinkTimerRef.current) {
-        clearTimeout(shrinkTimerRef.current);
-        shrinkTimerRef.current = null;
-      }
-      applyKey(key, nextOrigin);
+      pushLayer(key, origin);
     },
-    [activeKey, applyKey, phase],
+    [layers.length, pushLayer, topKey],
   );
 
   useEffect(() => {
@@ -147,7 +225,7 @@ export default function HomeSplashOverlay() {
       activate(detail.key, detail.origin);
     };
 
-    const onImmediateClear = () => beginShrink();
+    const onImmediateClear = () => beginShrinkAll();
 
     window.addEventListener("home-splash:activate", onActivate);
     window.addEventListener("home-splash:schedule-clear", scheduleClear);
@@ -160,58 +238,60 @@ export default function HomeSplashOverlay() {
       window.removeEventListener("home-splash:immediate-clear", onImmediateClear);
       clearTimers();
     };
-  }, [activate, scheduleClear, cancelClear, clearTimers, beginShrink]);
+  }, [activate, scheduleClear, cancelClear, clearTimers, beginShrinkAll]);
 
-  const isVisible = phase !== "idle";
-  const blobScale =
-    phase === "full" ? 1 : phase === "expand" ? 1 : phase === "shrink" ? 0 : 0;
-
-  const blobStyle: CSSProperties = reducedMotion
-    ? {
-        backgroundColor: displayColor,
-        opacity: isVisible ? 1 : 0,
-        transition: `opacity ${COLOR_FADE_MS}ms ease`,
-      }
-    : {
-        backgroundColor: displayColor,
-        left: `${origin.x * 100}%`,
-        top: `${origin.y * 100}%`,
-        borderRadius: BLOB_RADIUS,
-        transform: `translate(-50%, -50%) scale(${phase === "expand" ? 0 : blobScale})`,
-        transition:
-          phase === "shrink"
-            ? `transform ${SHRINK_MS}ms cubic-bezier(0.77, 0, 0.175, 1)`
-            : `transform ${EXPAND_MS}ms cubic-bezier(0.23, 1, 0.32, 1), background-color ${COLOR_FADE_MS}ms ease`,
-      };
-
-  const washStyle: CSSProperties = {
-    backgroundColor: displayColor,
-    opacity: phase === "full" || (reducedMotion && isVisible) ? 1 : 0,
-    transition: `opacity ${COLOR_FADE_MS}ms ease, background-color ${COLOR_FADE_MS}ms ease`,
-  };
-
+  const isVisible = layers.length > 0;
   const showEducatingEdge =
-    activeKey === "educating" &&
-    (phase === "full" || (reducedMotion && isVisible));
+    topKey === "educating" &&
+    layers.some((layer) => layer.phase === "full" || reducedMotion);
 
-  return (
+  const [portal, setPortal] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const node = document.createElement("div");
+    node.id = "home-splash-portal";
+    document.body.appendChild(node);
+    setPortal(node);
+    return () => {
+      node.remove();
+    };
+  }, []);
+
+  const tree = (
     <div
-      className="home-splash-overlay pointer-events-none fixed inset-0 z-[38]"
+      className="home-splash-overlay pointer-events-none fixed inset-0 z-[39]"
       aria-hidden="true"
       data-active={isVisible ? "true" : "false"}
-      data-phase={phase}
     >
-      {!reducedMotion ? (
-        <div className="absolute inset-0" style={washStyle} />
-      ) : (
-        <div className="absolute inset-0" style={washStyle} />
-      )}
-      {!reducedMotion ? (
+      {layers.map((layer) => (
         <div
-          className="absolute h-[220vmax] w-[220vmax] will-change-transform"
-          style={blobStyle}
+          key={layer.id}
+          className="absolute inset-0"
+          data-splash-layer={layer.key}
+          style={maskLayerStyle(layer, reducedMotion)}
+          onTransitionEnd={(event) => {
+            if (layer.phase === "grow") {
+              if (
+                event.propertyName === "mask-size" ||
+                event.propertyName === "-webkit-mask-size"
+              ) {
+                setLayers((prev) =>
+                  prev.map((item) =>
+                    item.id === layer.id ? { ...item, phase: "full" } : item,
+                  ),
+                );
+              }
+              return;
+            }
+            if (
+              layer.phase === "shrink" &&
+              event.propertyName === "opacity"
+            ) {
+              removeLayer(layer.id);
+            }
+          }}
         />
-      ) : null}
+      ))}
       {showEducatingEdge ? (
         <div
           className="pointer-events-none absolute inset-0 z-[1]"
@@ -220,6 +300,9 @@ export default function HomeSplashOverlay() {
       ) : null}
     </div>
   );
+
+  if (!portal) return null;
+  return createPortal(tree, portal);
 }
 
 export function dispatchSplashActivate(

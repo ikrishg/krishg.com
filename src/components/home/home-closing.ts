@@ -12,7 +12,7 @@ export type ClosingSplashKey =
 export const closingSplashHex: Record<ClosingSplashKey, string> = {
   building: "#398fd0",
   creating: "#b94a3f",
-  educating: "#b8841a",
+  educating: "#d8a12a",
   about: "#7459bd",
   now: "#1f8254",
   sitemap: "#a8488d",
@@ -36,14 +36,9 @@ export type ClosingLink = {
 };
 
 export const closingBandRow: ClosingLink[] = [
-  { key: "building", label: "building", href: "#builder", bandId: "builder" },
-  { key: "creating", label: "creating", href: "#creator", bandId: "creator" },
-  {
-    key: "educating",
-    label: "educating",
-    href: "#educator",
-    bandId: "educator",
-  },
+  { key: "building", label: "building", href: "/building" },
+  { key: "creating", label: "creating", href: "/creating" },
+  { key: "educating", label: "educating", href: "/educating" },
 ];
 
 export const closingNavRow: ClosingLink[] = [

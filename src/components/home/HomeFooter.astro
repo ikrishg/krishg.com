@@ -7,21 +7,21 @@ import {
 ---
 
 <footer
-  class="home-footer relative z-[39] snap-start bg-[var(--home-educator-bg)] px-[var(--gutter)] pb-12 pt-4 text-[var(--home-educator-fg)]"
-  data-home-nav-theme="educator"
+  class="home-footer relative z-[40] snap-start bg-[var(--home-closing-bg)] px-[var(--gutter)] pb-12 pt-4 text-[var(--home-closing-fg)]"
+  data-home-nav-theme="closing"
 >
   <div
     class="mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center gap-8 text-center"
   >
     <a
-      class="home-footer__resume min-h-11 py-2 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.125rem,2vw,1.5rem)] font-medium lowercase tracking-[-0.02em] underline underline-offset-4 decoration-[1.5px] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-educator-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
+      class="home-footer__resume min-h-11 py-2 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.125rem,2vw,1.5rem)] font-medium lowercase tracking-[-0.02em] underline underline-offset-4 decoration-[1.5px] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-closing-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
       href={resumeHref}
     >
       résumé
     </a>
 
     <a
-      class="home-footer__email inline-flex min-h-11 items-center gap-2.5 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1rem,1.8vw,1.25rem)] font-medium tracking-[-0.01em] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-educator-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
+      class="home-footer__email inline-flex min-h-11 items-center gap-2.5 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1rem,1.8vw,1.25rem)] font-medium tracking-[-0.01em] transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-closing-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-85"
       href={`mailto:${contactEmail}`}
     >
       <svg
@@ -48,14 +48,14 @@ import {
             <li class="inline-flex items-center">
               {index > 0 ? (
                 <span
-                  class="mx-2 select-none text-[var(--home-educator-fg)] opacity-55"
+                  class="mx-2 select-none text-[var(--home-closing-fg)] opacity-55"
                   aria-hidden="true"
                 >
                   ·
                 </span>
               ) : null}
               <a
-                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-educator-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-75"
+                class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-sm transition-opacity duration-150 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--home-closing-fg)] [@media(hover:hover)_and_(pointer:fine)]:hover:opacity-75"
                 href={social.href}
                 rel="noopener noreferrer"
                 target="_blank"
