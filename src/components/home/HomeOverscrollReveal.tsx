@@ -53,8 +53,10 @@ export default function HomeOverscrollReveal() {
         surface.dataset.overscrollPulling = "false";
         delete root.dataset.overscrollReveal;
         pinScrollToBottom();
+        root.style.scrollSnapType = "";
         return;
       }
+      root.style.scrollSnapType = "none";
       pinScrollToBottom();
       root.style.setProperty("--home-overscroll-pull", `${pull}px`);
       surface.style.transform = `translate3d(0, ${-pull}px, 0)`;
