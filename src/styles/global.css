@@ -147,10 +147,12 @@ html[data-overscroll-reveal="true"] body.site-body {
 .home-overscroll-painting {
   position: fixed;
   inset: auto 0 0;
-  height: min(
-    var(--home-overscroll-pull, 0px),
-    var(--home-overscroll-max-pull, 30vh)
+  height: var(--home-overscroll-max-pull, 30vh);
+  --home-overscroll-gap: calc(
+    var(--home-overscroll-max-pull, 30vh) -
+      min(var(--home-overscroll-pull, 0px), var(--home-overscroll-max-pull, 30vh))
   );
+  background-color: #e7ddcc;
   z-index: 0;
   pointer-events: none;
   visibility: hidden;
@@ -168,19 +170,41 @@ html[data-overscroll-reveal="true"] body.site-body {
   height: 100%;
   padding: clamp(12px, 2vw, 24px) clamp(20px, 4vw, 48px)
     clamp(20px, 4vw, 48px);
-  background-color: #e7ddcc;
+  background-color: transparent;
+  filter: drop-shadow(0 20px 28px color-mix(in srgb, #141a2b 16%, transparent));
 }
 
 .home-overscroll-painting__frame {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   border-radius: clamp(24px, 3.2vw, 32px);
   isolation: isolate;
+  box-shadow: none;
+  clip-path: inset(
+    var(--home-overscroll-gap) 0 0 round clamp(24px, 3.2vw, 32px)
+  );
+}
+
+.home-overscroll-painting__frame::before,
+.home-overscroll-painting__frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.home-overscroll-painting__frame::before {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #141a2b 14%, transparent);
+}
+
+.home-overscroll-painting__frame::after {
+  transform: translateY(var(--home-overscroll-gap));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, #141a2b 14%, transparent),
-    inset 0 24px 48px color-mix(in srgb, #141a2b 22%, transparent),
-    0 20px 56px color-mix(in srgb, #141a2b 16%, transparent);
+    inset 0 24px 48px color-mix(in srgb, #141a2b 22%, transparent);
 }
 
 .home-overscroll-painting__art {
@@ -194,6 +218,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   background-repeat: no-repeat;
   opacity: var(--home-overscroll-art-opacity, 0);
   transition: opacity 80ms linear;
+  transform: translateY(calc(var(--home-overscroll-gap) * 0.65));
 }
 
 .home-closing-tail {
