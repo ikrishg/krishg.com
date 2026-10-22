@@ -12,10 +12,14 @@ export interface Props {
   head?: Partial<HeadProps>;
   /** Fixed accent for stub pages (full-page colour + navbar). */
   pageAccent?: HeroAccent;
+  /** Skip homepage intro / logo morph (e.g. /creating). */
+  homeIntro?: "default" | "skip";
   class?: string;
 }
 
-const { head, pageAccent, class: className } = Astro.props;
+const { head, pageAccent, homeIntro = "default", class: className } =
+  Astro.props;
+const skipHomeIntro = homeIntro === "skip";
 
 /** Homepage scrolls accents; stubs pin one. Default builder before hydrate. */
 const htmlAccent = pageAccent ?? "builder";
@@ -25,7 +29,7 @@ const themeColor = homeAccentCanvasHex[htmlAccent];
 <!doctype html>
 <html lang="en" data-page-accent={htmlAccent}>
   <Head {...head} themeColor={themeColor} />
-  <script is:inline>
+  <script is:inline define:vars={{ skipHomeIntro }}>
     (() => {
       try {
         const root = document.documentElement;
@@ -40,9 +44,10 @@ const themeColor = homeAccentCanvasHex[htmlAccent];
         } catch {
           /* storage blocked: play the intro */
         }
-        if (played) {
+        if (skipHomeIntro || played) {
           root.dataset.introSkip = "1";
           root.dataset.introPhase = "ready";
+          delete root.dataset.logoMorph;
         } else {
           root.dataset.logoMorph = "pending";
           root.dataset.introPhase = "draw";
