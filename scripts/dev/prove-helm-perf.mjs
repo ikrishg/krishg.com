@@ -1,10 +1,18 @@
 /**
- * Helm perf proof: 0 WebGL setSize during scroll; 0 drift-cursor rAF offscreen/touch/reduce.
+ * Helm perf proof: WebGL setSize, drift-cursor rAF rates, footer cursor visibility.
  * Usage: PREVIEW_URL=http://127.0.0.1:4321 node scripts/dev/prove-helm-perf.mjs
  */
 import { chromium, devices } from "playwright";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
+const OUT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "out",
+  "screenshots",
+);
 
 async function patchSetSize(page) {
   await page.evaluate(() => {
@@ -78,18 +86,57 @@ async function measureDriftRaf({ touch, reducedMotion, offscreen }) {
       window.scrollTo(0, max);
     });
   }
-  await page.waitForTimeout(2000);
-  const frames = await page.evaluate(() => window.__driftCursorRafFrames ?? 0);
-  const mounted = await page.evaluate(
-    () => document.querySelector(".home-drifting-cursors") != null,
-  );
+  await page.waitForTimeout(1800);
+  const before = await page.evaluate(() => window.__driftCursorRafFrames ?? 0);
+  await page.waitForTimeout(1000);
+  const after = await page.evaluate(() => window.__driftCursorRafFrames ?? 0);
+  const stats = await page.evaluate(() => {
+    const root = document.querySelector(".home-drifting-cursors");
+    return {
+      mounted: Boolean(root),
+      cursorChildren: root?.children.length ?? 0,
+    };
+  });
   await context.close();
   await browser.close();
-  return { frames, mounted };
+  return {
+    framesPerSecond: after - before,
+    ...stats,
+  };
+}
+
+async function captureCursors1440() {
+  await mkdir(OUT, { recursive: true });
+  const browser = await chromium.launch();
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  const page = await context.newPage();
+  await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+  await page.evaluate(() => {
+    document.documentElement.dataset.introSkip = "1";
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo(0, max);
+  });
+  await page.waitForTimeout(2200);
+  const file = path.join(OUT, "drifting-cursors-1440.png");
+  await page.screenshot({ path: file, fullPage: false });
+  const visible = await page.evaluate(() => {
+    const root = document.querySelector(".home-drifting-cursors");
+    return (root?.children.length ?? 0) >= 3;
+  });
+  await context.close();
+  await browser.close();
+  return { screenshot: file, cursorsVisible: visible };
 }
 
 async function main() {
   const setSizeCalls = await measureDesktopScroll();
+  const inView = await measureDriftRaf({
+    touch: false,
+    reducedMotion: false,
+    offscreen: false,
+  });
   const offscreen = await measureDriftRaf({
     touch: false,
     reducedMotion: false,
@@ -105,23 +152,29 @@ async function main() {
     reducedMotion: true,
     offscreen: false,
   });
+  const capture = await captureCursors1440();
 
   const summary = {
     preview: BASE,
     webglSetSizeDuring4sScroll: setSizeCalls,
+    driftRafInViewDesktop: inView,
     driftRafOffscreen: offscreen,
     driftRafTouch: touch,
     driftRafReducedMotion: reduced,
+    cursorsCapture1440: capture,
     pass:
       setSizeCalls === 0 &&
-      offscreen.frames === 0 &&
-      touch.frames === 0 &&
-      reduced.frames === 0 &&
-      !touch.mounted &&
-      !reduced.mounted,
+      inView.framesPerSecond >= 45 &&
+      inView.cursorChildren >= 3 &&
+      offscreen.framesPerSecond === 0 &&
+      touch.framesPerSecond === 0 &&
+      reduced.framesPerSecond === 0 &&
+      touch.cursorChildren === 0 &&
+      reduced.cursorChildren === 0 &&
+      capture.cursorsVisible,
     helmBaseline4255ac2: {
       webglSetSizeDuring4sScroll: "20-25",
-      styleRecalcsPerSecond: "41-55 (main 15-25)",
+      driftInView: "~60/s",
     },
   };
   console.log(JSON.stringify(summary, null, 2));

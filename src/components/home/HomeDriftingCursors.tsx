@@ -338,12 +338,11 @@ export default function HomeDriftingCursors({ className }: Props) {
   };
 
   useEffect(() => {
-    if (!motionEnabled) return;
-
     const root = rootRef.current;
     if (!root) return;
 
     const measure = () => {
+      if (!motionEnabled) return;
       const rect = root.getBoundingClientRect();
       const w = Math.max(1, rect.width);
       const h = Math.max(1, rect.height);
@@ -361,10 +360,6 @@ export default function HomeDriftingCursors({ className }: Props) {
       }
     };
 
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(root);
-
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
@@ -375,7 +370,18 @@ export default function HomeDriftingCursors({ className }: Props) {
       { threshold: 0.05, rootMargin: "40px 0px" },
     );
     observer.observe(root);
-    syncLoop();
+
+    const ro = new ResizeObserver(() => {
+      if (motionEnabled) measure();
+    });
+    ro.observe(root);
+
+    if (motionEnabled) {
+      measure();
+      syncLoop();
+    } else {
+      stopLoop();
+    }
 
     return () => {
       stopLoop();
@@ -389,11 +395,10 @@ export default function HomeDriftingCursors({ className }: Props) {
     return () => stopLoop();
   }, [motionEnabled]);
 
-  if (!motionEnabled) return null;
-
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
-      {CURSOR_THEMES.map((theme, id) => (
+      {motionEnabled &&
+        CURSOR_THEMES.map((theme, id) => (
         <div
           key={id}
           ref={(el) => {
@@ -405,7 +410,7 @@ export default function HomeDriftingCursors({ className }: Props) {
           <ModernPointer color={theme.color} />
           <NameTag label={theme.label} color={theme.color} ink={theme.ink} />
         </div>
-      ))}
+        ))}
     </div>
   );
 }
