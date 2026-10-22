@@ -82,6 +82,7 @@ function focusEntryOpener(entryId: string | null, opener: HTMLElement | null) {
         : null;
   if (!(target instanceof HTMLElement)) return;
   target.focus({ preventScroll: true });
+  if (opener && document.contains(opener)) return;
   const scrollRoot = getScrollRoot();
   const rootRect = scrollRoot?.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
@@ -92,12 +93,10 @@ function focusEntryOpener(entryId: string | null, opener: HTMLElement | null) {
   const targetMid = targetRect.top + targetRect.height / 2;
   const distance = Math.abs(targetMid - rootMid);
   const behavior = distance > 220 ? "instant" : "smooth";
-  target.scrollIntoView({ block: "center", inline: "nearest", behavior });
-  if (scrollRoot && behavior === "instant") {
-    requestAnimationFrame(() => {
-      scrollRoot.scrollTop = scrollRoot.scrollTop;
-    });
-  }
+  scrollRoot?.scrollTo({
+    top: scrollRoot.scrollTop + (targetMid - rootMid),
+    behavior,
+  });
 }
 
 export default function CreatingGallery({ entries }: Props) {
@@ -211,9 +210,9 @@ export default function CreatingGallery({ entries }: Props) {
     const root = getScrollRoot();
     const y = scrollSaveRef.current;
     if (!root) return;
-    root.scrollTop = y;
+    root.scrollTo({ top: y, behavior: "instant" });
     requestAnimationFrame(() => {
-      root.scrollTop = y;
+      root.scrollTo({ top: y, behavior: "instant" });
     });
   }, []);
 
@@ -239,6 +238,7 @@ export default function CreatingGallery({ entries }: Props) {
           history.replaceState({ creatingPiece: id, creatingPushed: true }, "", url);
         }
       });
+      setTransitionEntryId(null);
     },
     [reducedMotion],
   );

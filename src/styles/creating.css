@@ -206,7 +206,7 @@
   font-family: var(--font-newsreader), Georgia, serif;
   font-size: 0.85rem;
   line-height: 1.4;
-  color: var(--creating-on-canvas);
+  color: color-mix(in srgb, var(--creating-ink) 88%, var(--creating-on-canvas));
 }
 
 .creating-card__swatch--on-stage {
@@ -217,6 +217,10 @@
 .creating-card--listicle .creating-card__meta {
   flex: 1;
   min-width: 0;
+}
+
+.creating-card--listicle .creating-card__subtitle {
+  color: color-mix(in srgb, var(--creating-ink) 88%, var(--creating-on-canvas));
 }
 
 .creating-card--listicle .creating-card__typography,
@@ -305,11 +309,12 @@
   margin: 0;
   padding: 0.5rem 3.5rem 0;
   font-size: 0.7rem;
-  color: var(--creating-on-canvas);
+  color: var(--creating-ink);
 }
 
 .creating-card--filter-leaving {
   pointer-events: none;
+  display: none;
 }
 
 .creating-filter-btn {
@@ -333,11 +338,6 @@
 .creating-page[data-reduced-motion="true"] .creating-detail__body {
   transform: none !important;
   transition: none !important;
-}
-
-.creating-page[data-reduced-motion="true"] .creating-detail:focus-within {
-  outline: 2px solid #141a2b;
-  outline-offset: -2px;
 }
 
 .creating-page[data-reduced-motion="true"] .creating-detail__close:focus-visible {
@@ -487,7 +487,7 @@
 
 .creating-page[data-phase="gallery"] .creating-header__hint,
 .creating-page[data-phase="detail"] .creating-header__hint {
-  color: var(--creating-on-canvas);
+  color: var(--creating-ink);
 }
 
 .creating-page[data-phase="gallery"] .creating-view-btn,
@@ -558,20 +558,18 @@
     flex: 0 0 auto;
   }
 
-  .creating-header__filters::after {
-    content: "";
-    position: sticky;
-    right: 0;
-    flex: 0 0 2.5rem;
-    align-self: stretch;
-    margin-left: -2.5rem;
-    background: linear-gradient(
+  .creating-header__filters {
+    padding-inline-end: 2.5rem;
+    -webkit-mask-image: linear-gradient(
       90deg,
-      transparent,
-      color-mix(in srgb, var(--creating-paper) 55%, transparent) 35%,
-      var(--creating-paper)
+      #000 calc(100% - 2.5rem),
+      transparent
     );
-    pointer-events: none;
+    mask-image: linear-gradient(
+      90deg,
+      #000 calc(100% - 2.5rem),
+      transparent
+    );
   }
 }
 
