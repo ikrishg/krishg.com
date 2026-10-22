@@ -39,6 +39,12 @@ export function CreatingTimelineView({
     if (!markerEls) return;
 
     const syncYears = () => {
+      if (
+        scroller.closest(".creating-flip-root")?.getAttribute("data-flip-active") ===
+        "true"
+      ) {
+        return;
+      }
       markerEls.forEach((marker) => {
         const entryId = marker.getAttribute("data-year-for");
         if (!entryId) return;
@@ -183,6 +189,8 @@ export function CreatingTimelineView({
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
+        const flipRoot = document.querySelector(".creating-flip-root");
+        if (flipRoot?.getAttribute("data-flip-active") === "true") return;
         const progress =
           scroller.scrollLeft /
           Math.max(1, scroller.scrollWidth - scroller.clientWidth);

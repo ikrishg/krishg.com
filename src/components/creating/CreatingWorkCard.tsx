@@ -69,6 +69,7 @@ export function CreatingWorkCard({
       data-flip-id={entry.id}
       data-entry-id={entry.id}
       aria-hidden={filterActive ? undefined : true}
+      inert={filterActive ? undefined : true}
       style={style}
       onPointerEnter={() => onHover?.(entry.id)}
       onPointerLeave={() => onHover?.(null)}

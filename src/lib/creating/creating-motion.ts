@@ -40,8 +40,16 @@ export function runFlipFrom(
   const stagger = { amount: 0.25 };
   const ease = "creating.cubicInOut";
 
+  const flipRoot = root instanceof HTMLElement ? root : null;
+  if (flipRoot) flipRoot.dataset.flipActive = "true";
+
   const notifyDone = () => {
     window.dispatchEvent(new CustomEvent("creating-flip-complete"));
+  };
+
+  const finishFlip = () => {
+    if (flipRoot) delete flipRoot.dataset.flipActive;
+    options?.onComplete?.();
   };
 
   Flip.from(state, {
@@ -51,8 +59,9 @@ export function runFlipFrom(
     stagger,
     nested: true,
     prune: true,
+    absolute: ".creating-card--filter-leaving",
     fade: true,
-    onEnter: (els) => {
+    onEnter: (els) =>
       gsap.fromTo(
         els,
         { opacity: 0, y: 18 },
@@ -62,22 +71,17 @@ export function runFlipFrom(
           duration: 0.55,
           ease: "creating.cubicOut",
         },
-      );
-    },
-    onLeave: (els) => {
+      ),
+    onLeave: (els) =>
       gsap.to(els, {
         opacity: 0,
-        y: -12,
         duration: 0.35,
         ease: "creating.cubicInOut",
-      });
-    },
+      }),
     onComplete: notifyDone,
   });
 
-  gsap.delayedCall(duration + stagger.amount, () => {
-    options?.onComplete?.();
-  });
+  gsap.delayedCall(duration + stagger.amount, finishFlip);
 }
 
 export function staggerCardsIn(
