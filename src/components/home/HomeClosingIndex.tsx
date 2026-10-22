@@ -1,4 +1,4 @@
-import { IconAsterisk } from "@tabler/icons-react";
+import { SiteIcon } from "~components/icons/siteIcon";
 import { useEffect, useRef, useState } from "react";
 import HomeClosingLink from "./HomeClosingLink";
 import {
@@ -31,7 +31,7 @@ function StarSeparator() {
       style={{ color: "var(--home-closing-ink, var(--home-closing-fg))" }}
       aria-hidden="true"
     >
-      <IconAsterisk size={32} stroke={2.5} aria-hidden />
+      <SiteIcon name="asterisk" weight="bold" size={32} />
     </span>
   );
 }
