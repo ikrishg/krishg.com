@@ -4,13 +4,6 @@ const ART_1X = "/images/starry-night.webp";
 const ART_2X = "/images/starry-night-1800.webp";
 const FOOTER_SELECTOR = ".home-footer";
 
-function paintingBackground(dpr: number): string {
-  if (dpr >= 2) {
-    return `image-set(url("${ART_1X}") 1x, url("${ART_2X}") 2x)`;
-  }
-  return `url("${ART_1X}")`;
-}
-
 export default function HomeOverscrollPainting() {
   const layerRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState(false);
@@ -22,33 +15,35 @@ export default function HomeOverscrollPainting() {
     let cancelled = false;
     const loadArt = () => {
       if (cancelled || loaded) return;
+      const dpr = window.devicePixelRatio || 1;
+
+      const apply = (url: string) => {
+        layerRef.current?.style.setProperty(
+          "background-image",
+          `url("${url}")`,
+        );
+        setLoaded(true);
+      };
+
+      if (dpr >= 2) {
+        const hi = new Image();
+        hi.decoding = "async";
+        hi.onload = () => {
+          if (!cancelled) apply(ART_2X);
+        };
+        hi.onerror = () => {
+          if (!cancelled) apply(ART_1X);
+        };
+        hi.src = ART_2X;
+        return;
+      }
+
       const img = new Image();
       img.decoding = "async";
-      img.src = ART_1X;
       img.onload = () => {
-        if (cancelled) return;
-        const dpr = window.devicePixelRatio || 1;
-        const apply = () => {
-          layerRef.current?.style.setProperty(
-            "background-image",
-            paintingBackground(dpr),
-          );
-          setLoaded(true);
-        };
-        if (dpr >= 2) {
-          const hi = new Image();
-          hi.decoding = "async";
-          hi.onload = () => {
-            if (!cancelled) apply();
-          };
-          hi.onerror = () => {
-            if (!cancelled) apply();
-          };
-          hi.src = ART_2X;
-        } else {
-          apply();
-        }
+        if (!cancelled) apply(ART_1X);
       };
+      img.src = ART_1X;
     };
 
     const observer = new IntersectionObserver(

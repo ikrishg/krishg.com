@@ -134,11 +134,11 @@ body.site-body {
 .home-closing-tail {
   position: relative;
   background-color: var(--home-educator-bg);
-}
-
-.home-closing-index {
   min-height: calc(100svh - var(--home-nav-height));
   min-height: calc(100lvh - var(--home-nav-height));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .home-closing-index,
