@@ -22,8 +22,8 @@ const SURFACE_SELECTOR = ".home-scroll-surface";
 const PIN_PULL_THRESHOLD = 0.5;
 function wheelReleaseDelayMs(notchGapMs: number) {
   if (notchGapMs >= 450) return 320;
-  if (notchGapMs <= 60) return 150;
-  return Math.min(420, Math.max(150, notchGapMs * 1.25));
+  if (notchGapMs <= 60) return 200;
+  return Math.min(420, Math.max(200, notchGapMs * 1.25));
 }
 const MAX_PULL_VH = 0.3;
 const PEAK_PULL_VH = 0.25;
