@@ -4,6 +4,7 @@ import * as THREE from "three";
 import type { HeroAccent } from "../hero-types";
 import { HeroSceneLights } from "./HeroSceneLights";
 import { ArtifactShellContext } from "./ArtifactShellContext";
+import { registerR3fTempusGate } from "~motion/r3fTempusGate";
 
 type Props = {
   accent: HeroAccent;
@@ -16,21 +17,30 @@ type Props = {
 function RegisterInvalidate({
   invalidateRef,
   inViewRef,
+  dirtyRef,
 }: {
   invalidateRef: React.MutableRefObject<(() => void) | null>;
   inViewRef: React.MutableRefObject<boolean>;
+  dirtyRef: React.MutableRefObject<boolean>;
 }) {
   const invalidate = useThree((state) => state.invalidate);
 
   useEffect(() => {
-    invalidateRef.current = () => {
-      if (inViewRef.current) invalidate();
+    const markDirty = () => {
+      if (!inViewRef.current) return;
+      dirtyRef.current = true;
     };
-    if (inViewRef.current) invalidate();
-    return () => {
-      invalidateRef.current = null;
-    };
-  }, [invalidate, invalidateRef, inViewRef]);
+    invalidateRef.current = markDirty;
+    if (inViewRef.current) markDirty();
+    return registerR3fTempusGate({
+      inView: () => inViewRef.current,
+      isDirty: () => dirtyRef.current,
+      clearDirty: () => {
+        dirtyRef.current = false;
+      },
+      render: () => invalidate(),
+    });
+  }, [dirtyRef, invalidate, invalidateRef, inViewRef]);
 
   return null;
 }
@@ -51,6 +61,7 @@ export function ArtifactStage({
   const shellRef = useRef<HTMLDivElement>(null);
   const invalidateRef = useRef<(() => void) | null>(null);
   const inViewRef = useRef(true);
+  const dirtyRef = useRef(false);
 
   const devicePixelRatio = useMemo(() => {
     if (typeof window === "undefined") return 1;
@@ -66,7 +77,10 @@ export function ArtifactStage({
     const observer = new IntersectionObserver(
       ([entry]) => {
         inViewRef.current = entry.isIntersecting;
-        if (entry.isIntersecting) invalidateRef.current?.();
+        if (entry.isIntersecting) {
+          dirtyRef.current = true;
+          invalidateRef.current?.();
+        }
       },
       { root: null, threshold: 0.08, rootMargin: "80px 0px" },
     );
@@ -124,7 +138,11 @@ export function ArtifactStage({
               outline: "none",
             }}
           >
-            <RegisterInvalidate invalidateRef={invalidateRef} inViewRef={inViewRef} />
+            <RegisterInvalidate
+              invalidateRef={invalidateRef}
+              inViewRef={inViewRef}
+              dirtyRef={dirtyRef}
+            />
             <HeroSceneLights accent={accent} />
             <Suspense fallback={null}>{children}</Suspense>
           </Canvas>
