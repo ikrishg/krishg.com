@@ -54,5 +54,15 @@ export default defineConfig({
       subsets: ["latin"],
       display: "swap",
     },
+    {
+      provider: fontProviders.google(),
+      name: "Inter",
+      cssVariable: "--font-inter",
+      fallbacks: ["system-ui", "sans-serif"],
+      weights: ["400"],
+      styles: ["normal"],
+      subsets: ["latin"],
+      display: "swap",
+    },
   ],
 });

@@ -181,6 +181,11 @@ body.site-body {
 
   .home-closing-link--mobile {
     -webkit-tap-highlight-color: transparent;
+    font-weight: 400;
+  }
+
+  .home-navbar .home-logo__svg path {
+    stroke-width: 4.15;
   }
 }
 

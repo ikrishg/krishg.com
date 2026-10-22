@@ -27,7 +27,7 @@ const navClass =
   "home-closing-link home-closing-link--nav relative z-[40] inline-block min-h-11 py-2 font-[family-name:var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1rem,2.4vw,1.375rem)] font-normal lowercase tracking-[-0.02em] underline underline-offset-[0.32em] decoration-[1.5px] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
 
 const mobileBlockClass =
-  "home-closing-link home-closing-link--mobile relative z-[40] box-border flex min-h-[calc((100svh-var(--home-nav-height))/6)] min-h-[calc((100lvh-var(--home-nav-height))/6)] w-full flex-1 items-center justify-center px-[var(--gutter)] py-4 text-center font-[family-name:var(--font-inter-tight),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.375rem,5.5vw,1.75rem)] font-normal lowercase tracking-[-0.02em] underline underline-offset-[0.28em] decoration-[1.5px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] active:opacity-92";
+  "home-closing-link home-closing-link--mobile relative z-[40] box-border flex min-h-[calc((100svh-var(--home-nav-height))/6)] min-h-[calc((100lvh-var(--home-nav-height))/6)] w-full flex-1 items-center justify-center px-[var(--gutter)] py-4 text-center font-[family-name:var(--font-inter),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.375rem,5.5vw,1.75rem)] font-normal lowercase tracking-[-0.02em] underline underline-offset-[0.28em] decoration-[1.5px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] active:opacity-92";
 
 export default function HomeClosingLink({ link, variant }: Props) {
   const ink = closingSplashInkHex[link.key];
