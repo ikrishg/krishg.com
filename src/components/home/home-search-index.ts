@@ -10,19 +10,19 @@ export const siteSearchEntries: SiteSearchEntry[] = [
   {
     id: "builder",
     title: "building",
-    href: "/#builder",
+    href: "/building",
     keywords: ["builder", "maker", "makerhouse", "making", "hacking"],
   },
   {
     id: "creator",
     title: "creating",
-    href: "/#creator",
+    href: "/creating",
     keywords: ["creator", "atelier", "poetic", "imprint"],
   },
   {
     id: "educator",
     title: "educating",
-    href: "/#educator",
+    href: "/educating",
     keywords: ["educator", "library", "talks", "workshops", "articles"],
   },
   {

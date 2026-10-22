@@ -33,6 +33,10 @@ import HomeNavbarScroll from "./HomeNavbarScroll.tsx";
     box-shadow: none;
   }
 
+  :global(html[data-home-splash]) .home-navbar {
+    transition: color 0.2s ease;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .home-navbar {
       transition:

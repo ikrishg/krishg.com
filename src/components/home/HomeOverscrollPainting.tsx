@@ -75,7 +75,7 @@ export default function HomeOverscrollPainting() {
       );
       const reveal =
         document.documentElement.dataset.overscrollReveal === "true";
-      layer.dataset.visible = reveal || pull > 0.5 ? "true" : "false";
+      layer.dataset.visible = reveal === "true" || pull > 24 ? "true" : "false";
     };
 
     sync();

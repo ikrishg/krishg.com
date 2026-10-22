@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 const MAX_PULL = 140;
 const BOTTOM_EPSILON = 2;
+const PAINT_VISIBLE_PULL = 24;
 const SURFACE_SELECTOR = ".home-scroll-surface";
 
 function atScrollBottom() {
@@ -27,24 +28,42 @@ export default function HomeOverscrollReveal() {
     if (!surface) return;
 
     let pull = 0;
+    let pulling = false;
     let resetTimer: ReturnType<typeof setTimeout> | undefined;
     let touchAnchorY = 0;
     let bottomTouchStartY = 0;
     let trackingBottomPull = false;
 
+    const maxScrollY = () =>
+      document.documentElement.scrollHeight - window.innerHeight;
+
+    const pinScrollToBottom = () => {
+      const y = maxScrollY();
+      if (window.scrollY !== y) {
+        window.scrollTo(0, y);
+      }
+    };
+
     const applyPull = (value: number) => {
       pull = Math.max(0, Math.min(MAX_PULL, value));
       if (pull <= 0.5) {
+        pulling = false;
         root.style.removeProperty("--home-overscroll-pull");
         surface.style.removeProperty("transform");
         surface.dataset.overscrollPulling = "false";
-        root.dataset.overscrollReveal = "false";
+        delete root.dataset.overscrollReveal;
+        pinScrollToBottom();
         return;
       }
+      pinScrollToBottom();
       root.style.setProperty("--home-overscroll-pull", `${pull}px`);
       surface.style.transform = `translate3d(0, ${-pull}px, 0)`;
       surface.dataset.overscrollPulling = "true";
-      root.dataset.overscrollReveal = "true";
+      if (pull > PAINT_VISIBLE_PULL) {
+        root.dataset.overscrollReveal = "true";
+      } else {
+        delete root.dataset.overscrollReveal;
+      }
     };
 
     const scheduleReset = () => {
@@ -53,11 +72,24 @@ export default function HomeOverscrollReveal() {
     };
 
     const onWheel = (event: WheelEvent) => {
-      if (!atScrollBottom() || event.deltaY <= 0) {
-        if (pull > 0) scheduleReset();
+      if (!pulling) {
+        if (!atScrollBottom() || event.deltaY <= 0) {
+          if (pull > 0) scheduleReset();
+          return;
+        }
+        pulling = true;
+      }
+
+      if (event.deltaY > 0) {
+        event.preventDefault();
+      }
+
+      const next = pull + event.deltaY * 0.35;
+      if (next <= 0.5) {
+        applyPull(0);
         return;
       }
-      applyPull(pull + event.deltaY * 0.35);
+      applyPull(next);
       scheduleReset();
     };
 
@@ -68,13 +100,15 @@ export default function HomeOverscrollReveal() {
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (!trackingBottomPull || !atScrollBottom()) return;
+      if (!trackingBottomPull) return;
+      if (!pulling && !atScrollBottom()) return;
       const y = event.touches[0]?.clientY ?? touchAnchorY;
       const delta = bottomTouchStartY - y;
       if (delta <= 0) {
         applyPull(0);
         return;
       }
+      pulling = true;
       applyPull(touchPullPx(delta));
     };
 
@@ -84,10 +118,11 @@ export default function HomeOverscrollReveal() {
     };
 
     const onScroll = () => {
+      if (pulling) return;
       if (!atScrollBottom() && pull > 0) applyPull(0);
     };
 
-    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true });
     window.addEventListener("touchend", onTouchEnd, { passive: true });
