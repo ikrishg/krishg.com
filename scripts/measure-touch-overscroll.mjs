@@ -71,11 +71,13 @@ async function scrollToPosition(page, position) {
       await page.waitForTimeout(40);
     }
   } else {
-    const wheels = Math.max(4, Math.round(targetRatio * 24));
-    for (let i = 0; i < wheels; i += 1) {
-      await page.mouse.wheel(0, 500);
-      await page.waitForTimeout(50);
-    }
+    await page.evaluate((ratio) => {
+      const max = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      window.scrollTo(0, Math.round(max * ratio));
+    }, targetRatio);
   }
   await page.waitForTimeout(400);
 }
@@ -102,8 +104,6 @@ async function measureViewport(browser, { width, height, label }) {
 
   for (const start of START_POSITIONS) {
     await scrollToPosition(page, start);
-    const beforePos = await readScroll(page);
-
     for (const direction of ["up", "down"]) {
       const startY = Math.round(height * 0.65);
       const endY =
@@ -161,17 +161,31 @@ async function measureViewport(browser, { width, height, label }) {
 
   await context.close();
 
-  const midSwipeDown = gestures.find(
-    (g) => g.start === "mid" && g.direction === "down",
+  const noJumpToBottom = (g) => {
+    if (!g) return false;
+    const nearMaxBefore = g.scrollYBefore >= g.maxScrollY - 120;
+    const jumpedToMax =
+      !nearMaxBefore && g.scrollYAfter >= g.maxScrollY - 80;
+    const teleported = Math.abs(g.delta) > 900;
+    return !jumpedToMax && !teleported;
+  };
+
+  const jumpChecks = ["mid"].flatMap((startId) =>
+    ["up", "down"].map((direction) => {
+      const g = gestures.find((x) => x.start === startId && x.direction === direction);
+      return {
+        start: startId,
+        direction,
+        pass: noJumpToBottom(g),
+        scrollYBefore: g?.scrollYBefore ?? null,
+        scrollYAfter: g?.scrollYAfter ?? null,
+        delta: g?.delta ?? null,
+      };
+    }),
   );
   const touchJumpGuard = {
-    scrollYBefore: midSwipeDown?.scrollYBefore ?? null,
-    scrollYAfter: midSwipeDown?.scrollYAfter ?? null,
-    delta: midSwipeDown?.delta ?? null,
-    pass:
-      midSwipeDown != null &&
-      Math.abs(midSwipeDown.delta) < 350 &&
-      midSwipeDown.scrollYAfter < midSwipeDown.maxScrollY - 80,
+    checks: jumpChecks,
+    pass: jumpChecks.every((c) => c.pass),
   };
 
   return {
@@ -201,14 +215,13 @@ async function main() {
   } finally {
     await browser.close();
   }
-  const at390 = results.find((r) => r.viewport === "390");
   const summary = {
     preview: BASE,
-    touchJump390: at390?.touchJumpGuard ?? null,
+    touchJumpPass: results.every((r) => r.touchJumpGuard?.pass),
     touch: results,
   };
   console.log(JSON.stringify(summary, null, 2));
-  if (at390 && !at390.touchJumpGuard?.pass) {
+  if (!summary.touchJumpPass) {
     process.exitCode = 1;
   }
 }

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useTempus } from "tempus/react";
 
 type CursorTheme = {
   color: string;
@@ -275,16 +274,25 @@ export default function HomeDriftingCursors({ className }: Props) {
     };
   }, []);
 
-  useTempus(
-    ({ deltaTime }) => {
+  useEffect(() => {
+    let rafId = 0;
+    let lastFrameMs = 0;
+
+    const tick = (timeMs: number) => {
+      rafId = requestAnimationFrame(tick);
+
       if (
         !activeRef.current ||
         !inViewRef.current ||
         reducedMotionRef.current ||
         !finePointerRef.current
       ) {
+        lastFrameMs = 0;
         return;
       }
+
+      const deltaTime = lastFrameMs > 0 ? timeMs - lastFrameMs : 16;
+      lastFrameMs = timeMs;
       if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
 
       const { w, h } = sizeRef.current;
@@ -349,9 +357,11 @@ export default function HomeDriftingCursors({ className }: Props) {
           el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
         }
       }
-    },
-    { order: 0, label: "drifting-cursors" },
-  );
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
