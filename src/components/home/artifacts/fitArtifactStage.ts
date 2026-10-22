@@ -91,12 +91,11 @@ export function rotateBoxAroundY(
 
 export function frameFitBox(
   meshBox: THREE.Box3,
-  shadowGroundY: number,
-  shadowDrop: number,
+  _shadowGroundY: number,
+  _shadowDrop: number,
   kind: KrishModelKind,
 ): THREE.Box3 {
   const frame = meshBox.clone();
-  frame.min.y = Math.min(frame.min.y, shadowGroundY - shadowDrop);
   const padX =
     kind === "computer" ? 0.06 : kind === "frame" ? 0.08 : 0.1;
   frame.min.x -= padX;
@@ -110,7 +109,7 @@ export function buildClearanceBoxes(
   shadowGroundY: number,
   kind: KrishModelKind,
 ): THREE.Box3[] {
-  return [frameFitBox(meshBox, shadowGroundY, shadowDropWorld(kind), kind)];
+  return [frameFitBox(meshBox, shadowGroundY, 0, kind)];
 }
 
 function distanceForMeshHeight(

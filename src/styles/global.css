@@ -415,6 +415,9 @@ html[data-home-splash] .home-closing-star,
 html[data-home-splash] .home-footer a {
   color: var(--home-closing-ink, var(--home-closing-fg));
   outline-color: var(--home-closing-ink, var(--home-closing-fg));
+  transition:
+    color 0.12s var(--ease-out),
+    outline-color 0.12s var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -582,7 +585,7 @@ html[data-page-accent="closing"] {
   }
 
   html[data-motion-enhance] [data-home-scroll-band] .hero-copy {
-    opacity: calc(0.55 + 0.45 * var(--band-progress, 1));
+    opacity: calc(0.85 + 0.15 * var(--band-progress, 1));
     transform: translate3d(0, calc((1 - var(--band-progress, 1)) * 18px), 0);
     will-change: transform, opacity;
   }

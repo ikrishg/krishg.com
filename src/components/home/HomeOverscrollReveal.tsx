@@ -54,6 +54,11 @@ function readBottomState() {
  */
 export default function HomeOverscrollReveal() {
   useEffect(() => {
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (reducedMotion) return;
+
     const root = document.documentElement;
     const surface = document.querySelector<HTMLElement>(SURFACE_SELECTOR);
     if (!surface) return;

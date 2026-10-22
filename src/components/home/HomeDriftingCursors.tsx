@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTempus } from "tempus/react";
 
 type CursorTheme = {
@@ -11,10 +11,9 @@ const CURSOR_THEMES: CursorTheme[] = [
   { color: "#398fd0", label: "builder", ink: "#141a2b" },
   { color: "#b94a3f", label: "creator", ink: "#fff8ea" },
   { color: "#d8a12a", label: "educator", ink: "#141a2b" },
-  { color: "#7459bd", label: "about", ink: "#fff9ec" },
-  { color: "#1f8254", label: "now", ink: "#fff9ec" },
-  { color: "#a8488d", label: "sitemap", ink: "#fff9ec" },
 ];
+
+const CURSOR_COUNT = CURSOR_THEMES.length;
 
 type DriftCursor = {
   id: number;
@@ -198,20 +197,18 @@ type Props = {
 
 export default function HomeDriftingCursors({ className }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const cursorElRefs = useRef<(HTMLDivElement | null)[]>([]);
   const inViewRef = useRef(false);
   const reducedMotionRef = useRef(false);
+  const finePointerRef = useRef(false);
+  const activeRef = useRef(false);
   const sizeRef = useRef({ w: 1, h: 1 });
   const cursorsRef = useRef<DriftCursor[]>([]);
-  const [renderCursors, setRenderCursors] = useState<DriftCursor[]>([]);
-  const [active, setActive] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  });
 
   const rootClassName = useMemo(
     () =>
       [
-        "home-drifting-cursors pointer-events-none absolute inset-0 z-[1] overflow-hidden",
+        "home-drifting-cursors pointer-events-none absolute inset-0 z-[1] overflow-hidden opacity-50",
         className,
       ]
         .filter(Boolean)
@@ -223,13 +220,21 @@ export default function HomeDriftingCursors({ className }: Props) {
     const root = rootRef.current;
     if (!root) return;
 
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncReduced = () => {
-      reducedMotionRef.current = mq.matches;
-      setActive(!mq.matches);
+    const mqReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mqFine = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+    const syncMotion = () => {
+      reducedMotionRef.current = mqReduce.matches;
+      finePointerRef.current = mqFine.matches;
+      activeRef.current = !mqReduce.matches && mqFine.matches;
+      for (let i = 0; i < CURSOR_COUNT; i++) {
+        const el = cursorElRefs.current[i];
+        if (el) el.style.visibility = activeRef.current ? "visible" : "hidden";
+      }
     };
-    syncReduced();
-    mq.addEventListener("change", syncReduced);
+    syncMotion();
+    mqReduce.addEventListener("change", syncMotion);
+    mqFine.addEventListener("change", syncMotion);
 
     const measure = () => {
       const rect = root.getBoundingClientRect();
@@ -238,7 +243,13 @@ export default function HomeDriftingCursors({ className }: Props) {
       sizeRef.current = { w, h };
       if (cursorsRef.current.length === 0) {
         cursorsRef.current = seedCursors(w, h);
-        setRenderCursors(cursorsRef.current);
+        for (let i = 0; i < CURSOR_COUNT; i++) {
+          const state = cursorsRef.current[i];
+          const el = cursorElRefs.current[i];
+          if (el && state) {
+            el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
+          }
+        }
       }
     };
 
@@ -247,7 +258,9 @@ export default function HomeDriftingCursors({ className }: Props) {
     ro.observe(root);
 
     const observer = new IntersectionObserver(
-      ([entry]) => {
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
         inViewRef.current = entry.isIntersecting;
       },
       { threshold: 0.05, rootMargin: "40px 0px" },
@@ -255,7 +268,8 @@ export default function HomeDriftingCursors({ className }: Props) {
     observer.observe(root);
 
     return () => {
-      mq.removeEventListener("change", syncReduced);
+      mqReduce.removeEventListener("change", syncMotion);
+      mqFine.removeEventListener("change", syncMotion);
       ro.disconnect();
       observer.disconnect();
     };
@@ -263,7 +277,14 @@ export default function HomeDriftingCursors({ className }: Props) {
 
   useTempus(
     ({ deltaTime }) => {
-      if (!active || !inViewRef.current || reducedMotionRef.current) return;
+      if (
+        !activeRef.current ||
+        !inViewRef.current ||
+        reducedMotionRef.current ||
+        !finePointerRef.current
+      ) {
+        return;
+      }
       if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
 
       const { w, h } = sizeRef.current;
@@ -321,28 +342,34 @@ export default function HomeDriftingCursors({ className }: Props) {
       });
 
       cursorsRef.current = next;
-      setRenderCursors(next);
+      for (let i = 0; i < CURSOR_COUNT; i++) {
+        const el = cursorElRefs.current[i];
+        const state = next[i];
+        if (el && state) {
+          el.style.transform = `translate3d(${state.x}px, ${state.y}px, 0)`;
+        }
+      }
     },
     { order: 0, label: "drifting-cursors" },
   );
 
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
-      {active &&
-        renderCursors.map((cursor) => (
+      {CURSOR_THEMES.map((theme, id) => (
         <div
-          key={cursor.id}
-          className="absolute will-change-transform"
-          style={{
-            transform: `translate3d(${cursor.x}px, ${cursor.y}px, 0)`,
+          key={id}
+          ref={(el) => {
+            cursorElRefs.current[id] = el;
           }}
+          className="absolute will-change-transform"
+          style={{ visibility: "hidden" }}
         >
           <div className="relative">
-            <ModernPointer color={cursor.color} />
-            <NameTag label={cursor.label} color={cursor.color} ink={cursor.ink} />
+            <ModernPointer color={theme.color} />
+            <NameTag label={theme.label} color={theme.color} ink={theme.ink} />
           </div>
         </div>
-        ))}
+      ))}
     </div>
   );
 }

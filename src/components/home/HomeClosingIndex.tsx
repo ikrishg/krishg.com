@@ -7,7 +7,6 @@ import {
   closingNavRow,
 } from "./home-closing";
 import { useSharedPrimaryFontSize } from "./homeClosingPrimaryFit";
-import HomeDriftingCursors from "./HomeDriftingCursors";
 import { dispatchSplashScheduleClear } from "./HomeSplashOverlay";
 
 const MOBILE_CLOSING_MQ = "(max-width: 767px)";
@@ -163,7 +162,6 @@ export default function HomeClosingIndex() {
       className="home-closing-index relative text-[var(--home-closing-fg)] max-md:px-0 md:px-[var(--gutter)]"
       aria-label="Site index"
     >
-      <HomeDriftingCursors />
       {mobileStack ? <MobileStack /> : <DesktopIndex />}
     </section>
   );

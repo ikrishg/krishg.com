@@ -24,6 +24,7 @@ export default defineConfig({
           manualChunks(id) {
             if (id.includes("node_modules/three")) return "three";
             if (id.includes("node_modules/@react-three")) return "r3f";
+            return undefined;
           },
         },
       },
@@ -61,6 +62,16 @@ export default defineConfig({
       fallbacks: ["system-ui", "sans-serif"],
       weights: ["400"],
       styles: ["normal"],
+      subsets: ["latin"],
+      display: "swap",
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Newsreader",
+      cssVariable: "--font-newsreader",
+      fallbacks: ["Georgia", "serif"],
+      weights: ["400", "500"],
+      styles: ["normal", "italic"],
       subsets: ["latin"],
       display: "swap",
     },

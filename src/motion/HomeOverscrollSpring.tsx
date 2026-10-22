@@ -1,10 +1,25 @@
+import { useEffect, useRef } from "react";
 import { useTempus } from "tempus/react";
-import { stepOverscrollSpring } from "./homeOverscrollEngine";
+import { resetOverscrollEngine, stepOverscrollSpring } from "./homeOverscrollEngine";
 
 /** Smooth overscroll pull/release via spring physics on the Tempus loop. */
 export default function HomeOverscrollSpring() {
+  const reducedMotionRef = useRef(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      reducedMotionRef.current = mq.matches;
+      if (mq.matches) resetOverscrollEngine();
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   useTempus(
     ({ deltaTime }) => {
+      if (reducedMotionRef.current) return;
       if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
       stepOverscrollSpring(deltaTime / 1000);
     },

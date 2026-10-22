@@ -28,12 +28,21 @@ function linkProgress(rect: DOMRect, vh: number) {
   return easeOutCubic(clamp01(raw));
 }
 
+type BandCache = {
+  progress: number;
+  parallax: number;
+  artifact: number;
+};
+
 /**
  * Homepage scroll-linked transforms (opacity / translate only), driven from
  * Lenis scroll position on the shared Tempus loop.
  */
 export default function HomeScrollExperience() {
   const reducedRef = useRef(true);
+  const bandCacheRef = useRef(new WeakMap<HTMLElement, BandCache>());
+  const linkCacheRef = useRef(new WeakMap<HTMLElement, number>());
+  const closingProgressRef = useRef<number | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -56,11 +65,31 @@ export default function HomeScrollExperience() {
 
       const bands = document.querySelectorAll<HTMLElement>(BAND_SELECTOR);
       for (const band of bands) {
-        const progress = bandProgress(band.getBoundingClientRect(), vh);
-        band.style.setProperty("--band-progress", progress.toFixed(4));
+        const rect = band.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > vh) continue;
+
+        const progress = bandProgress(rect, vh);
         const parallax = (1 - progress) * 28;
-        band.style.setProperty("--band-parallax", `${parallax.toFixed(2)}px`);
         const artifactShift = (1 - progress) * -16;
+
+        const prev = bandCacheRef.current.get(band);
+        if (
+          prev &&
+          Math.abs(prev.progress - progress) < 0.0005 &&
+          Math.abs(prev.parallax - parallax) < 0.05 &&
+          Math.abs(prev.artifact - artifactShift) < 0.05
+        ) {
+          continue;
+        }
+
+        bandCacheRef.current.set(band, {
+          progress,
+          parallax,
+          artifact: artifactShift,
+        });
+
+        band.style.setProperty("--band-progress", progress.toFixed(4));
+        band.style.setProperty("--band-parallax", `${parallax.toFixed(2)}px`);
         band.style.setProperty(
           "--artifact-parallax",
           `${artifactShift.toFixed(2)}px`,
@@ -69,16 +98,31 @@ export default function HomeScrollExperience() {
 
       const links = document.querySelectorAll<HTMLElement>(CLOSING_PRIMARY);
       links.forEach((link, index) => {
+        const rect = link.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > vh) return;
+
         const stagger = index * 0.08;
-        const raw = linkProgress(link.getBoundingClientRect(), vh) - stagger;
+        const raw = linkProgress(rect, vh) - stagger;
         const p = easeOutCubic(clamp01(raw));
+        const prev = linkCacheRef.current.get(link);
+        if (prev !== undefined && Math.abs(prev - p) < 0.0005) return;
+        linkCacheRef.current.set(link, p);
         link.style.setProperty("--link-in", p.toFixed(4));
       });
 
       const closing = document.getElementById("home-closing-index");
       if (closing) {
-        const p = bandProgress(closing.getBoundingClientRect(), vh);
-        closing.style.setProperty("--closing-progress", p.toFixed(4));
+        const rect = closing.getBoundingClientRect();
+        if (rect.bottom >= 0 && rect.top <= vh) {
+          const p = bandProgress(rect, vh);
+          if (
+            closingProgressRef.current === null ||
+            Math.abs(closingProgressRef.current - p) >= 0.0005
+          ) {
+            closingProgressRef.current = p;
+            closing.style.setProperty("--closing-progress", p.toFixed(4));
+          }
+        }
       }
     },
     { order: 0, label: "home-scroll" },

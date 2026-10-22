@@ -85,7 +85,7 @@ export default function HomeNavbarTheme() {
         .elementsFromPoint(window.innerWidth / 2, PROBE_Y + 1)
         .map((element) => element.closest<HTMLElement>(SECTION_SELECTOR))
         .find((section): section is HTMLElement => Boolean(section));
-      const fromPoint = accentFromSection(topmost);
+      const fromPoint = accentFromSection(topmost ?? null);
       if (fromPoint) {
         setPageAccent(fromPoint);
         return;
