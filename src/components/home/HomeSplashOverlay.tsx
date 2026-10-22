@@ -7,6 +7,7 @@ import {
 } from "./home-closing";
 import { HOME_SPLASH_PATH, splashBlobDiameter } from "./home-splash-mask";
 import { isSplashScrollBlocked } from "~motion/homeSplashScrollGate";
+import { canUseClosingHoverSplash } from "./closingHoverSplash";
 
 type PixelOrigin = { x: number; y: number };
 type SplashMask = "circle" | "organic";
@@ -351,7 +352,7 @@ export default function HomeSplashOverlay() {
 
   const activate = useCallback(
     (key: ClosingSplashKey, origin: PixelOrigin) => {
-      if (isSplashScrollBlocked()) return;
+      if (!canUseClosingHoverSplash() || isSplashScrollBlocked()) return;
 
       cancelClear();
       if (stateRef.current === "hiding") {
@@ -467,6 +468,7 @@ export function dispatchSplashActivate(
   key: ClosingSplashKey,
   element: HTMLElement,
 ) {
+  if (!canUseClosingHoverSplash()) return;
   const rect = element.getBoundingClientRect();
   const origin = {
     x: rect.left + rect.width / 2,

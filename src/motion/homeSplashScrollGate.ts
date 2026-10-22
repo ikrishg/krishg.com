@@ -1,5 +1,6 @@
 import { getLenis, subscribeScroll } from "./lenisStore";
 import type { ClosingSplashKey } from "~components/home/home-closing";
+import { canUseClosingHoverSplash } from "~components/home/closingHoverSplash";
 
 const INPUT_GATE_MS = 150;
 const VELOCITY_THRESHOLD = 0.35;
@@ -38,14 +39,15 @@ export function getSplashScrollVelocity() {
 }
 
 export function isSplashScrollBlocked(): boolean {
-  const lenis = getLenis();
-  if (lenis && Math.abs(lenis.velocity) > VELOCITY_THRESHOLD) return true;
-  if (Math.abs(lastVelocity) > VELOCITY_THRESHOLD) return true;
-
   const now = Date.now();
   if (now - lastWheelAt < INPUT_GATE_MS) return true;
   if (now - lastTouchAt < INPUT_GATE_MS) return true;
-  if (now - lastMotionAt < INPUT_GATE_MS) return true;
+
+  if (now - lastMotionAt < INPUT_GATE_MS) {
+    const lenis = getLenis();
+    if (lenis && Math.abs(lenis.velocity) > VELOCITY_THRESHOLD) return true;
+    if (Math.abs(lastVelocity) > VELOCITY_THRESHOLD) return true;
+  }
 
   return false;
 }
@@ -130,7 +132,7 @@ export function consumePendingSplashHover(): PendingHover | null {
 }
 
 export function flushPendingSplashHover() {
-  if (isSplashScrollBlocked()) return;
+  if (!canUseClosingHoverSplash() || isSplashScrollBlocked()) return;
   const pending = consumePendingSplashHover();
   if (!pending) return;
 
