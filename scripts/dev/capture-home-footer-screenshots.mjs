@@ -18,7 +18,8 @@ async function scrollToFooter(page) {
     const nav = document.querySelector(".home-navbar");
     if (!footer || !nav) return;
     const navBottom = nav.getBoundingClientRect().bottom;
-    for (let attempt = 0; attempt < 56; attempt += 1) {
+    footer.scrollIntoView({ block: "start", behavior: "instant" });
+    for (let attempt = 0; attempt < 64; attempt += 1) {
       const delta = footer.getBoundingClientRect().top - navBottom;
       if (Math.abs(delta) < 2) return;
       window.scrollBy(0, delta);
