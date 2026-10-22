@@ -16,7 +16,6 @@ import {
   applyCameraFit,
   frameFitBox,
   meshWorldBox,
-  shadowDropWorld,
   solveStageCanvasHeight,
   targetMeshHeightPx,
   maxMeshWidthFraction,
@@ -68,18 +67,8 @@ export function HeroCameraFit({
     const meshBox = meshWorldBox(group);
     if (meshBox.isEmpty()) return;
 
-    const shadowGroundY = meshBox.min.y - 0.008;
-    const frameBox = frameFitBox(
-      meshBox,
-      shadowGroundY,
-      shadowDropWorld(kind),
-      kind,
-    );
-    const clearanceBoxes = buildClearanceBoxes(
-      meshBox,
-      shadowGroundY,
-      kind,
-    );
+    const frameBox = frameFitBox(meshBox, kind);
+    const clearanceBoxes = buildClearanceBoxes(meshBox, kind);
     const zoomClearanceBoxes =
       kind === "computer" ? [meshBox.clone()] : clearanceBoxes;
 
@@ -181,16 +170,11 @@ export function HeroCameraFit({
       const scaledMesh = meshWorldBox(group);
       if (scaledMesh.isEmpty()) return;
       meshBox.copy(scaledMesh);
-      const scaledShadowY = meshBox.min.y - 0.008;
-      frameBox.copy(
-        frameFitBox(meshBox, scaledShadowY, shadowDropWorld(kind), kind),
-      );
+      frameBox.copy(frameFitBox(meshBox, kind));
       zoomClearanceBoxes.length = 0;
       zoomClearanceBoxes.push(meshBox.clone());
       clearanceBoxes.length = 0;
-      clearanceBoxes.push(
-        ...buildClearanceBoxes(meshBox, scaledShadowY, kind),
-      );
+      clearanceBoxes.push(...buildClearanceBoxes(meshBox, kind));
     };
 
     if (kind === "computer") {

@@ -21,7 +21,7 @@ const FOOTER_SELECTOR = ".home-footer";
 const SURFACE_SELECTOR = ".home-scroll-surface";
 const ART_ASPECT = 1100 / 871;
 const PIN_PULL_THRESHOLD = 0.5;
-const RELEASE_DELAY_MS = 70;
+const RELEASE_DELAY_MS = 150;
 
 function computeMaxPull() {
   const vw = window.innerWidth;

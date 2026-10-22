@@ -50,7 +50,7 @@ export default defineConfig({
       name: "Inter Tight",
       cssVariable: "--font-inter-tight",
       fallbacks: ["system-ui", "sans-serif"],
-      weights: ["800"],
+      weights: ["500", "600", "800"],
       styles: ["normal"],
       subsets: ["latin"],
       display: "swap",

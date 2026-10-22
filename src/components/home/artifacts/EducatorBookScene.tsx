@@ -16,7 +16,6 @@ import {
   bandHeightPx,
   frameFitBox,
   projectBoxToScreenPx,
-  shadowDropWorld,
   targetMeshHeightPx,
 } from "./fitArtifactStage";
 
@@ -99,13 +98,7 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
       const shell = shellRef?.current;
       if (!shell || !(camera instanceof THREE.PerspectiveCamera)) return;
 
-      const shadowGroundY = info.meshBox.min.y - 0.008;
-      const frameBox = frameFitBox(
-        info.meshBox,
-        shadowGroundY,
-        shadowDropWorld("book"),
-        "book",
-      );
+      const frameBox = frameFitBox(info.meshBox, "book");
       const frameScreen = projectBoxToScreenPx(
         camera,
         frameBox,
