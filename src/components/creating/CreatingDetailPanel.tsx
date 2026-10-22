@@ -12,6 +12,7 @@ type Props = {
   entry: CreatingEntry;
   onClose: () => void;
   returnFocusRef: RefObject<HTMLElement | null>;
+  focusEntryId: string | null;
   reducedMotion: boolean;
 };
 
@@ -19,6 +20,7 @@ export function CreatingDetailPanel({
   entry,
   onClose,
   returnFocusRef,
+  focusEntryId,
   reducedMotion,
 }: Props) {
   const panelRef = useRef<HTMLElement>(null);
@@ -52,9 +54,17 @@ export function CreatingDetailPanel({
   useEffect(() => {
     return () => {
       const target = returnFocusRef.current;
-      if (target && document.contains(target)) target.focus();
+      if (target && document.contains(target)) {
+        target.focus();
+        return;
+      }
+      if (!focusEntryId) return;
+      const el = document.querySelector(
+        `[data-entry-id="${focusEntryId}"] .creating-card__open`,
+      );
+      if (el instanceof HTMLElement) el.focus();
     };
-  }, [returnFocusRef]);
+  }, [returnFocusRef, focusEntryId]);
 
   const accent = CATEGORY_ACCENT[entry.category];
 

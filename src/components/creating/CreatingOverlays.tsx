@@ -1,7 +1,6 @@
 import {
   useEffect,
   useRef,
-  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -26,7 +25,6 @@ type Props = {
   categories: CreatingCategory[];
   filter: CreatingCategoryFilter;
   onFilterChange: (filter: CreatingCategoryFilter) => void;
-  showTutorial: boolean;
   hoveredTitle: string | null;
   reducedMotion: boolean;
   detailOpen: boolean;
@@ -35,12 +33,14 @@ type Props = {
 function MagneticFilterButton({
   children,
   active,
+  filterId,
   onClick,
   style,
   reducedMotion,
 }: {
   children: ReactNode;
   active?: boolean;
+  filterId?: CreatingCategoryFilter;
   onClick: () => void;
   style?: CSSProperties;
   reducedMotion: boolean;
@@ -52,6 +52,7 @@ function MagneticFilterButton({
       ref={ref}
       type="button"
       className="creating-filter-btn"
+      data-filter={filterId}
       data-active={active ? "true" : undefined}
       aria-pressed={active ? true : false}
       style={style}
@@ -69,22 +70,12 @@ export function CreatingOverlays({
   categories,
   filter,
   onFilterChange,
-  showTutorial,
   hoveredTitle,
   reducedMotion,
   detailOpen,
 }: Props) {
   const cursorRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
-  const [coarsePointer, setCoarsePointer] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(pointer: coarse)");
-    setCoarsePointer(mq.matches);
-    const fn = () => setCoarsePointer(mq.matches);
-    mq.addEventListener("change", fn);
-    return () => mq.removeEventListener("change", fn);
-  }, []);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -136,11 +127,6 @@ export function CreatingOverlays({
     if (detailOpen) label.style.opacity = "0";
   }, [detailOpen]);
 
-  const tutorial =
-    coarsePointer
-      ? "Tap any piece to open its detail view."
-      : "Click any piece to open its detail view.";
-
   return (
     <>
       <header
@@ -172,6 +158,7 @@ export function CreatingOverlays({
         <div className="creating-header__filters">
           <MagneticFilterButton
             active={filter === "all"}
+            filterId="all"
             reducedMotion={reducedMotion}
             onClick={() => onFilterChange("all")}
           >
@@ -181,6 +168,7 @@ export function CreatingOverlays({
             <MagneticFilterButton
               key={cat}
               active={filter === cat}
+              filterId={cat}
               reducedMotion={reducedMotion}
               style={
                 {
@@ -194,12 +182,6 @@ export function CreatingOverlays({
           ))}
         </div>
       </header>
-
-      {showTutorial && (
-        <p className="creating-tutorial" role="status">
-          {tutorial}
-        </p>
-      )}
 
       {!reducedMotion && !detailOpen && (
         <div
