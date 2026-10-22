@@ -1,6 +1,7 @@
 import { useLenis } from "lenis/react";
 import { useEffect, useRef } from "react";
 import { feedOverscrollWheelDelta } from "./homeOverscrollWheelFeed";
+import { markSplashWheelInput } from "./homeSplashScrollGate";
 
 const BOTTOM_EPSILON = 2;
 const PULL_VAR = "--home-overscroll-pull";
@@ -49,6 +50,7 @@ export default function HomeOverscrollLenisBridge() {
       (event as WheelEvent & { lenisStopPropagation?: boolean }).lenisStopPropagation =
         true;
 
+      markSplashWheelInput();
       feedOverscrollWheelDelta(deltaY);
     };
 

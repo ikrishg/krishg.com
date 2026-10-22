@@ -72,6 +72,15 @@ export default function HomeNavbarTheme() {
     }
 
     const pickActive = () => {
+      const root = document.documentElement;
+      if (
+        root.dataset.overscrollReveal === "true" ||
+        root.dataset.overscrollPulling === "true"
+      ) {
+        setPageAccent("closing");
+        return;
+      }
+
       const topmost = document
         .elementsFromPoint(window.innerWidth / 2, PROBE_Y + 1)
         .map((element) => element.closest<HTMLElement>(SECTION_SELECTOR))

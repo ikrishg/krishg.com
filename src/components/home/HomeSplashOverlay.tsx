@@ -6,6 +6,7 @@ import {
   type ClosingSplashKey,
 } from "./home-closing";
 import { HOME_SPLASH_PATH, splashBlobDiameter } from "./home-splash-mask";
+import { isSplashScrollBlocked } from "~motion/homeSplashScrollGate";
 
 type PixelOrigin = { x: number; y: number };
 type SplashMask = "circle" | "organic";
@@ -350,6 +351,8 @@ export default function HomeSplashOverlay() {
 
   const activate = useCallback(
     (key: ClosingSplashKey, origin: PixelOrigin) => {
+      if (isSplashScrollBlocked()) return;
+
       cancelClear();
       if (stateRef.current === "hiding") {
         resetOverlay();

@@ -1,6 +1,11 @@
+import { setPageAccent } from "~components/home/HomeNavbarTheme";
+
 const SURFACE_SELECTOR = ".home-scroll-surface";
 const PAINT_VISIBLE_PULL = 24;
 const BOTTOM_EPSILON = 2;
+const SPLASH_CLEAR_PULL = 6;
+
+let splashClearedForPull = false;
 
 let surfaceEl: HTMLElement | null = null;
 let maxPullPx = 320;
@@ -62,13 +67,22 @@ function applyPullVisual(value: number) {
     surface.style.removeProperty("transform");
     surface.dataset.overscrollPulling = "false";
     delete root.dataset.overscrollReveal;
+    delete root.dataset.overscrollPulling;
     root.style.setProperty("--home-overscroll-reveal", "0");
+    splashClearedForPull = false;
     return;
   }
 
   root.style.setProperty("--home-overscroll-pull", `${value.toFixed(2)}px`);
   surface.style.transform = `translate3d(0, ${-value}px, 0)`;
   surface.dataset.overscrollPulling = "true";
+  root.dataset.overscrollPulling = "true";
+  setPageAccent("closing");
+
+  if (value > SPLASH_CLEAR_PULL && !splashClearedForPull) {
+    splashClearedForPull = true;
+    window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));
+  }
 
   const reveal = value > PAINT_VISIBLE_PULL ? 1 : value / PAINT_VISIBLE_PULL;
   root.style.setProperty("--home-overscroll-reveal", reveal.toFixed(3));
@@ -81,6 +95,7 @@ function applyPullVisual(value: number) {
 
 /** Spring step on the shared Tempus loop (dt in seconds). */
 export function stepOverscrollSpring(dt: number) {
+  if (!Number.isFinite(dt) || dt <= 0) return;
   const stiffness = 9.5;
   const damping = 11.5;
   const dtClamped = Math.min(dt, 0.05);
@@ -102,6 +117,12 @@ export function stepOverscrollSpring(dt: number) {
     releasing = false;
   }
 
+  if (!Number.isFinite(pull)) {
+    pull = 0;
+    pullTarget = 0;
+    pullVelocity = 0;
+  }
+
   applyPullVisual(pull);
 }
 
@@ -110,5 +131,10 @@ export function resetOverscrollEngine() {
   pullTarget = 0;
   pullVelocity = 0;
   releasing = false;
+  splashClearedForPull = false;
   applyPullVisual(0);
+}
+
+export function isOverscrollPullActive() {
+  return pull > 0.35 || pullTarget > 0.35;
 }
