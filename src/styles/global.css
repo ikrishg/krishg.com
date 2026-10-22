@@ -56,6 +56,7 @@
 .home-band-min-h {
   min-height: calc(100svh - var(--home-nav-height));
   min-height: calc(100lvh - var(--home-nav-height));
+  z-index: 0;
 }
 
 /*
@@ -135,6 +136,8 @@ body.site-body {
 }
 
 .home-closing-tail {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
 }
