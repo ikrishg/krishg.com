@@ -52,12 +52,6 @@ function readBottomState() {
   );
 }
 
-function hadMeaningfulPull() {
-  return (
-    getOverscrollPull() > PIN_PULL_THRESHOLD || isOverscrollPullActive()
-  );
-}
-
 /**
  * Pulls the homepage scroll surface to reveal the Starry Night layer beneath.
  * Target pull is spring-smoothed on the Tempus loop (HomeOverscrollSpring).
@@ -104,19 +98,28 @@ export default function HomeOverscrollReveal() {
       if (window.scrollY !== y) window.scrollTo(0, y);
     };
 
-    const scheduleRelease = (opts?: { fromWheel?: boolean }) => {
+    const scheduleRelease = (opts: {
+      fromWheel?: boolean;
+      bottomTouch?: boolean;
+    } = {}) => {
       if (releaseTimer) clearTimeout(releaseTimer);
-      if (!pullEngaged && !hadMeaningfulPull()) {
+
+      const allowPin = Boolean(opts.fromWheel || opts.bottomTouch);
+      if (!allowPin || (!pullEngaged && !isOverscrollPullActive())) {
         pulling = false;
+        pullEngaged = false;
         releaseOverscrollTarget();
         return;
       }
 
       const delay =
-        opts?.fromWheel && !isOverscrollPullActive() ? 0 : RELEASE_DELAY_MS;
+        opts.fromWheel && !isOverscrollPullActive() ? 0 : RELEASE_DELAY_MS;
 
       releaseTimer = setTimeout(() => {
-        const shouldPin = hadMeaningfulPull();
+        const peakPull = getOverscrollPull();
+        const shouldPin =
+          allowPin &&
+          (pullEngaged || peakPull > PIN_PULL_THRESHOLD || isOverscrollPullActive());
         releaseOverscrollTarget();
         if (shouldPin) pinScrollToBottom();
         pulling = false;
@@ -179,15 +182,15 @@ export default function HomeOverscrollReveal() {
     };
 
     const endTouch = () => {
-      const shouldRelease =
-        touchStartedAtBottom || pullEngaged || hadMeaningfulPull();
+      const bottomTouch = touchStartedAtBottom;
       touchStartedAtBottom = false;
-      if (!shouldRelease) {
-        pulling = false;
+
+      if (!bottomTouch) {
         return;
       }
-      if (pullEngaged || hadMeaningfulPull()) {
-        scheduleRelease();
+
+      if (pullEngaged || isOverscrollPullActive()) {
+        scheduleRelease({ bottomTouch: true });
       } else {
         pulling = false;
       }

@@ -4,11 +4,13 @@ import { canUseClosingHoverSplash } from "~components/home/closingHoverSplash";
 
 const INPUT_GATE_MS = 150;
 const VELOCITY_THRESHOLD = 0.35;
+const VELOCITY_STALE_MS = 180;
 
 let lastWheelAt = 0;
 let lastTouchAt = 0;
 let lastMotionAt = 0;
 let lastVelocity = 0;
+let lastVelocityAt = 0;
 let settleTimer: ReturnType<typeof setTimeout> | null = null;
 const settleListeners = new Set<() => void>();
 
@@ -34,8 +36,19 @@ export function markSplashTouchInput() {
   markMotion();
 }
 
+function effectiveScrollVelocity(): number {
+  const age = Date.now() - lastVelocityAt;
+  if (age > VELOCITY_STALE_MS) return 0;
+  const decay = Math.max(0, 1 - age / VELOCITY_STALE_MS);
+
+  const lenis = getLenis();
+  const raw = lenis?.velocity ?? lastVelocity;
+  if (Math.abs(raw) < 0.02) return 0;
+  return raw * decay;
+}
+
 export function getSplashScrollVelocity() {
-  return lastVelocity;
+  return effectiveScrollVelocity();
 }
 
 export function isSplashScrollBlocked(): boolean {
@@ -44,9 +57,7 @@ export function isSplashScrollBlocked(): boolean {
   if (now - lastTouchAt < INPUT_GATE_MS) return true;
 
   if (now - lastMotionAt < INPUT_GATE_MS) {
-    const lenis = getLenis();
-    if (lenis && Math.abs(lenis.velocity) > VELOCITY_THRESHOLD) return true;
-    if (Math.abs(lastVelocity) > VELOCITY_THRESHOLD) return true;
+    if (Math.abs(effectiveScrollVelocity()) > VELOCITY_THRESHOLD) return true;
   }
 
   return false;
@@ -76,6 +87,7 @@ function onScrollSample() {
   const lenis = getLenis();
   const velocity = lenis?.velocity ?? 0;
   lastVelocity = velocity;
+  lastVelocityAt = Date.now();
   if (Math.abs(velocity) > VELOCITY_THRESHOLD) {
     markMotion();
     window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));

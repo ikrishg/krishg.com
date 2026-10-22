@@ -16,8 +16,6 @@ const CLEAR_DELAY_MS = 90;
 const GROW_MS = 620;
 const SHRINK_MS = 280;
 const COLOR_MS = 200;
-const REDUCED_FADE_MS = 280;
-
 const GROW_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
 const SPLASH_EASE = "cubic-bezier(0.23, 1, 0.32, 1)";
 const SHRINK_EASE = SPLASH_EASE;
@@ -289,12 +287,7 @@ export default function HomeSplashOverlay() {
     };
 
     if (reducedMotionRef.current) {
-      const anim = el.animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: REDUCED_FADE_MS,
-        easing: "ease-out",
-        fill: "forwards",
-      });
-      whenAnimDone(anim, finish);
+      finish();
       return;
     }
 
