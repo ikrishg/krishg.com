@@ -1,10 +1,27 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import HomeClosingLink from "./HomeClosingLink";
 import {
   closingBandRow,
+  closingMobileLinks,
   closingNavRow,
 } from "./home-closing";
 import { dispatchSplashScheduleClear } from "./HomeSplashOverlay";
+
+const MOBILE_CLOSING_MQ = "(max-width: 767px)";
+
+function useClosingLayout() {
+  const [mobileStack, setMobileStack] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_CLOSING_MQ);
+    const sync = () => setMobileStack(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return mobileStack;
+}
 
 function StarSeparator() {
   return (
@@ -41,12 +58,36 @@ function PrimaryRow() {
   );
 }
 
+function MobileStack() {
+  return (
+    <div className="home-closing-mobile relative z-[40] flex w-full flex-col">
+      {closingMobileLinks.map((link) => (
+        <HomeClosingLink key={link.key} link={link} variant="mobile-block" />
+      ))}
+    </div>
+  );
+}
+
+function DesktopIndex() {
+  return (
+    <div className="home-closing-desktop relative z-[40] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
+      <div className="home-closing-index__primary flex flex-1 flex-col items-center justify-center py-8 md:py-12">
+        <PrimaryRow />
+      </div>
+      <div className="home-closing-index__nav pb-6 pt-2 md:pb-8">
+        <NavRow />
+      </div>
+    </div>
+  );
+}
+
 export default function HomeClosingIndex() {
   const sectionRef = useRef<HTMLElement>(null);
+  const mobileStack = useClosingLayout();
 
   useEffect(() => {
     const section = sectionRef.current;
-    if (!section) return;
+    if (!section || mobileStack) return;
 
     const onLeave = (event: PointerEvent) => {
       if (event.pointerType !== "mouse") return;
@@ -58,7 +99,7 @@ export default function HomeClosingIndex() {
 
     section.addEventListener("pointerleave", onLeave);
     return () => section.removeEventListener("pointerleave", onLeave);
-  }, []);
+  }, [mobileStack]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -69,8 +110,14 @@ export default function HomeClosingIndex() {
       ([entry]) => {
         if (entry.isIntersecting) {
           root.dataset.homePastBands = "true";
+          if (mobileStack) {
+            root.dataset.homeClosingMobile = "true";
+          } else {
+            delete root.dataset.homeClosingMobile;
+          }
         } else {
           delete root.dataset.homePastBands;
+          delete root.dataset.homeClosingMobile;
         }
       },
       { threshold: 0.12 },
@@ -79,25 +126,29 @@ export default function HomeClosingIndex() {
     return () => {
       observer.disconnect();
       delete root.dataset.homePastBands;
+      delete root.dataset.homeClosingMobile;
     };
-  }, []);
+  }, [mobileStack]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (mobileStack) {
+      root.dataset.homeClosingLayout = "mobile-stack";
+    } else {
+      delete root.dataset.homeClosingLayout;
+      delete root.dataset.homeClosingMobile;
+    }
+  }, [mobileStack]);
 
   return (
     <section
       ref={sectionRef}
       id="home-closing-index"
-      data-home-nav-theme="closing"
-      className="home-closing-index relative z-[40] snap-start px-[var(--gutter)] text-[var(--home-closing-fg)]"
+      data-home-nav-theme={mobileStack ? "building" : "closing"}
+      className="home-closing-index relative z-[40] snap-start text-[var(--home-closing-fg)] max-md:px-0 md:px-[var(--gutter)]"
       aria-label="Site index"
     >
-      <div className="home-closing-index__layout relative z-[40] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
-        <div className="home-closing-index__primary flex flex-1 flex-col items-center justify-center py-8 md:py-12">
-          <PrimaryRow />
-        </div>
-        <div className="home-closing-index__nav pb-6 pt-2 md:pb-8">
-          <NavRow />
-        </div>
-      </div>
+      {mobileStack ? <MobileStack /> : <DesktopIndex />}
     </section>
   );
 }

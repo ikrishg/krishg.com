@@ -54,8 +54,13 @@ for (const { width, height, label } of viewports) {
   await page.screenshot({ path: restPath, animations: "disabled" });
   console.log(`Wrote ${restPath}`);
 
+  if (label === "mobile") {
+    await page.close();
+    continue;
+  }
+
   const link = page.locator(
-    "#home-closing-index [data-splash-key='building']",
+    "#home-closing-index .home-closing-desktop [data-splash-key='building'], #home-closing-index .home-closing-primary-row [data-splash-key='building']",
   );
   await link.hover({ force: true });
   await page.waitForTimeout(180);
