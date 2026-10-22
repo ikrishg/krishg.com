@@ -12,5 +12,4 @@ export type FooterSocial = {
 export const footerSocials: FooterSocial[] = [
   { id: "x", label: "X", href: socials.x },
   { id: "linkedin", label: "LinkedIn", href: socials.linkedin },
-  { id: "instagram", label: "Instagram", href: socials.instagram },
 ];

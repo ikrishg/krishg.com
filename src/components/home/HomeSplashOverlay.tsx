@@ -69,9 +69,20 @@ export default function HomeSplashOverlay() {
   }, []);
 
   const cancelMotion = useCallback(() => {
-    motionRef.current?.cancel();
+    const anim = motionRef.current;
     motionRef.current = null;
+    anim?.cancel();
   }, []);
+
+  const whenAnimDone = useCallback(
+    (anim: Animation, onDone: () => void) => {
+      motionRef.current = anim;
+      void anim.finished.then(onDone).catch(() => {
+        /* aborted by a newer splash transition */
+      });
+    },
+    [],
+  );
 
   const layoutOrganicSplash = useCallback(
     (origin: PixelOrigin, color: string) => {
@@ -98,9 +109,10 @@ export default function HomeSplashOverlay() {
     el.style.opacity = "0";
     el.style.removeProperty("clip-path");
     el.style.removeProperty("background-color");
-    if (svg) {
+    if (svg && maskRef.current === "organic") {
       svg.style.transform = "scale(0.02)";
       svg.style.opacity = "1";
+      organicPathRef.current?.setAttribute("fill", "transparent");
     }
     stateRef.current = "idle";
     keyRef.current = null;
@@ -159,8 +171,7 @@ export default function HomeSplashOverlay() {
             fill: "forwards",
           },
         );
-        motionRef.current = anim;
-        void anim.finished.then(() => {
+        whenAnimDone(anim, () => {
           if (stateRef.current === "growing") stateRef.current = "full";
         });
         return;
@@ -181,14 +192,20 @@ export default function HomeSplashOverlay() {
           fill: "forwards",
         },
       );
-      motionRef.current = anim;
-      void anim.finished.then(() => {
+      whenAnimDone(anim, () => {
         if (stateRef.current === "growing") {
           stateRef.current = "full";
         }
       });
     },
-    [cancelMotion, clearTimers, layoutOrganicSplash, setInk, syncHtmlSplash],
+    [
+      cancelMotion,
+      clearTimers,
+      layoutOrganicSplash,
+      setInk,
+      syncHtmlSplash,
+      whenAnimDone,
+    ],
   );
 
   const retargetColor = useCallback(
@@ -206,6 +223,15 @@ export default function HomeSplashOverlay() {
       setInk(key);
 
       if (from === to) return true;
+
+      if (stateRef.current === "growing") {
+        if (maskRef.current === "organic") {
+          organicPathRef.current?.setAttribute("fill", to);
+        } else {
+          el.style.backgroundColor = to;
+        }
+        return true;
+      }
 
       if (reducedMotionRef.current) {
         if (maskRef.current === "organic") {
@@ -225,7 +251,7 @@ export default function HomeSplashOverlay() {
           [{ fill: from }, { fill: to }],
           { duration: COLOR_MS, easing: "ease", fill: "forwards" },
         );
-        motionRef.current = anim;
+        whenAnimDone(anim, () => {});
         return true;
       }
 
@@ -237,10 +263,10 @@ export default function HomeSplashOverlay() {
           fill: "forwards",
         },
       );
-      motionRef.current = anim;
+      whenAnimDone(anim, () => {});
       return true;
     },
-    [cancelMotion, clearTimers, setInk, syncHtmlSplash],
+    [cancelMotion, clearTimers, setInk, syncHtmlSplash, whenAnimDone],
   );
 
   const beginFadeOut = useCallback(() => {
@@ -250,13 +276,12 @@ export default function HomeSplashOverlay() {
     }
 
     clearTimers();
-    setInk(null);
-    syncHtmlSplash(null);
     cancelMotion();
     stateRef.current = "hiding";
 
     const finish = () => {
       resetOverlay();
+      setInk(null);
       syncHtmlSplash(null);
     };
 
@@ -266,8 +291,7 @@ export default function HomeSplashOverlay() {
         easing: "ease-out",
         fill: "forwards",
       });
-      motionRef.current = anim;
-      void anim.finished.then(finish);
+      whenAnimDone(anim, finish);
       return;
     }
 
@@ -285,8 +309,7 @@ export default function HomeSplashOverlay() {
           fill: "forwards",
         },
       );
-      motionRef.current = anim;
-      void anim.finished.then(finish);
+      whenAnimDone(anim, finish);
       return;
     }
 
@@ -303,9 +326,15 @@ export default function HomeSplashOverlay() {
         fill: "forwards",
       },
     );
-    motionRef.current = anim;
-    void anim.finished.then(finish);
-  }, [cancelMotion, clearTimers, resetOverlay, setInk, syncHtmlSplash]);
+    whenAnimDone(anim, finish);
+  }, [
+    cancelMotion,
+    clearTimers,
+    resetOverlay,
+    setInk,
+    syncHtmlSplash,
+    whenAnimDone,
+  ]);
 
   const scheduleClear = useCallback(() => {
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
@@ -402,18 +431,24 @@ export default function HomeSplashOverlay() {
       className="home-splash-overlay pointer-events-none fixed inset-0 z-[45] opacity-0"
       aria-hidden="true"
     >
-      <svg
-        ref={organicSvgRef}
-        viewBox="-100 -100 200 200"
-        className="home-splash-organic absolute origin-center will-change-transform"
-        style={{
-          transform: "scale(0.02)",
-          opacity: maskMode === "organic" ? 1 : 0,
-        }}
-        aria-hidden="true"
-      >
-        <path ref={organicPathRef} d={HOME_SPLASH_PATH} />
-      </svg>
+      {maskMode === "organic" ? (
+        <svg
+          ref={organicSvgRef}
+          viewBox="-100 -100 200 200"
+          className="home-splash-organic absolute origin-center will-change-transform"
+          style={{
+            transform: "scale(0.02)",
+            opacity: 1,
+          }}
+          aria-hidden="true"
+        >
+          <path
+            ref={organicPathRef}
+            d={HOME_SPLASH_PATH}
+            fill="transparent"
+          />
+        </svg>
+      ) : null}
     </div>
   );
 

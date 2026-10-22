@@ -1,4 +1,5 @@
 ---
+import HomeDriftingCursors from "~components/home/HomeDriftingCursors";
 import { renderSiteIcon, renderSiteSocialIcon } from "~components/icons/siteIcon";
 import { contactEmail, footerSocials } from "~site-links";
 
@@ -9,9 +10,10 @@ const mailIconHtml = renderSiteIcon("mail", {
 ---
 
 <footer
-  class="home-footer snap-start bg-[var(--home-closing-bg)] text-[var(--home-closing-fg)]"
+  class="home-footer relative snap-start bg-[var(--home-closing-bg)] text-[var(--home-closing-fg)]"
   data-home-nav-theme="closing"
 >
+  <HomeDriftingCursors client:visible />
   <div class="home-footer__layout relative z-[46] px-[var(--gutter)]">
     <a
       class="home-footer__email group"
@@ -28,9 +30,7 @@ const mailIconHtml = renderSiteIcon("mail", {
         {
           footerSocials.map((social) => {
             const iconHtml =
-              social.id === "x" ||
-              social.id === "linkedin" ||
-              social.id === "instagram"
+              social.id === "x" || social.id === "linkedin"
                 ? renderSiteSocialIcon(social.id)
                 : "";
             return (
