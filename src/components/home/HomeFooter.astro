@@ -1,22 +1,10 @@
 ---
-import {
-  IconBrandInstagram,
-  IconBrandLinkedin,
-  IconBrandX,
-  IconMail,
-} from "@tabler/icons-react";
-import { renderTablerIcon } from "~components/icons/tablerIcon";
+import { renderSiteIcon, renderSiteSocialIcon } from "~components/icons/siteIcon";
 import { contactEmail, footerSocials } from "~site-links";
 
-const socialTablerIcons: Record<string, typeof IconBrandX> = {
-  x: IconBrandX,
-  linkedin: IconBrandLinkedin,
-  instagram: IconBrandInstagram,
-};
-
-const mailIconHtml = renderTablerIcon(IconMail, {
-  className: "home-footer__mail-icon shrink-0",
-  stroke: 1.75,
+const mailIconHtml = renderSiteIcon("mail", {
+  className: "home-footer__mail-icon",
+  weight: "bold",
 });
 ---
 
@@ -29,22 +17,22 @@ const mailIconHtml = renderTablerIcon(IconMail, {
       class="home-footer__email group"
       href={`mailto:${contactEmail}`}
     >
-      <Fragment set:html={mailIconHtml} />
-      <span class="home-footer__email-text">{contactEmail}</span>
+      <span class="home-footer__email-inner">
+        <Fragment set:html={mailIconHtml} />
+        <span class="home-footer__email-text">{contactEmail}</span>
+      </span>
     </a>
 
     <nav aria-label="Social links" class="home-footer__social">
       <ul class="home-footer__social-list">
         {
           footerSocials.map((social) => {
-            const Icon = socialTablerIcons[social.id];
-            const iconHtml = Icon
-              ? renderTablerIcon(Icon, {
-                  className: "home-footer__social-icon",
-                  size: 48,
-                  stroke: 1.5,
-                })
-              : "";
+            const iconHtml =
+              social.id === "x" ||
+              social.id === "linkedin" ||
+              social.id === "instagram"
+                ? renderSiteSocialIcon(social.id)
+                : "";
             return (
               <li>
                 <a

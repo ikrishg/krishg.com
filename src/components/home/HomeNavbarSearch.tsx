@@ -6,8 +6,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { IconSearch } from "@tabler/icons-react";
-import { TablerIcon } from "~components/icons/tablerIcon";
+import { SiteIcon } from "~components/icons/siteIcon";
 import {
   filterSiteSearch,
   type SiteSearchEntry,
@@ -111,10 +110,11 @@ export default function HomeNavbarSearch() {
         aria-controls={open ? listId : undefined}
         onClick={() => (open ? close() : openSearch())}
       >
-        <TablerIcon
-          icon={IconSearch}
-          className="h-[1.35rem] w-[1.35rem] shrink-0"
-          size="1.35rem"
+        <SiteIcon
+          name="search"
+          weight="bold"
+          className="home-navbar-search__icon shrink-0"
+          size="1em"
         />
       </button>
 

@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 
-const MAX_PULL = 140;
 const BOTTOM_EPSILON = 2;
 const PAINT_VISIBLE_PULL = 24;
 const SURFACE_SELECTOR = ".home-scroll-surface";
+const FOOTER_SELECTOR = ".home-footer";
+const ART_ASPECT = 1100 / 871;
 
 function atScrollBottom() {
   const root = document.documentElement;
@@ -13,8 +14,21 @@ function atScrollBottom() {
   );
 }
 
-function touchPullPx(delta: number) {
-  return MAX_PULL * (1 - Math.exp(-delta / 200));
+function computeMaxPull() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const containHeight = Math.min(vh, vw / ART_ASPECT);
+  const letterbox = Math.max(0, vh - containHeight);
+  const footer = document.querySelector<HTMLElement>(FOOTER_SELECTOR);
+  const footerHeight = footer
+    ? Math.min(footer.getBoundingClientRect().height, vh * 0.95)
+    : vh * 0.55;
+  const revealTarget = Math.max(letterbox + 56, footerHeight * 0.62, 200);
+  return Math.min(Math.ceil(revealTarget), Math.round(vh * 0.92));
+}
+
+function touchPullPx(delta: number, maxPull: number) {
+  return maxPull * (1 - Math.exp(-delta / 240));
 }
 
 /**
@@ -29,10 +43,18 @@ export default function HomeOverscrollReveal() {
 
     let pull = 0;
     let pulling = false;
+    let maxPull = computeMaxPull();
     let resetTimer: ReturnType<typeof setTimeout> | undefined;
     let touchAnchorY = 0;
     let bottomTouchStartY = 0;
     let trackingBottomPull = false;
+
+    const syncMaxPull = () => {
+      maxPull = computeMaxPull();
+      root.style.setProperty("--home-overscroll-max-pull", `${maxPull}px`);
+    };
+
+    syncMaxPull();
 
     const maxScrollY = () =>
       document.documentElement.scrollHeight - window.innerHeight;
@@ -45,7 +67,7 @@ export default function HomeOverscrollReveal() {
     };
 
     const applyPull = (value: number) => {
-      pull = Math.max(0, Math.min(MAX_PULL, value));
+      pull = Math.max(0, Math.min(maxPull, value));
       if (pull <= 0.5) {
         pulling = false;
         root.style.removeProperty("--home-overscroll-pull");
@@ -86,7 +108,7 @@ export default function HomeOverscrollReveal() {
         event.preventDefault();
       }
 
-      const next = pull + event.deltaY * 0.35;
+      const next = pull + event.deltaY * 0.38;
       if (next <= 0.5) {
         applyPull(0);
         return;
@@ -111,7 +133,7 @@ export default function HomeOverscrollReveal() {
         return;
       }
       pulling = true;
-      applyPull(touchPullPx(delta));
+      applyPull(touchPullPx(delta, maxPull));
     };
 
     const onTouchEnd = () => {
@@ -124,11 +146,17 @@ export default function HomeOverscrollReveal() {
       if (!atScrollBottom() && pull > 0) applyPull(0);
     };
 
+    const onResize = () => {
+      syncMaxPull();
+      if (pull > maxPull) applyPull(maxPull);
+    };
+
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true });
     window.addEventListener("touchend", onTouchEnd, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize, { passive: true });
 
     return () => {
       if (resetTimer) clearTimeout(resetTimer);
@@ -137,6 +165,8 @@ export default function HomeOverscrollReveal() {
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+      root.style.removeProperty("--home-overscroll-max-pull");
       applyPull(0);
     };
   }, []);
