@@ -301,7 +301,7 @@ html[data-overscroll-reveal="true"] body.site-body {
 .home-footer__email-text {
   font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
     sans-serif;
-  font-size: clamp(28px, 4.5vw, 64px);
+  font-size: clamp(28px, 3.5vw, 50px);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.04em;
@@ -571,6 +571,11 @@ html[data-page-accent="closing"] {
     var(--home-closing-bg)
   );
   color: var(--home-closing-fg);
+}
+
+html[data-overscroll-pulling="true"] [data-home-scroll-band] .hero-band-paint,
+html[data-overscroll-reveal="true"] [data-home-scroll-band] .hero-band-paint {
+  visibility: hidden;
 }
 
 @media (prefers-reduced-motion: no-preference) {

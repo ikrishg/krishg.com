@@ -41,12 +41,6 @@ export function maxMeshWidthFraction(kind: KrishModelKind): number {
   return kind === "computer" ? 0.48 : 1;
 }
 
-export function shadowDropWorld(kind: KrishModelKind): number {
-  if (kind === "computer") return 0.22;
-  if (kind === "frame") return 0.22;
-  return 0.28;
-}
-
 export function meshWorldBox(root: THREE.Object3D): THREE.Box3 {
   const box = new THREE.Box3();
   root.updateWorldMatrix(true, true);
@@ -91,8 +85,6 @@ export function rotateBoxAroundY(
 
 export function frameFitBox(
   meshBox: THREE.Box3,
-  _shadowGroundY: number,
-  _shadowDrop: number,
   kind: KrishModelKind,
 ): THREE.Box3 {
   const frame = meshBox.clone();
@@ -106,10 +98,9 @@ export function frameFitBox(
 
 export function buildClearanceBoxes(
   meshBox: THREE.Box3,
-  shadowGroundY: number,
   kind: KrishModelKind,
 ): THREE.Box3[] {
-  return [frameFitBox(meshBox, shadowGroundY, 0, kind)];
+  return [frameFitBox(meshBox, kind)];
 }
 
 function distanceForMeshHeight(

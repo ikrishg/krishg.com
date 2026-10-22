@@ -154,25 +154,32 @@ export function stepOverscrollSpring(dt: number) {
     return;
   }
 
-  const stiffness = 9.5;
-  const damping = 11.5;
   const dtClamped = Math.min(dt, 0.05);
 
-  const displacement = pullTarget - pull;
-  pullVelocity += displacement * stiffness * dtClamped;
-  pullVelocity *= Math.exp(-damping * dtClamped);
-  pull += pullVelocity * dtClamped * 60;
+  if (releasing) {
+    const settleRate = 18;
+    const next = pull + (pullTarget - pull) * settleRate * dtClamped;
+    pull = Math.max(0, next);
+    pullVelocity = (pullTarget - pull) * settleRate;
+    if (pull <= 0.35) {
+      pull = 0;
+      pullTarget = 0;
+      pullVelocity = 0;
+      releasing = false;
+    }
+  } else {
+    const stiffness = 9.5;
+    const damping = 11.5;
+    const displacement = pullTarget - pull;
+    pullVelocity += displacement * stiffness * dtClamped;
+    pullVelocity *= Math.exp(-damping * dtClamped);
+    pull += pullVelocity * dtClamped * 60;
+    pull = Math.max(0, pull);
 
-  if (
-    releasing &&
-    Math.abs(pull) < 0.45 &&
-    Math.abs(pullTarget) < 0.45 &&
-    Math.abs(pullVelocity) < 0.35
-  ) {
-    pull = 0;
-    pullTarget = 0;
-    pullVelocity = 0;
-    releasing = false;
+    if (pull <= 0 && pullTarget <= 0) {
+      pull = 0;
+      pullVelocity = 0;
+    }
   }
 
   if (!Number.isFinite(pull)) {

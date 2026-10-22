@@ -13,7 +13,6 @@ import {
   bandHeightPx,
   frameFitBox,
   projectBoxToScreenPx,
-  shadowDropWorld,
   targetMeshHeightPx,
 } from "./fitArtifactStage";
 
@@ -179,13 +178,7 @@ export function KrishInteractiveScene({
     }) => {
       const shell = shellRef?.current;
       if (shell && camera instanceof THREE.PerspectiveCamera) {
-        const shadowGroundY = info.meshBox.min.y - 0.008;
-        const frameBox = frameFitBox(
-          info.meshBox,
-          shadowGroundY,
-          shadowDropWorld(kind),
-          kind,
-        );
+        const frameBox = frameFitBox(info.meshBox, kind);
         const viewW = info.viewW;
         const viewH = info.viewH;
         const frameScreen = projectBoxToScreenPx(

@@ -113,9 +113,9 @@ export function useHomeScrollExperienceFrame() {
       const prev = bandCacheRef.current.get(band);
       if (
         prev &&
-        Math.abs(prev.progress - progress) < 0.0005 &&
-        Math.abs(prev.parallax - parallax) < 0.05 &&
-        Math.abs(prev.artifact - artifactShift) < 0.05
+        Math.abs(prev.progress - progress) < 0.0002 &&
+        Math.abs(prev.parallax - parallax) < 0.02 &&
+        Math.abs(prev.artifact - artifactShift) < 0.02
       ) {
         continue;
       }
