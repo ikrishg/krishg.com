@@ -15,6 +15,7 @@ import { getArtifactTune } from "./heroArtifactTune";
 import {
   bandHeightPx,
   frameFitBox,
+  hideArtifactGroundMeshes,
   projectBoxToScreenPx,
   targetMeshHeightPx,
 } from "./fitArtifactStage";
@@ -49,6 +50,7 @@ export function EducatorBookScene({ glbUrl, coverUrl }: Props) {
         ? mesh.material.map((material) => material.clone())
         : mesh.material.clone();
     });
+    hideArtifactGroundMeshes(clone);
     return clone;
   }, [scene]);
 

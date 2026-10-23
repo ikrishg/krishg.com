@@ -95,8 +95,7 @@ export function ArtifactStage({
       className={stageClassName}
       data-accent={accent}
       data-artifact-ready="false"
-      role="group"
-      aria-roledescription="interactive 3D object"
+      role="img"
       aria-label={ariaLabel}
     >
       <ArtifactShellContext.Provider value={shellRef}>
@@ -121,6 +120,7 @@ export function ArtifactStage({
             }}
             onCreated={({ gl, invalidate: requestRender }) => {
               gl.setClearColor(0x000000, 0);
+              gl.domElement.style.background = "transparent";
               gl.toneMapping = THREE.ACESFilmicToneMapping;
               gl.toneMappingExposure = 1.3;
               gl.outputColorSpace = THREE.SRGBColorSpace;
