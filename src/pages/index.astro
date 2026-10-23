@@ -10,6 +10,7 @@ import HomeFooter from "~components/home/HomeFooter.astro";
 import HomeOverscrollPainting from "~components/home/HomeOverscrollPainting.tsx";
 import HomeOverscrollReveal from "~components/home/HomeOverscrollReveal.tsx";
 import HomeBandHashScroll from "~components/home/HomeBandHashScroll.tsx";
+import HomeDriftingCursors from "~components/home/HomeDriftingCursors";
 import HomeSplashOverlay from "~components/home/HomeSplashOverlay.tsx";
 import HomeOverscrollLenisBridge from "~motion/HomeOverscrollLenisBridge.tsx";
 import HomePageMotion from "~motion/HomePageMotion.tsx";
@@ -82,6 +83,7 @@ import PreloadHomeHeroGlbs from "~components/home/artifacts/PreloadHomeHeroGlbs.
     </HeroSection>
 
     <div class="home-closing-tail">
+      <HomeDriftingCursors client:visible />
       <HomeSplashOverlay client:load />
       <HomeClosingIndex client:load />
       <HomeFooter />
