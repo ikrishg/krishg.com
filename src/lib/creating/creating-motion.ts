@@ -19,7 +19,6 @@ export function captureFlipState(root: ParentNode | null): CapturedFlip | null {
   if (cards.length === 0) return null;
   return Flip.getState(cards, {
     props: "transform,opacity",
-    nested: true,
   });
 }
 

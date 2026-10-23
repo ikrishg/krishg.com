@@ -29,17 +29,17 @@ export function useFocusTrap(
 
       if (!root.contains(current)) {
         e.preventDefault();
-        items[0].focus();
+        items[0]?.focus();
         return;
       }
 
       e.preventDefault();
       if (e.shiftKey) {
         const next = idx <= 0 ? items.length - 1 : idx - 1;
-        items[next].focus();
+        items[next]?.focus();
       } else {
         const next = idx < 0 || idx >= items.length - 1 ? 0 : idx + 1;
-        items[next].focus();
+        items[next]?.focus();
       }
     };
 
