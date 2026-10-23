@@ -23,20 +23,21 @@ function readGapPx(element: HTMLElement | null) {
 
 /** Remaining block height for the three primary words inside the shared closing viewport. */
 function availablePrimaryHeightPx(row: HTMLElement) {
-  const index = row.closest<HTMLElement>(".home-closing-index");
-  if (!index || index.clientHeight <= 0) return null;
+  const tail = row.closest<HTMLElement>(".home-closing-tail");
+  if (!tail || tail.clientHeight <= 0) return null;
 
-  const nav = index.querySelector<HTMLElement>(".home-closing-index__nav");
+  const footer = tail.querySelector<HTMLElement>(".home-footer");
+  const footerHeight = footer?.getBoundingClientRect().height ?? 0;
+  const tailGap = readGapPx(tail);
+
+  const nav = tail.querySelector<HTMLElement>(".home-closing-index__nav");
   const navHeight = nav?.getBoundingClientRect().height ?? 0;
-  const stack = row.parentElement?.parentElement ?? null;
-  const stackGap = readGapPx(stack);
-  const indexStyles = getComputedStyle(index);
-  const paddingBlock =
-    (parseFloat(indexStyles.paddingTop) || 0) +
-    (parseFloat(indexStyles.paddingBottom) || 0);
 
-  const reserved = navHeight + stackGap + paddingBlock + 12;
-  return Math.max(0, index.clientHeight - reserved);
+  const stack = row.closest<HTMLElement>(".home-closing-index__stack");
+  const stackGap = readGapPx(stack);
+
+  const reserved = footerHeight + tailGap + navHeight + stackGap + 8;
+  return Math.max(0, tail.clientHeight - reserved);
 }
 
 function maxFontSizeForAvailableHeight(
@@ -320,8 +321,10 @@ export function useSharedPrimaryFontSize(
     for (const anchor of row.querySelectorAll(".home-closing-link--primary")) {
       ro.observe(anchor);
     }
-    const index = row.closest(".home-closing-index");
-    if (index) ro.observe(index);
+    const tail = row.closest(".home-closing-tail");
+    if (tail) ro.observe(tail);
+    const footer = tail?.querySelector(".home-footer");
+    if (footer) ro.observe(footer);
 
     void document.fonts.ready.then(() => {
       if (!cancelled) remeasure();

@@ -40,8 +40,9 @@ const primaryClass =
   "home-closing-link home-closing-link--primary inline-block min-h-11 w-full max-w-full py-2 text-center font-[family-name:var(--font-inter-tight),var(--font-space-grotesk),system-ui,sans-serif] font-extrabold lowercase tracking-[-0.045em] underline underline-offset-[0.08em] decoration-[0.055em] transition-[color,opacity,text-decoration-thickness] duration-200 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
 
 /** SSR fallback sizing; FitText refines after hydration without layout jump. */
+/** md–lg stacks primaries vertically; avoid the old 4rem floor that blew the shared viewport. */
 const primaryFitClass =
-  "block max-w-full text-[clamp(2.25rem,5.4vw,6rem)] md:text-[clamp(4rem,8.33vw,4.5rem)] lg:text-[clamp(2.25rem,5.4vw,6rem)]";
+  "block max-w-full text-[clamp(2.25rem,5.4vw,6rem)] md:max-lg:text-[clamp(1.625rem,4.6vw,2.625rem)] lg:text-[clamp(2.25rem,5.4vw,6rem)]";
 
 const mobileFitClass = "block max-w-full text-[clamp(1.5rem,7.2vw,2rem)]";
 
