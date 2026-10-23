@@ -23,6 +23,7 @@ const MOCK_Y_ANCHORS = [
 
 const CURSOR_BOX_W = 110;
 const CURSOR_BOX_H = 46;
+const NARROW_ROOT_SCALE = 0.9;
 
 const SPRING_K = 150;
 const SPRING_C = 2 * Math.sqrt(SPRING_K) * 0.92;
@@ -43,6 +44,8 @@ type FooterLayout = {
   /** Horizontal span of email + social pills (footer-local). */
   contentLeft: number;
   contentRight: number;
+  emailRect: Rect | null;
+  pillRects: Rect[];
 };
 
 type CursorDef = {
@@ -128,6 +131,107 @@ function cursorBoxAt(x: number, y: number, pad = 0): Rect {
   };
 }
 
+/** Pointer + tag bounds for narrow static (root scale 0.9). */
+function narrowStaticCursorBoxAt(x: number, y: number, pad = 0): Rect {
+  const sx = x * NARROW_ROOT_SCALE;
+  const sy = y * NARROW_ROOT_SCALE;
+  const w = CURSOR_BOX_W * NARROW_ROOT_SCALE;
+  const h = CURSOR_BOX_H * NARROW_ROOT_SCALE;
+  return {
+    x: sx - 4 - pad,
+    y: sy - 4 - pad,
+    w: w + pad * 2,
+    h: h + pad * 2,
+  };
+}
+
+function buildNarrowStaticKeepOuts(layout: FooterLayout, w: number, h: number): Rect[] {
+  const keep: Rect[] = [
+    { x: 0, y: 0, w, h: layout.headerH },
+    { x: 0, y: h - layout.bottomH, w, h: layout.bottomH },
+    { x: 0, y: 0, w: layout.gutter, h },
+    { x: w - layout.gutter, y: 0, w: layout.gutter, h },
+  ];
+  if (layout.emailRect) {
+    keep.push(padRect(layout.emailRect, 80, 56));
+  }
+  for (const pr of layout.pillRects) {
+    keep.push(padRect(pr, 64, 56));
+  }
+  return keep;
+}
+
+function narrowStaticPoseClear(
+  x: number,
+  y: number,
+  keepOuts: Rect[],
+  pad = 14,
+) {
+  return !hitKeepOut(narrowStaticCursorBoxAt(x, y, pad), keepOuts);
+}
+
+function narrowStaticPoseFor(def: CursorDef, layout: FooterLayout): { x: number; y: number } {
+  const { w, h, gutter, bandTop, emailTop, socialBottom, contentLeft, contentRight } =
+    layout;
+  const keep = buildNarrowStaticKeepOuts(layout, w, h);
+
+  const boxW = CURSOR_BOX_W * NARROW_ROOT_SCALE;
+  const edge = 12;
+  const leftX = Math.max(
+    gutter + edge,
+    contentLeft - edge - (boxW - 4),
+  );
+  const rightX = Math.min(
+    w - gutter - edge,
+    contentRight + edge + 4,
+  );
+
+  const yAbove: number[] = [];
+  const aboveH = emailTop - bandTop - edge * 2;
+  if (aboveH > boxW * 0.4) {
+    const y0 = bandTop + edge;
+    const y1 = emailTop - edge - CURSOR_BOX_H * NARROW_ROOT_SCALE;
+    if (y1 > y0) {
+      for (const t of [0.2, 0.42, 0.62, 0.82]) {
+        yAbove.push(y0 + (y1 - y0) * t);
+      }
+    }
+  }
+
+  const yBelow: number[] = [];
+  const belowTop = socialBottom + edge;
+  const belowH = h - layout.bottomH - belowTop - edge;
+  if (belowH > boxW * 0.35) {
+    for (const t of [0.25, 0.5, 0.78]) {
+      yBelow.push(belowTop + belowH * t);
+    }
+  }
+
+  const xForBuilder = [leftX, gutter + edge, rightX];
+  const xForEducator = [rightX, w - gutter - boxW * 0.35, leftX];
+  const xOrder = def.id === "builder" ? xForBuilder : xForEducator;
+  const yOrder =
+    def.id === "builder"
+      ? [...yAbove, ...yBelow]
+      : def.id === "educator"
+        ? [...yAbove.slice().reverse(), ...yBelow]
+        : [...yAbove, ...yBelow];
+
+  for (const y of yOrder) {
+    for (const x of xOrder) {
+      if (narrowStaticPoseClear(x, y, keep)) return { x, y };
+    }
+  }
+
+  for (let y = bandTop + edge; y < h - layout.bottomH - edge; y += 12) {
+    for (const x of [gutter + edge, leftX, rightX, w - gutter - edge]) {
+      if (narrowStaticPoseClear(x, y, keep)) return { x, y };
+    }
+  }
+
+  return { x: gutter + edge, y: bandTop + edge };
+}
+
 function hitKeepOut(box: Rect, keepOuts: Rect[]) {
   return keepOuts.some((k) => rectsOverlap(box, k));
 }
@@ -175,12 +279,15 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
   let emailBottom = h * 0.48;
   let contentLeft = w * 0.12;
   let contentRight = w * 0.88;
+  let emailRect: Rect | null = null;
+  const pillRects: Rect[] = [];
   if (email) {
     const er = toFooterLocal(email.getBoundingClientRect(), fr);
     emailTop = er.y;
     emailBottom = er.y + er.h;
     contentLeft = er.x;
     contentRight = er.x + er.w;
+    emailRect = er;
   }
 
   let socialTop = h * 0.62;
@@ -190,6 +297,7 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
     let maxY = -Infinity;
     pills.forEach((pill) => {
       const pr = toFooterLocal(pill.getBoundingClientRect(), fr);
+      pillRects.push(pr);
       minY = Math.min(minY, pr.y);
       maxY = Math.max(maxY, pr.y + pr.h);
       contentLeft = Math.min(contentLeft, pr.x);
@@ -218,6 +326,8 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
     bandTop: headerH,
     contentLeft,
     contentRight,
+    emailRect,
+    pillRects,
   };
 }
 
@@ -381,34 +491,7 @@ function staticPoseFor(
 ) {
   const region = regionForDef(def, layout);
   if (narrow) {
-    const regions = liveRegions(layout);
-    const left = regions.builder ?? region;
-    const rightLower = regions.educator ?? region;
-    const useLeftColumn =
-      def.id === "builder" ||
-      def.id === "educator" ||
-      left.w >= (regions.educator?.w ?? 0);
-    const side = useLeftColumn ? left : rightLower;
-    const anchor = {
-      x: side.x + side.w * (def.id === "builder" ? 0.68 : 0.52),
-      y:
-        side.y +
-        side.h *
-          (def.id === "builder"
-            ? 0.22
-            : def.id === "educator"
-              ? 0.78
-              : 0.45),
-    };
-    const clamped = clampToRegion(anchor, side);
-    if (!hitKeepOut(cursorBoxAt(clamped.x, clamped.y, 12), keepOuts)) {
-      return clamped;
-    }
-    const fallbackY =
-      def.id === "educator"
-        ? side.y + side.h * 0.65
-        : side.y + side.h * 0.35;
-    return clampToRegion({ x: side.x + side.w * 0.5, y: fallbackY }, side);
+    return narrowStaticPoseFor(def, layout);
   }
 
   const p = {
