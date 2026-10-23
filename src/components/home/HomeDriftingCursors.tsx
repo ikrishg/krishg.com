@@ -40,6 +40,9 @@ type FooterLayout = {
   socialTop: number;
   socialBottom: number;
   bandTop: number;
+  /** Horizontal span of email + social pills (footer-local). */
+  contentLeft: number;
+  contentRight: number;
 };
 
 type CursorDef = {
@@ -170,10 +173,14 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
 
   let emailTop = h * 0.28;
   let emailBottom = h * 0.48;
+  let contentLeft = w * 0.12;
+  let contentRight = w * 0.88;
   if (email) {
     const er = toFooterLocal(email.getBoundingClientRect(), fr);
     emailTop = er.y;
     emailBottom = er.y + er.h;
+    contentLeft = er.x;
+    contentRight = er.x + er.w;
   }
 
   let socialTop = h * 0.62;
@@ -185,6 +192,8 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
       const pr = toFooterLocal(pill.getBoundingClientRect(), fr);
       minY = Math.min(minY, pr.y);
       maxY = Math.max(maxY, pr.y + pr.h);
+      contentLeft = Math.min(contentLeft, pr.x);
+      contentRight = Math.max(contentRight, pr.x + pr.w);
     });
     if (Number.isFinite(minY)) {
       socialTop = minY;
@@ -207,6 +216,8 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
     socialTop,
     socialBottom,
     bandTop: headerH,
+    contentLeft,
+    contentRight,
   };
 }
 
@@ -236,33 +247,38 @@ function remapMockY(mockY: number, layout: FooterLayout): number {
 }
 
 function liveRegions(layout: FooterLayout): Record<string, Rect> {
-  const { w, gutter, bandTop, emailTop, emailBottom, socialTop } = layout;
+  const { w, h, gutter, bandTop, bottomH, socialBottom, contentLeft, contentRight } =
+    layout;
 
-  const aboveEmailH = Math.max(32, emailTop - bandTop - 10);
-  const midX = w * 0.48;
+  const y0 = bandTop;
+  const y1 = Math.min(h - bottomH, socialBottom + 20);
+  const colH = Math.max(40, y1 - y0);
+  const inset = 6;
+
+  const leftW = contentLeft - gutter - inset;
+  const rightX = contentRight + inset;
+  const rightW = w - gutter - rightX;
 
   const builder: Rect = {
     x: gutter,
-    y: bandTop,
-    w: Math.max(72, midX - gutter),
-    h: aboveEmailH,
+    y: y0,
+    w: Math.max(48, leftW),
+    h: colH,
   };
 
+  const splitY = y0 + colH * 0.46;
   const creator: Rect = {
-    x: midX + 12,
-    y: bandTop,
-    w: Math.max(72, w - gutter - midX - 12),
-    h: aboveEmailH,
+    x: rightX,
+    y: y0,
+    w: Math.max(48, rightW),
+    h: Math.max(36, splitY - y0),
   };
-
-  const educatorY = emailBottom + 8;
-  const educatorH = Math.max(28, socialTop - educatorY - 8);
 
   const educator: Rect = {
-    x: w * 0.52,
-    y: educatorY,
-    w: Math.max(72, w - gutter - w * 0.52),
-    h: educatorH,
+    x: rightX,
+    y: splitY,
+    w: Math.max(48, rightW),
+    h: Math.max(36, y1 - splitY),
   };
 
   return { builder, creator, educator };
@@ -287,8 +303,11 @@ function clampToRegion(p: { x: number; y: number }, region: Rect) {
 }
 
 function regionDistanceBounds(region: Rect) {
-  const minDist = Math.min(90, Math.max(22, region.h * 0.45));
-  const maxDist = Math.min(480, Math.max(minDist + 60, region.h * 3.2));
+  const minDist = Math.min(90, Math.max(22, region.h * 0.28));
+  const maxDist = Math.min(
+    480,
+    Math.max(220, minDist + 48, region.w * 1.15, region.h * 0.75),
+  );
   return { minDist, maxDist };
 }
 
@@ -362,13 +381,23 @@ function staticPoseFor(
 ) {
   const region = regionForDef(def, layout);
   if (narrow) {
-    const bandH = Math.max(24, layout.emailTop - layout.bandTop - 12);
-    const y = layout.bandTop + bandH * (def.id === "builder" ? 0.38 : 0.62);
-    const x =
-      def.id === "builder"
-        ? layout.gutter + layout.w * 0.14
-        : layout.w - layout.gutter - layout.w * 0.22;
-    return clampToRegion({ x, y }, region);
+    const regions = liveRegions(layout);
+    const side =
+      (def.id === "builder"
+        ? regions.builder
+        : def.id === "educator"
+          ? regions.educator
+          : regions.creator) ?? region;
+    const anchor = {
+      x: side.x + side.w * (def.id === "builder" ? 0.62 : 0.38),
+      y: side.y + side.h * (def.id === "educator" ? 0.55 : 0.28),
+    };
+    const clamped = clampToRegion(anchor, side);
+    if (!hitKeepOut(cursorBoxAt(clamped.x, clamped.y), keepOuts)) return clamped;
+    return clampToRegion(
+      { x: side.x + side.w * 0.45, y: side.y + side.h * 0.4 },
+      side,
+    );
   }
 
   const p = {
@@ -461,11 +490,12 @@ export default function HomeDriftingCursors({ className }: Props) {
       [
         "home-drifting-cursors pointer-events-none absolute inset-0 overflow-hidden",
         staticMode ? "home-drifting-cursors--static-fade" : "",
+        isNarrow ? "home-drifting-cursors--narrow" : "",
         className,
       ]
         .filter(Boolean)
         .join(" "),
-    [className, staticMode],
+    [className, staticMode, isNarrow],
   );
 
   const stopLoop = () => {
@@ -482,12 +512,7 @@ export default function HomeDriftingCursors({ className }: Props) {
   const putCursor = (index: number, x: number, y: number) => {
     const el = cursorElRefs.current[index];
     if (!el) return;
-    const scale = staticMode && isNarrowRef.current ? 0.9 : 1;
-    if (scale !== 1) {
-      el.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
-    } else {
-      el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    }
+    el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   };
 
   const triggerClick = (index: number) => {
@@ -499,6 +524,9 @@ export default function HomeDriftingCursors({ className }: Props) {
       el.classList.remove("home-drifting-cursor--click");
       void el.offsetWidth;
       el.classList.add("home-drifting-cursor--click");
+      window.setTimeout(() => {
+        el.classList.remove("home-drifting-cursor--click");
+      }, 520);
     }, 140);
   };
 
