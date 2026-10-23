@@ -576,7 +576,38 @@ function liveRegions(layout: LandscapeLayout): Record<string, Rect> {
   return { builder, creator, educator };
 }
 
-function regionForDef(def: CursorDef, layout: LandscapeLayout): Rect {
+function adjustCreatorRegion(
+  creator: Rect,
+  educator: Rect | undefined,
+  closingKeepOuts: Rect[],
+): Rect {
+  const minPocketH = CURSOR_BOX_H + 28;
+  let floorY = creator.y;
+  for (const k of closingKeepOuts) {
+    if (!keepOutOverlapsRegion(k, creator, 4)) continue;
+    floorY = Math.max(floorY, k.y + k.h + 10);
+  }
+  if (floorY <= creator.y + 8) return creator;
+
+  const pocketTop = floorY;
+  const pocketBottom = educator ? educator.y - 8 : creator.y + creator.h;
+  const pocketH = pocketBottom - pocketTop;
+  if (pocketH >= minPocketH) {
+    return { ...creator, y: pocketTop, h: pocketH };
+  }
+
+  const shrunkH = creator.y + creator.h - floorY;
+  if (shrunkH >= minPocketH) {
+    return { ...creator, y: floorY, h: shrunkH };
+  }
+  return creator;
+}
+
+function regionForDef(
+  def: CursorDef,
+  layout: LandscapeLayout,
+  closingKeepOuts: Rect[] = [],
+): Rect {
   const regions = liveRegions(layout);
   const fallback = regions.builder ?? {
     x: layout.gutter,
@@ -584,7 +615,35 @@ function regionForDef(def: CursorDef, layout: LandscapeLayout): Rect {
     w: 80,
     h: 40,
   };
-  return regions[def.id] ?? fallback;
+  const base = regions[def.id] ?? fallback;
+  if (def.id !== "creator") return base;
+  return adjustCreatorRegion(base, regions.educator, closingKeepOuts);
+}
+
+function isPlacementClear(
+  x: number,
+  y: number,
+  region: Rect,
+  placementKeep: Rect[],
+) {
+  return !hitKeepOut(cursorBoxInRegion(x, y, region), placementKeep);
+}
+
+function findClearAnchorInRegion(
+  region: Rect,
+  placementKeep: Rect[],
+): { x: number; y: number } | null {
+  const { minX, maxX } = anchorXRangeInRegion(region);
+  for (let yi = 0; yi <= 16; yi += 1) {
+    for (let xi = 0; xi <= 12; xi += 1) {
+      const p = {
+        x: minX + ((maxX - minX) * xi) / 12,
+        y: region.y + 8 + ((region.h - 16) * yi) / 16,
+      };
+      if (isPlacementClear(p.x, p.y, region, placementKeep)) return p;
+    }
+  }
+  return null;
 }
 
 function clampToRegion(p: { x: number; y: number }, region: Rect) {
@@ -817,7 +876,7 @@ function pickTarget(
   pathKeepOuts: Rect[],
   straight: boolean,
   pickKeepOuts?: Rect[],
-) {
+): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const { minDist, maxDist } = regionDistanceBounds(region);
   const shortPocket = isShortMotionPocket(region);
@@ -909,10 +968,10 @@ function pickTarget(
     }
   }
 
-  return clampToRegion(
-    randomAnchorInRegion(region),
-    region,
-  );
+  if (!from) {
+    return findClearAnchorInRegion(region, placementKeep);
+  }
+  return null;
 }
 
 function pickClearStart(
@@ -922,18 +981,25 @@ function pickClearStart(
   def: CursorDef,
   narrow: boolean,
   pickKeepOuts?: Rect[],
-) {
+  closingKeepOuts: Rect[] = [],
+): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? keepOuts;
   for (let i = 0; i < 40; i += 1) {
     const p = pickTarget(region, null, keepOuts, false, placementKeep);
-    if (!hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) return p;
+    if (p && isPlacementClear(p.x, p.y, region, placementKeep)) return p;
   }
-  const fallback = staticPoseFor(def, layout, narrow, keepOuts);
-  if (fallback) return fallback;
-  return clampToRegion(
-    { x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 },
-    region,
+  const fallback = staticPoseFor(
+    def,
+    layout,
+    narrow,
+    keepOuts,
+    closingKeepOuts,
+    placementKeep,
   );
+  if (fallback && isPlacementClear(fallback.x, fallback.y, region, placementKeep)) {
+    return fallback;
+  }
+  return findClearAnchorInRegion(region, placementKeep);
 }
 
 function staticPoseFor(
@@ -941,8 +1007,11 @@ function staticPoseFor(
   layout: LandscapeLayout,
   narrow: boolean,
   keepOuts: Rect[] = [],
+  closingKeepOuts: Rect[] = [],
+  pickKeepOuts?: Rect[],
 ): { x: number; y: number } | null {
-  const region = regionForDef(def, layout);
+  const region = regionForDef(def, layout, closingKeepOuts);
+  const placementKeep = pickKeepOuts ?? keepOuts;
   if (narrow) {
     return narrowStaticPoseFor(def, layout);
   }
@@ -952,11 +1021,10 @@ function staticPoseFor(
     y: remapMockY(def.mockPose.y, layout),
   };
   const clamped = clampToRegion(p, region);
-  if (!hitKeepOut(cursorBoxAt(clamped.x, clamped.y), keepOuts)) return clamped;
-  return clampToRegion(
-    { x: region.x + region.w * 0.35, y: region.y + region.h * 0.42 },
-    region,
-  );
+  if (isPlacementClear(clamped.x, clamped.y, region, placementKeep)) {
+    return clamped;
+  }
+  return findClearAnchorInRegion(region, placementKeep);
 }
 
 function driftingCursorsMotionEnabled() {
@@ -1035,6 +1103,9 @@ export default function HomeDriftingCursors({ className }: Props) {
   const [narrowStaticHidden, setNarrowStaticHidden] = useState<ReadonlySet<number>>(
     () => new Set(),
   );
+  const [motionHidden, setMotionHidden] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
 
   const staticMode = !motionEnabled;
 
@@ -1092,9 +1163,10 @@ export default function HomeDriftingCursors({ className }: Props) {
     const crossDef =
       CURSOR_DEFS[Math.floor(Math.random() * CURSOR_DEFS.length)] ?? def;
     const crossRegion = layout.w > 820 && Math.random() < 0.15;
+    const closingKeep = closingKeepOutsRef.current;
     const region = crossRegion
-      ? regionForDef(crossDef, layout)
-      : regionForDef(def, layout);
+      ? regionForDef(crossDef, layout, closingKeep)
+      : regionForDef(def, layout, closingKeep);
 
     const fullKeep = keepOutsRef.current;
     const pickKeep = crossRegion
@@ -1109,14 +1181,28 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     let from = { x: state.leadX, y: state.leadY };
     if (hitKeepOut(cursorBoxInRegion(from.x, from.y, region), pickKeep)) {
-      from = pickClearStart(
+      const start = pickClearStart(
         region,
         fullKeep,
         layout,
         def,
         isNarrowRef.current,
         pickKeep,
+        closingKeep,
       );
+      if (!start) {
+        state.hidden = true;
+        setMotionHidden((prev) => new Set(prev).add(index));
+        return;
+      }
+      from = start;
+      state.hidden = false;
+      setMotionHidden((prev) => {
+        if (!prev.has(index)) return prev;
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
       state.leadX = from.x;
       state.leadY = from.y;
       state.x = from.x;
@@ -1124,6 +1210,11 @@ export default function HomeDriftingCursors({ className }: Props) {
     }
 
     let to = pickTarget(region, from, fullKeep, true, pickKeep);
+    if (!to) {
+      state.wait =
+        layout.w <= 820 ? randomBetween(0.1, 0.28) : randomBetween(0.4, 1);
+      return;
+    }
     let d = Math.hypot(to.x - from.x, to.y - from.y);
     if (d < 8) {
       const forced = forceLeadTarget(region, from, fullKeep, pickKeep);
@@ -1154,19 +1245,28 @@ export default function HomeDriftingCursors({ className }: Props) {
     const narrow = isNarrowRef.current;
 
     const hiddenIdx = new Set<number>();
+    const closingKeep = closingKeepOutsRef.current;
     statesRef.current = CURSOR_DEFS.map((def, i) => {
-      const region = regionForDef(def, layout);
+      const region = regionForDef(def, layout, closingKeep);
       const fullKeep = keepOutsRef.current;
       const pickKeep = keepOutsForRegionPick(
         region,
         fullKeep,
         layout,
         layout.w,
-        closingKeepOutsRef.current,
+        closingKeep,
       );
       const p = animate
-        ? pickClearStart(region, fullKeep, layout, def, narrow, pickKeep)
-        : staticPoseFor(def, layout, narrow, fullKeep);
+        ? pickClearStart(
+            region,
+            fullKeep,
+            layout,
+            def,
+            narrow,
+            pickKeep,
+            closingKeep,
+          )
+        : staticPoseFor(def, layout, narrow, fullKeep, closingKeep, pickKeep);
       if (!p) {
         hiddenIdx.add(i);
         return {
@@ -1203,6 +1303,9 @@ export default function HomeDriftingCursors({ className }: Props) {
     });
     if (!animate && narrow) {
       setNarrowStaticHidden(hiddenIdx);
+    }
+    if (animate) {
+      setMotionHidden(hiddenIdx);
     }
   };
 
@@ -1272,14 +1375,15 @@ export default function HomeDriftingCursors({ className }: Props) {
         }
 
         if (layout && !state.seg && state.stillLeadSec > 2.1) {
-          const region = regionForDef(def, layout);
+          const closingKeep = closingKeepOutsRef.current;
+          const region = regionForDef(def, layout, closingKeep);
           const fullKeep = keepOutsRef.current;
           const pickKeep = keepOutsForRegionPick(
             region,
             fullKeep,
             layout,
             layout.w,
-            closingKeepOutsRef.current,
+            closingKeep,
           );
           const p = pickClearStart(
             region,
@@ -1288,8 +1392,21 @@ export default function HomeDriftingCursors({ className }: Props) {
             def,
             isNarrowRef.current,
             pickKeep,
+            closingKeep,
           );
           state.stillLeadSec = 0;
+          if (!p) {
+            state.hidden = true;
+            setMotionHidden((prev) => new Set(prev).add(i));
+            continue;
+          }
+          state.hidden = false;
+          setMotionHidden((prev) => {
+            if (!prev.has(i)) return prev;
+            const next = new Set(prev);
+            next.delete(i);
+            return next;
+          });
           state.leadX = p.x;
           state.leadY = p.y;
           state.x = p.x;
@@ -1453,7 +1570,10 @@ export default function HomeDriftingCursors({ className }: Props) {
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
       {CURSOR_DEFS.map((def, index) => {
-        if (staticMode && narrowStaticHidden.has(index)) {
+        if (
+          (staticMode && narrowStaticHidden.has(index)) ||
+          motionHidden.has(index)
+        ) {
           return null;
         }
         return (
