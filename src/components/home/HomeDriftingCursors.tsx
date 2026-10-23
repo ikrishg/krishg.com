@@ -100,6 +100,9 @@ type StudioCursorState = {
     dur: number;
   };
   idlePhase: number;
+  stillLeadSec: number;
+  lastSampleLeadX: number;
+  lastSampleLeadY: number;
 };
 
 function easeInOutCubic(t: number) {
@@ -458,11 +461,8 @@ function liveRegions(layout: FooterLayout): Record<string, Rect> {
   const minPocketH = CURSOR_BOX_H + 28;
   let creatorH: number;
   if (midWidth) {
-    creatorH = colH * 0.5;
-    if (creatorH < minPocketH || colH - creatorH < minPocketH) {
-      creatorH = Math.max(minPocketH, (colH - minPocketH) * 0.5);
-      creatorH = Math.min(creatorH, colH - minPocketH);
-    }
+    const educatorH = Math.max(minPocketH, colH * 0.52);
+    creatorH = Math.max(minPocketH, colH - educatorH);
   } else {
     creatorH = Math.max(36, colH * 0.46);
     creatorH = Math.min(creatorH, colH - 36);
@@ -519,24 +519,28 @@ function isShortMotionPocket(region: Rect) {
 
 function regionDistanceBounds(region: Rect) {
   const shortPocket = isShortMotionPocket(region);
-  const minDist = shortPocket
-    ? Math.min(
-        56,
-        Math.max(
-          10,
-          region.w * 0.12,
-          region.h * 0.18,
-          Math.min(region.w, region.h) * 0.14,
-        ),
-      )
-    : Math.min(90, Math.max(22, region.h * 0.28));
+  const tallNarrow = region.w < SIDE_COL_MIN_W && region.h >= 118;
+  const minDist = tallNarrow
+    ? Math.max(10, Math.min(48, region.h * 0.09, region.w * 0.11))
+    : shortPocket
+      ? Math.min(
+          56,
+          Math.max(
+            10,
+            region.w * 0.12,
+            region.h * 0.18,
+            Math.min(region.w, region.h) * 0.14,
+          ),
+        )
+      : Math.min(90, Math.max(22, region.h * 0.28));
   const maxDist = Math.min(
     480,
     Math.max(
       220,
       minDist + 32,
       region.w * 1.15,
-      region.h * (shortPocket ? 1.55 : 0.75),
+      region.h * (shortPocket ? 1.9 : 0.75),
+      tallNarrow ? region.h * 1.05 : 0,
     ),
   );
   return { minDist, maxDist };
@@ -625,6 +629,39 @@ function buildKeepOuts(footer: HTMLElement, w: number, h: number): Rect[] {
   return keep;
 }
 
+function forceLeadTarget(
+  region: Rect,
+  from: { x: number; y: number },
+  pathKeepOuts: Rect[],
+  pickKeepOuts?: Rect[],
+) {
+  const placementKeep = pickKeepOuts ?? pathKeepOuts;
+  const shortPocket = isShortMotionPocket(region);
+  const pathPad =
+    shortPocket || region.w < SIDE_COL_MIN_W ? 3 : 6;
+  let best: { x: number; y: number; d: number } | null = null;
+
+  for (let yi = 0; yi <= 12; yi += 1) {
+    for (let xi = 0; xi <= 12; xi += 1) {
+      const p = {
+        x: region.x + 8 + ((region.w - 16) * xi) / 12,
+        y: region.y + 8 + ((region.h - 16) * yi) / 12,
+      };
+      if (hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) continue;
+      const inColumn =
+        pickKeepOuts &&
+        pointInRegion(from, region) &&
+        pointInRegion(p, region);
+      const pathKeep = inColumn ? placementKeep : pathKeepOuts;
+      if (!pathClear(from, p, pathKeep, pathPad)) continue;
+      const d = Math.hypot(p.x - from.x, p.y - from.y);
+      if (d < 6) continue;
+      if (!best || d > best.d) best = { x: p.x, y: p.y, d };
+    }
+  }
+  return best;
+}
+
 function pickTarget(
   region: Rect,
   from: { x: number; y: number } | null,
@@ -691,7 +728,15 @@ function pickTarget(
     }
   }
 
-  return from ?? clampToRegion({ x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 }, region);
+  if (from) {
+    const forced = forceLeadTarget(region, from, pathKeepOuts, pickKeepOuts);
+    if (forced) return { x: forced.x, y: forced.y };
+  }
+
+  return (
+    from ??
+    clampToRegion({ x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 }, region)
+  );
 }
 
 function pickClearStart(
@@ -867,7 +912,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     const crossDef =
       CURSOR_DEFS[Math.floor(Math.random() * CURSOR_DEFS.length)] ?? def;
-    const crossRegion = Math.random() < 0.15;
+    const crossRegion = layout.w > 820 && Math.random() < 0.15;
     const region = crossRegion
       ? regionForDef(crossDef, layout)
       : regionForDef(def, layout);
@@ -893,19 +938,28 @@ export default function HomeDriftingCursors({ className }: Props) {
       state.y = from.y;
     }
 
-    const to = pickTarget(region, from, fullKeep, true, pickKeep);
-    const d = Math.hypot(to.x - from.x, to.y - from.y);
-    if (d < 4) {
-      state.wait = randomBetween(0.4, 1);
+    let to = pickTarget(region, from, fullKeep, true, pickKeep);
+    let d = Math.hypot(to.x - from.x, to.y - from.y);
+    if (d < 8) {
+      const forced = forceLeadTarget(region, from, fullKeep, pickKeep);
+      if (forced) {
+        to = { x: forced.x, y: forced.y };
+        d = forced.d;
+      }
+    }
+    if (d < 6) {
+      state.wait =
+        layout.w <= 820 ? randomBetween(0.1, 0.28) : randomBetween(0.4, 1);
       return;
     }
+    const midWidth = layout.w <= 820;
     state.seg = {
       fromX: from.x,
       fromY: from.y,
       toX: to.x,
       toY: to.y,
       t: 0,
-      dur: Math.min(2.2, Math.max(0.7, d / 230)),
+      dur: Math.min(2.2, Math.max(midWidth ? 0.55 : 0.7, d / (midWidth ? 200 : 230))),
     };
   };
 
@@ -935,6 +989,9 @@ export default function HomeDriftingCursors({ className }: Props) {
           hidden: true,
           seg: null,
           idlePhase: i * 1.7,
+          stillLeadSec: 0,
+          lastSampleLeadX: 0,
+          lastSampleLeadY: 0,
         };
       }
       return {
@@ -944,10 +1001,13 @@ export default function HomeDriftingCursors({ className }: Props) {
         vy: 0,
         leadX: p.x,
         leadY: p.y,
-        wait: randomBetween(0.2, 1.2),
+        wait: randomBetween(0.15, 0.65),
         hidden: false,
         seg: null,
         idlePhase: i * 1.7,
+        stillLeadSec: 0,
+        lastSampleLeadX: p.x,
+        lastSampleLeadY: p.y,
       };
     });
     if (!animate && narrow) {
@@ -976,9 +1036,13 @@ export default function HomeDriftingCursors({ className }: Props) {
       const { w, h } = sizeRef.current;
       if (w <= 1 || h <= 1) return;
 
+      const layout = layoutRef.current;
+      const midWidthMotion = w <= 820;
+
       for (let i = 0; i < CURSOR_DEFS.length; i += 1) {
         const state = statesRef.current[i];
-        if (!state) continue;
+        const def = CURSOR_DEFS[i];
+        if (!state || state.hidden || !def) continue;
 
         if (state.seg) {
           state.seg.t += dt / state.seg.dur;
@@ -987,7 +1051,9 @@ export default function HomeDriftingCursors({ className }: Props) {
           state.leadY = state.seg.fromY + (state.seg.toY - state.seg.fromY) * k;
           if (state.seg.t >= 1) {
             state.seg = null;
-            state.wait = randomBetween(0.9, 2.6);
+            state.wait = midWidthMotion
+              ? randomBetween(0.25, 1.05)
+              : randomBetween(0.9, 2.6);
             if (Math.random() < 0.35) {
               window.setTimeout(
                 () => triggerClick(i),
@@ -998,6 +1064,45 @@ export default function HomeDriftingCursors({ className }: Props) {
         } else {
           state.wait -= dt;
           if (state.wait <= 0) beginSegment(i);
+        }
+
+        const leadMoved = Math.hypot(
+          state.leadX - state.lastSampleLeadX,
+          state.leadY - state.lastSampleLeadY,
+        );
+        if (state.seg || leadMoved > 12) {
+          state.stillLeadSec = 0;
+          if (leadMoved > 12) {
+            state.lastSampleLeadX = state.leadX;
+            state.lastSampleLeadY = state.leadY;
+          }
+        } else {
+          state.stillLeadSec += dt;
+        }
+
+        if (layout && !state.seg && state.stillLeadSec > 2.1) {
+          const region = regionForDef(def, layout);
+          const fullKeep = keepOutsRef.current;
+          const pickKeep = keepOutsForRegionPick(region, fullKeep, layout, layout.w);
+          const p = pickClearStart(
+            region,
+            fullKeep,
+            layout,
+            def,
+            isNarrowRef.current,
+            pickKeep,
+          );
+          state.stillLeadSec = 0;
+          state.leadX = p.x;
+          state.leadY = p.y;
+          state.x = p.x;
+          state.y = p.y;
+          state.vx = 0;
+          state.vy = 0;
+          state.lastSampleLeadX = p.x;
+          state.lastSampleLeadY = p.y;
+          state.wait = 0;
+          beginSegment(i);
         }
 
         const jx =
