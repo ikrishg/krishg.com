@@ -1,6 +1,6 @@
 import { socials } from "~shared";
 
-export const contactEmail = "send@krishg.com";
+export const contactEmail = "i@krishg.com";
 
 export type FooterSocial = {
   id: string;
