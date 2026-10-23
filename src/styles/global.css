@@ -216,6 +216,8 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 .home-closing-tail {
   position: relative;
+  z-index: 45;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   min-height: calc(100dvh - var(--home-nav-height));
@@ -224,6 +226,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   height: calc(100dvh - var(--home-nav-height));
   height: calc(100svh - var(--home-nav-height));
   height: calc(100lvh - var(--home-nav-height));
+  background-color: var(--home-closing-bg);
 }
 
 .home-closing-index {
@@ -240,6 +243,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  background-color: var(--home-closing-bg);
 }
 
 @media (width >= 768px) {
@@ -346,6 +350,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   width: 100%;
   max-width: var(--home-content-max);
   margin-inline: auto;
+  background-color: var(--home-closing-bg);
   padding-block: 12px 16px;
   box-sizing: border-box;
 }
@@ -366,6 +371,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   flex-direction: row;
   align-items: center;
   justify-content: center;
+  background-color: var(--home-closing-bg);
   color: var(--home-closing-fg);
   text-decoration: none;
   transition:
@@ -439,6 +445,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   padding: 0 20px 0 18px;
   border: 2px solid currentColor;
   border-radius: 9999px;
+  background-color: var(--home-closing-bg);
   color: var(--home-closing-fg);
   font-family: var(--font-inter-tight), var(--font-space-grotesk), system-ui,
     sans-serif;
