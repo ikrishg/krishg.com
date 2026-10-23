@@ -6,23 +6,15 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
+import {
+  buildEasterEggRoster,
+  type EasterEggCursorDef,
+} from "./homeDriftingEasterEggs";
 
 const REF_FOOTER_W = 1440;
 const TINY_VIEWPORT_W = 390;
 
-/** Mock footer landmarks (A.html / notes) for Y remapping only. */
-const MOCK_FOOTER_H = 836;
-const MOCK_Y_ANCHORS = [
-  { mock: 0, key: "top" as const },
-  { mock: 72, key: "header" as const },
-  { mock: 392, key: "emailTop" as const },
-  { mock: 501, key: "emailBottom" as const },
-  { mock: 693, key: "socialTop" as const },
-  { mock: 809, key: "socialBottom" as const },
-  { mock: MOCK_FOOTER_H, key: "footerBottom" as const },
-];
-
-const CURSOR_BOX_W = 110;
+const DEFAULT_BOX_W = 110;
 const CURSOR_BOX_H = 46;
 const NARROW_ROOT_SCALE = 0.9;
 
@@ -54,39 +46,7 @@ type LandscapeLayout = FooterSliceLayout & {
   footerH: number;
 };
 
-type CursorDef = {
-  id: string;
-  label: string;
-  color: string;
-  ink: string;
-  mockPose: { x: number; y: number };
-  staticRing?: boolean;
-};
-
-const CURSOR_DEFS: CursorDef[] = [
-  {
-    id: "builder",
-    label: "Builder",
-    color: "#398fd0",
-    ink: "#141a2b",
-    mockPose: { x: 262, y: 236 },
-  },
-  {
-    id: "creator",
-    label: "Creator",
-    color: "#b94a3f",
-    ink: "#fff8ea",
-    mockPose: { x: 1096, y: 196 },
-  },
-  {
-    id: "educator",
-    label: "Educator",
-    color: "#d8a12a",
-    ink: "#141a2b",
-    mockPose: { x: 1012, y: 604 },
-    staticRing: true,
-  },
-];
+type CursorDef = EasterEggCursorDef;
 
 type StudioCursorState = {
   x: number;
@@ -132,11 +92,11 @@ function rectsOverlap(a: Rect, b: Rect) {
   );
 }
 
-function cursorBoxAt(x: number, y: number, pad = 0): Rect {
+function cursorBoxAt(x: number, y: number, pad = 0, boxW = DEFAULT_BOX_W): Rect {
   return {
     x: x - 4 - pad,
     y: y - 4 - pad,
-    w: CURSOR_BOX_W + pad * 2,
+    w: boxW + pad * 2,
     h: CURSOR_BOX_H + pad * 2,
   };
 }
@@ -147,8 +107,9 @@ function cursorBoxInRegion(
   y: number,
   region: Rect,
   pad = 0,
+  boxW = DEFAULT_BOX_W,
 ): Rect {
-  const box = cursorBoxAt(x, y, pad);
+  const box = cursorBoxAt(x, y, pad, boxW);
   let { x: bx, y: by, w: bw, h: bh } = box;
   const left = region.x;
   const right = region.x + region.w;
@@ -171,14 +132,14 @@ function cursorBoxInRegion(
   return { x: bx, y: by, w: bw, h: bh };
 }
 
-function anchorXRangeInRegion(region: Rect) {
+function anchorXRangeInRegion(region: Rect, boxW = DEFAULT_BOX_W) {
   const minX = region.x + 10;
-  const maxX = region.x + region.w - (CURSOR_BOX_W - 4) - 10;
+  const maxX = region.x + region.w - (boxW - 4) - 10;
   return { minX, maxX: Math.max(minX, maxX) };
 }
 
-function randomAnchorInRegion(region: Rect) {
-  const { minX, maxX } = anchorXRangeInRegion(region);
+function randomAnchorInRegion(region: Rect, boxW = DEFAULT_BOX_W) {
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
   return {
     x: randomBetween(minX, maxX),
     y: randomBetween(region.y + 8, region.y + region.h - 8),
@@ -186,10 +147,15 @@ function randomAnchorInRegion(region: Rect) {
 }
 
 /** Pointer + tag bounds for narrow static (root scale 0.9). */
-function narrowStaticCursorBoxAt(x: number, y: number, pad = 0): Rect {
+function narrowStaticCursorBoxAt(
+  x: number,
+  y: number,
+  pad = 0,
+  boxW = DEFAULT_BOX_W,
+): Rect {
   const sx = x * NARROW_ROOT_SCALE;
   const sy = y * NARROW_ROOT_SCALE;
-  const w = CURSOR_BOX_W * NARROW_ROOT_SCALE;
+  const w = boxW * NARROW_ROOT_SCALE;
   const h = CURSOR_BOX_H * NARROW_ROOT_SCALE;
   return {
     x: sx - 4 - pad,
@@ -222,8 +188,9 @@ function narrowStaticPoseClear(
   y: number,
   keepOuts: Rect[],
   pad = NARROW_STATIC_PAD,
+  boxW = DEFAULT_BOX_W,
 ) {
-  return !hitKeepOut(narrowStaticCursorBoxAt(x, y, pad), keepOuts);
+  return !hitKeepOut(narrowStaticCursorBoxAt(x, y, pad, boxW), keepOuts);
 }
 
 type NarrowStaticPose = { x: number; y: number } | null;
@@ -276,8 +243,11 @@ function narrowStaticYBelowPills(layout: LandscapeLayout, edge: number) {
   return ys;
 }
 
-function solveNarrowStaticPoses(layout: LandscapeLayout): Record<string, NarrowStaticPose> {
-  const key = narrowStaticLayoutKey(layout);
+function solveNarrowStaticPoses(
+  layout: LandscapeLayout,
+  roster: CursorDef[],
+): Record<string, NarrowStaticPose> {
+  const key = `${narrowStaticLayoutKey(layout)}:${roster.map((d) => d.id).join("|")}`;
   if (narrowStaticPoseCache?.key === key) return narrowStaticPoseCache.poses;
 
   const keep = buildNarrowStaticKeepOuts(layout, layout.w, layout.h);
@@ -290,39 +260,35 @@ function solveNarrowStaticPoses(layout: LandscapeLayout): Record<string, NarrowS
   const yBelow = narrowStaticYBelowPills(layout, edge);
   const ySlots = [...yAbove, ...yBelow];
 
-  const roles: { id: string; xs: number[]; ys: number[] }[] = [
-    {
-      id: "builder",
-      xs: [xLeft, xLeft + 10, xRight],
-      ys: yAbove.length > 0 ? yAbove : ySlots,
-    },
-    {
-      id: "educator",
-      xs: [xRight, xRight - 10, xLeft + 18],
-      ys: yAbove.length > 0 ? [...yAbove].reverse() : [...ySlots].reverse(),
-    },
-  ];
-
-  const poses: Record<string, NarrowStaticPose> = {
-    builder: null,
-    creator: null,
-    educator: null,
-  };
+  const poses: Record<string, NarrowStaticPose> = {};
   const reserved: Rect[] = [];
 
-  for (const role of roles) {
+  for (const def of roster) {
+    const preferLeft = def.regionIndex % 2 === 0;
+    const xs = preferLeft
+      ? [xLeft, xLeft + 10, xRight]
+      : [xRight, xRight - 10, xLeft + 18];
+    const ys =
+      yAbove.length > 0
+        ? preferLeft
+          ? yAbove
+          : [...yAbove].reverse()
+        : ySlots;
+
     let placed: NarrowStaticPose = null;
-    for (const y of role.ys) {
-      for (const x of role.xs) {
+    for (const y of ys) {
+      for (const x of xs) {
         const trial = [...keep, ...reserved];
-        if (!narrowStaticPoseClear(x, y, trial)) continue;
+        if (!narrowStaticPoseClear(x, y, trial, NARROW_STATIC_PAD, def.boxW)) {
+          continue;
+        }
         placed = { x, y };
-        reserved.push(narrowStaticCursorBoxAt(x, y, 12));
+        reserved.push(narrowStaticCursorBoxAt(x, y, 12, def.boxW));
         break;
       }
       if (placed) break;
     }
-    poses[role.id] = placed;
+    poses[def.id] = placed;
   }
 
   narrowStaticPoseCache = { key, poses };
@@ -332,8 +298,9 @@ function solveNarrowStaticPoses(layout: LandscapeLayout): Record<string, NarrowS
 function narrowStaticPoseFor(
   def: CursorDef,
   layout: LandscapeLayout,
+  roster: CursorDef[],
 ): NarrowStaticPose {
-  return solveNarrowStaticPoses(layout)[def.id] ?? null;
+  return solveNarrowStaticPoses(layout, roster)[def.id] ?? null;
 }
 
 function hitKeepOut(box: Rect, keepOuts: Rect[]) {
@@ -346,10 +313,12 @@ function pathClear(
   keepOuts: Rect[],
   samplePad = 8,
   region?: Rect,
+  boxW = DEFAULT_BOX_W,
 ) {
   const boxAt = region
-    ? (x: number, y: number, pad: number) => cursorBoxInRegion(x, y, region, pad)
-    : (x: number, y: number, pad: number) => cursorBoxAt(x, y, pad);
+    ? (x: number, y: number, pad: number) =>
+        cursorBoxInRegion(x, y, region, pad, boxW)
+    : (x: number, y: number, pad: number) => cursorBoxAt(x, y, pad, boxW);
   const fromInside = hitKeepOut(boxAt(from.x, from.y, samplePad), keepOuts);
   const startSample = fromInside ? 1 : 0;
   for (let i = startSample; i <= 24; i += 1) {
@@ -475,149 +444,100 @@ function readClosingTailLandscape(
   };
 }
 
-function remapMockY(mockY: number, layout: LandscapeLayout): number {
-  const footerHeader = Math.min(layout.footerH * 0.18, 72);
-  const liveY: Record<string, number> = {
-    top: layout.footerTop,
-    header: layout.footerTop + footerHeader,
-    emailTop: layout.emailTop,
-    emailBottom: layout.emailBottom,
-    socialTop: layout.socialTop,
-    socialBottom: layout.socialBottom,
-    footerBottom: layout.footerTop + layout.footerH,
-  };
-
-  for (let i = 0; i < MOCK_Y_ANCHORS.length - 1; i += 1) {
-    const a = MOCK_Y_ANCHORS[i];
-    const b = MOCK_Y_ANCHORS[i + 1];
-    if (!a || !b) continue;
-    if (mockY >= a.mock && mockY <= b.mock) {
-      const t = (mockY - a.mock) / (b.mock - a.mock);
-      const ya = liveY[a.key] ?? 0;
-      const yb = liveY[b.key] ?? layout.h;
-      return ya + (yb - ya) * t;
-    }
-  }
-  return layout.footerTop + (mockY / MOCK_FOOTER_H) * layout.footerH;
-}
-
 const SIDE_COL_MIN_W = 180;
 
-function sideColumnWidths(layout: LandscapeLayout) {
-  const { w, gutter, contentLeft, contentRight } = layout;
-  const midWidth = w <= 820;
-  const maxCarve = midWidth ? 56 : 28;
-
-  let inset = midWidth ? 4 : 6;
-  let leftW = Math.max(0, contentLeft - gutter - inset);
-  if (leftW < SIDE_COL_MIN_W) {
-    const carve = Math.min(maxCarve, SIDE_COL_MIN_W - leftW);
-    inset = Math.max(0, inset - Math.min(inset, carve));
-    leftW = Math.max(0, contentLeft - gutter - inset + carve);
-  }
-
-  let rightInset = inset;
-  let rightX = contentRight + rightInset;
-  let rightW = Math.max(0, w - gutter - rightX);
-  if (rightW < SIDE_COL_MIN_W) {
-    const carve = Math.min(maxCarve, SIDE_COL_MIN_W - rightW);
-    rightX = Math.max(contentRight + 2, rightX - carve);
-    rightW = Math.max(0, w - gutter - rightX);
-  }
-
-  return {
-    leftW: Math.max(32, leftW),
-    rightX,
-    rightW: Math.max(32, rightW),
-  };
-}
-
-function liveRegions(layout: LandscapeLayout): Record<string, Rect> {
-  const { w, h, gutter, bandTop, bottomH } = layout;
-
+function sixLandscapeRegions(layout: LandscapeLayout): Rect[] {
+  const { w, h, gutter, bandTop, bottomH, contentLeft, contentRight } = layout;
   const y0 = bandTop;
   const y1 = h - bottomH;
-  const colH = Math.max(40, y1 - y0);
-  const { leftW, rightX, rightW } = sideColumnWidths(layout);
-  const midWidth = w <= 820;
-
-  const builder: Rect = {
-    x: gutter,
-    y: y0,
-    w: leftW,
-    h: colH,
-  };
-
+  const totalH = Math.max(48, y1 - y0);
+  const rowH = totalH / 3;
+  const centerL = Math.max(gutter + 32, contentLeft - 14);
+  const centerR = Math.min(w - gutter - 32, contentRight + 14);
+  const leftW = Math.max(56, centerL - gutter);
+  const rightW = Math.max(56, w - gutter - centerR);
+  const rightX = centerR;
   const minPocketH = CURSOR_BOX_H + 28;
-  let creatorH: number;
-  if (midWidth) {
-    const educatorH = Math.max(minPocketH, colH * 0.52);
-    creatorH = Math.max(minPocketH, colH - educatorH);
-  } else {
-    creatorH = Math.max(36, colH * 0.46);
-    creatorH = Math.min(creatorH, colH - 36);
-  }
-  const splitY = y0 + creatorH;
 
-  const creator: Rect = {
-    x: rightX,
-    y: y0,
-    w: rightW,
-    h: creatorH,
-  };
+  const row = (rh: number) => Math.max(minPocketH, rh - 6);
 
-  const educator: Rect = {
-    x: rightX,
-    y: splitY,
-    w: rightW,
-    h: Math.max(minPocketH, y1 - splitY),
-  };
-
-  return { builder, creator, educator };
+  return [
+    { x: gutter, y: y0, w: leftW, h: row(rowH) },
+    { x: gutter, y: y0 + rowH, w: leftW, h: row(rowH) },
+    {
+      x: gutter,
+      y: y0 + rowH * 2,
+      w: leftW,
+      h: row(totalH - rowH * 2),
+    },
+    { x: rightX, y: y0, w: rightW, h: row(rowH) },
+    { x: rightX, y: y0 + rowH, w: rightW, h: row(rowH) },
+    {
+      x: rightX,
+      y: y0 + rowH * 2,
+      w: rightW,
+      h: row(totalH - rowH * 2),
+    },
+  ];
 }
 
-function adjustCreatorRegion(
-  creator: Rect,
-  educator: Rect | undefined,
+function adjustRegionForClosing(
+  region: Rect,
+  belowRegion: Rect | undefined,
   closingKeepOuts: Rect[],
 ): Rect {
   const minPocketH = CURSOR_BOX_H + 28;
-  let floorY = creator.y;
+  let floorY = region.y;
   for (const k of closingKeepOuts) {
-    if (!keepOutOverlapsRegion(k, creator, 4)) continue;
+    if (!keepOutOverlapsRegion(k, region, 4)) continue;
     floorY = Math.max(floorY, k.y + k.h + 10);
   }
-  if (floorY <= creator.y + 8) return creator;
+  if (floorY <= region.y + 8) return region;
 
   const pocketTop = floorY;
-  const pocketBottom = educator ? educator.y - 8 : creator.y + creator.h;
+  const pocketBottom = belowRegion ? belowRegion.y - 8 : region.y + region.h;
   const pocketH = pocketBottom - pocketTop;
   if (pocketH >= minPocketH) {
-    return { ...creator, y: pocketTop, h: pocketH };
+    return { ...region, y: pocketTop, h: pocketH };
   }
 
-  const shrunkH = creator.y + creator.h - floorY;
+  const shrunkH = region.y + region.h - floorY;
   if (shrunkH >= minPocketH) {
-    return { ...creator, y: floorY, h: shrunkH };
+    return { ...region, y: floorY, h: shrunkH };
   }
-  return creator;
+  return region;
 }
 
-function regionForDef(
+function regionForCursor(
   def: CursorDef,
   layout: LandscapeLayout,
   closingKeepOuts: Rect[] = [],
 ): Rect {
-  const regions = liveRegions(layout);
-  const fallback = regions.builder ?? {
+  const regions = sixLandscapeRegions(layout);
+  const idx = def.regionIndex % regions.length;
+  const base = regions[idx] ?? {
     x: layout.gutter,
     y: layout.bandTop,
     w: 80,
     h: 40,
   };
-  const base = regions[def.id] ?? fallback;
-  if (def.id !== "creator") return base;
-  return adjustCreatorRegion(base, regions.educator, closingKeepOuts);
+  const below = regions[idx + 1];
+  return adjustRegionForClosing(base, below, closingKeepOuts);
+}
+
+function seededUnit(seed: number, salt: number) {
+  const v = Math.sin(seed * 127.1 + salt * 311.7) * 43758.5453123;
+  return v - Math.floor(v);
+}
+
+function poseFromSeed(region: Rect, seed: number, boxW: number) {
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+  const spanX = Math.max(0, maxX - minX);
+  const spanY = Math.max(0, region.h - 16);
+  return {
+    x: minX + seededUnit(seed, 1) * spanX,
+    y: region.y + 8 + seededUnit(seed, 2) * spanY,
+  };
 }
 
 function isPlacementClear(
@@ -625,22 +545,27 @@ function isPlacementClear(
   y: number,
   region: Rect,
   placementKeep: Rect[],
+  boxW = DEFAULT_BOX_W,
 ) {
-  return !hitKeepOut(cursorBoxInRegion(x, y, region), placementKeep);
+  return !hitKeepOut(
+    cursorBoxInRegion(x, y, region, 0, boxW),
+    placementKeep,
+  );
 }
 
 function findClearAnchorInRegion(
   region: Rect,
   placementKeep: Rect[],
+  boxW = DEFAULT_BOX_W,
 ): { x: number; y: number } | null {
-  const { minX, maxX } = anchorXRangeInRegion(region);
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
   for (let yi = 0; yi <= 16; yi += 1) {
     for (let xi = 0; xi <= 12; xi += 1) {
       const p = {
         x: minX + ((maxX - minX) * xi) / 12,
         y: region.y + 8 + ((region.h - 16) * yi) / 16,
       };
-      if (isPlacementClear(p.x, p.y, region, placementKeep)) return p;
+      if (isPlacementClear(p.x, p.y, region, placementKeep, boxW)) return p;
     }
   }
   return null;
@@ -696,12 +621,8 @@ function regionDistanceBounds(region: Rect) {
 }
 
 function motionContentPads(layout: LandscapeLayout, w: number) {
-  const regions = liveRegions(layout);
-  const minColW = Math.min(
-    regions.builder?.w ?? 0,
-    regions.creator?.w ?? 0,
-    regions.educator?.w ?? 0,
-  );
+  const regions = sixLandscapeRegions(layout);
+  const minColW = Math.min(...regions.map((r) => r.w), w);
   const tight = w <= 820 || minColW < SIDE_COL_MIN_W;
   if (w <= 768) {
     return { emailX: 22, emailY: 18, pillX: 16, pillY: 14 };
@@ -837,6 +758,7 @@ function forceLeadTarget(
   from: { x: number; y: number },
   pathKeepOuts: Rect[],
   pickKeepOuts?: Rect[],
+  boxW = DEFAULT_BOX_W,
 ) {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const shortPocket = isShortMotionPocket(region);
@@ -844,14 +766,14 @@ function forceLeadTarget(
     shortPocket || region.w < SIDE_COL_MIN_W ? 3 : 6;
   let best: { x: number; y: number; d: number } | null = null;
 
-  const { minX, maxX } = anchorXRangeInRegion(region);
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
   for (let yi = 0; yi <= 12; yi += 1) {
     for (let xi = 0; xi <= 12; xi += 1) {
       const p = {
         x: minX + ((maxX - minX) * xi) / 12,
         y: region.y + 8 + ((region.h - 16) * yi) / 12,
       };
-      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) {
+      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region, 0, boxW), placementKeep)) {
         continue;
       }
       const inColumn =
@@ -859,7 +781,16 @@ function forceLeadTarget(
         pointInRegion(from, region) &&
         pointInRegion(p, region);
       const pathKeep = inColumn ? placementKeep : pathKeepOuts;
-      if (!pathClear(from, p, pathKeep, pathPad, inColumn ? region : undefined)) {
+      if (
+        !pathClear(
+          from,
+          p,
+          pathKeep,
+          pathPad,
+          inColumn ? region : undefined,
+          boxW,
+        )
+      ) {
         continue;
       }
       const d = Math.hypot(p.x - from.x, p.y - from.y);
@@ -876,6 +807,7 @@ function pickTarget(
   pathKeepOuts: Rect[],
   straight: boolean,
   pickKeepOuts?: Rect[],
+  boxW = DEFAULT_BOX_W,
 ): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const { minDist, maxDist } = regionDistanceBounds(region);
@@ -886,7 +818,7 @@ function pickTarget(
   for (let pass = 0; pass < passes; pass += 1) {
     const relaxMin = pass === 1;
     for (let i = 0; i < attempts; i += 1) {
-      const p = randomAnchorInRegion(region);
+      const p = randomAnchorInRegion(region, boxW);
       if (from) {
         const d = Math.hypot(p.x - from.x, p.y - from.y);
         if (relaxMin) {
@@ -895,7 +827,7 @@ function pickTarget(
           continue;
         }
       }
-      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) {
+      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region, 0, boxW), placementKeep)) {
         continue;
       }
       if (from && straight) {
@@ -906,7 +838,16 @@ function pickTarget(
         const pathKeep = inColumn ? placementKeep : pathKeepOuts;
         const pathPad =
           inColumn && (shortPocket || region.w < SIDE_COL_MIN_W) ? 4 : 8;
-        if (!pathClear(from, p, pathKeep, pathPad, inColumn ? region : undefined)) {
+        if (
+          !pathClear(
+            from,
+            p,
+            pathKeep,
+            pathPad,
+            inColumn ? region : undefined,
+            boxW,
+          )
+        ) {
           continue;
         }
       }
@@ -915,7 +856,7 @@ function pickTarget(
   }
 
   if (from) {
-    const { minX, maxX } = anchorXRangeInRegion(region);
+    const { minX, maxX } = anchorXRangeInRegion(region, boxW);
     const corners = [
       { x: minX, y: region.y + region.h * 0.22 },
       { x: maxX, y: region.y + region.h * 0.32 },
@@ -926,7 +867,12 @@ function pickTarget(
       const clamped = clampToRegion(p, region);
       const d = Math.hypot(clamped.x - from.x, clamped.y - from.y);
       if (d < 8) continue;
-      if (hitKeepOut(cursorBoxInRegion(clamped.x, clamped.y, region), placementKeep)) {
+      if (
+        hitKeepOut(
+          cursorBoxInRegion(clamped.x, clamped.y, region, 0, boxW),
+          placementKeep,
+        )
+      ) {
         continue;
       }
       const pathPad = shortPocket || region.w < SIDE_COL_MIN_W ? 4 : 8;
@@ -935,7 +881,16 @@ function pickTarget(
         pointInRegion(from, region) &&
         pointInRegion(clamped, region);
       const pathKeep = inColumn ? placementKeep : pathKeepOuts;
-      if (!pathClear(from, clamped, pathKeep, pathPad, inColumn ? region : undefined)) {
+      if (
+        !pathClear(
+          from,
+          clamped,
+          pathKeep,
+          pathPad,
+          inColumn ? region : undefined,
+          boxW,
+        )
+      ) {
         continue;
       }
       return clamped;
@@ -943,22 +898,30 @@ function pickTarget(
   }
 
   if (from) {
-    const forced = forceLeadTarget(region, from, pathKeepOuts, pickKeepOuts);
+    const forced = forceLeadTarget(
+      region,
+      from,
+      pathKeepOuts,
+      pickKeepOuts,
+      boxW,
+    );
     if (forced) return { x: forced.x, y: forced.y };
   }
 
   if (from) {
-    const { minX, maxX } = anchorXRangeInRegion(region);
+    const { minX, maxX } = anchorXRangeInRegion(region, boxW);
     const midX = minX + (maxX - minX) * 0.5;
     for (let yi = 0; yi <= 16; yi += 1) {
       const y = region.y + 10 + ((region.h - 20) * yi) / 16;
       const p = { x: midX, y };
-      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) continue;
+      if (
+        hitKeepOut(cursorBoxInRegion(p.x, p.y, region, 0, boxW), placementKeep)
+      ) {
+        continue;
+      }
       const d = Math.hypot(p.x - from.x, p.y - from.y);
       if (d < 8) continue;
-      if (
-        pathClear(from, p, placementKeep, 4, region)
-      ) {
+      if (pathClear(from, p, placementKeep, 4, region, boxW)) {
         return p;
       }
     }
@@ -969,7 +932,7 @@ function pickTarget(
   }
 
   if (!from) {
-    return findClearAnchorInRegion(region, placementKeep);
+    return findClearAnchorInRegion(region, placementKeep, boxW);
   }
   return null;
 }
@@ -982,11 +945,15 @@ function pickClearStart(
   narrow: boolean,
   pickKeepOuts?: Rect[],
   closingKeepOuts: Rect[] = [],
+  roster: CursorDef[] = [],
 ): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? keepOuts;
+  const boxW = def.boxW;
   for (let i = 0; i < 40; i += 1) {
-    const p = pickTarget(region, null, keepOuts, false, placementKeep);
-    if (p && isPlacementClear(p.x, p.y, region, placementKeep)) return p;
+    const p = pickTarget(region, null, keepOuts, false, placementKeep, boxW);
+    if (p && isPlacementClear(p.x, p.y, region, placementKeep, boxW)) {
+      return p;
+    }
   }
   const fallback = staticPoseFor(
     def,
@@ -995,11 +962,15 @@ function pickClearStart(
     keepOuts,
     closingKeepOuts,
     placementKeep,
+    roster,
   );
-  if (fallback && isPlacementClear(fallback.x, fallback.y, region, placementKeep)) {
+  if (
+    fallback &&
+    isPlacementClear(fallback.x, fallback.y, region, placementKeep, boxW)
+  ) {
     return fallback;
   }
-  return findClearAnchorInRegion(region, placementKeep);
+  return findClearAnchorInRegion(region, placementKeep, boxW);
 }
 
 function staticPoseFor(
@@ -1009,22 +980,20 @@ function staticPoseFor(
   keepOuts: Rect[] = [],
   closingKeepOuts: Rect[] = [],
   pickKeepOuts?: Rect[],
+  roster: CursorDef[] = [],
 ): { x: number; y: number } | null {
-  const region = regionForDef(def, layout, closingKeepOuts);
+  const region = regionForCursor(def, layout, closingKeepOuts);
   const placementKeep = pickKeepOuts ?? keepOuts;
   if (narrow) {
-    return narrowStaticPoseFor(def, layout);
+    return narrowStaticPoseFor(def, layout, roster);
   }
 
-  const p = {
-    x: scaleX(def.mockPose.x, layout.w),
-    y: remapMockY(def.mockPose.y, layout),
-  };
+  const p = poseFromSeed(region, def.poseSeed, def.boxW);
   const clamped = clampToRegion(p, region);
-  if (isPlacementClear(clamped.x, clamped.y, region, placementKeep)) {
+  if (isPlacementClear(clamped.x, clamped.y, region, placementKeep, def.boxW)) {
     return clamped;
   }
-  return findClearAnchorInRegion(region, placementKeep);
+  return findClearAnchorInRegion(region, placementKeep, def.boxW);
 }
 
 function driftingCursorsMotionEnabled() {
@@ -1078,6 +1047,8 @@ type Props = {
 };
 
 export default function HomeDriftingCursors({ className }: Props) {
+  const roster = useMemo(() => buildEasterEggRoster(), []);
+
   const motionEnabled = useSyncExternalStore(
     subscribeDriftingCursorsMotion,
     driftingCursorsMotionEnabled,
@@ -1156,17 +1127,17 @@ export default function HomeDriftingCursors({ className }: Props) {
 
   const beginSegment = (index: number) => {
     const state = statesRef.current[index];
-    const def = CURSOR_DEFS[index];
+    const def = roster[index];
     const layout = layoutRef.current;
     if (!state || !def || !layout) return;
 
     const crossDef =
-      CURSOR_DEFS[Math.floor(Math.random() * CURSOR_DEFS.length)] ?? def;
+      roster[Math.floor(Math.random() * roster.length)] ?? def;
     const crossRegion = layout.w > 820 && Math.random() < 0.15;
     const closingKeep = closingKeepOutsRef.current;
     const region = crossRegion
-      ? regionForDef(crossDef, layout, closingKeep)
-      : regionForDef(def, layout, closingKeep);
+      ? regionForCursor(crossDef, layout, closingKeep)
+      : regionForCursor(def, layout, closingKeep);
 
     const fullKeep = keepOutsRef.current;
     const pickKeep = crossRegion
@@ -1180,7 +1151,12 @@ export default function HomeDriftingCursors({ className }: Props) {
         );
 
     let from = { x: state.leadX, y: state.leadY };
-    if (hitKeepOut(cursorBoxInRegion(from.x, from.y, region), pickKeep)) {
+    if (
+      hitKeepOut(
+        cursorBoxInRegion(from.x, from.y, region, 0, def.boxW),
+        pickKeep,
+      )
+    ) {
       const start = pickClearStart(
         region,
         fullKeep,
@@ -1189,6 +1165,7 @@ export default function HomeDriftingCursors({ className }: Props) {
         isNarrowRef.current,
         pickKeep,
         closingKeep,
+        roster,
       );
       if (!start) {
         state.hidden = true;
@@ -1209,7 +1186,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       state.y = from.y;
     }
 
-    let to = pickTarget(region, from, fullKeep, true, pickKeep);
+    let to = pickTarget(region, from, fullKeep, true, pickKeep, def.boxW);
     if (!to) {
       state.wait =
         layout.w <= 820 ? randomBetween(0.1, 0.28) : randomBetween(0.4, 1);
@@ -1217,7 +1194,13 @@ export default function HomeDriftingCursors({ className }: Props) {
     }
     let d = Math.hypot(to.x - from.x, to.y - from.y);
     if (d < 8) {
-      const forced = forceLeadTarget(region, from, fullKeep, pickKeep);
+      const forced = forceLeadTarget(
+        region,
+        from,
+        fullKeep,
+        pickKeep,
+        def.boxW,
+      );
       if (forced) {
         to = { x: forced.x, y: forced.y };
         d = forced.d;
@@ -1246,8 +1229,8 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     const hiddenIdx = new Set<number>();
     const closingKeep = closingKeepOutsRef.current;
-    statesRef.current = CURSOR_DEFS.map((def, i) => {
-      const region = regionForDef(def, layout, closingKeep);
+    statesRef.current = roster.map((def, i) => {
+      const region = regionForCursor(def, layout, closingKeep);
       const fullKeep = keepOutsRef.current;
       const pickKeep = keepOutsForRegionPick(
         region,
@@ -1265,8 +1248,17 @@ export default function HomeDriftingCursors({ className }: Props) {
             narrow,
             pickKeep,
             closingKeep,
+            roster,
           )
-        : staticPoseFor(def, layout, narrow, fullKeep, closingKeep, pickKeep);
+        : staticPoseFor(
+            def,
+            layout,
+            narrow,
+            fullKeep,
+            closingKeep,
+            pickKeep,
+            roster,
+          );
       if (!p) {
         hiddenIdx.add(i);
         return {
@@ -1333,9 +1325,9 @@ export default function HomeDriftingCursors({ className }: Props) {
       const layout = layoutRef.current;
       const midWidthMotion = w <= 820;
 
-      for (let i = 0; i < CURSOR_DEFS.length; i += 1) {
+      for (let i = 0; i < roster.length; i += 1) {
         const state = statesRef.current[i];
-        const def = CURSOR_DEFS[i];
+        const def = roster[i];
         if (!state || state.hidden || !def) continue;
 
         if (state.seg) {
@@ -1376,7 +1368,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
         if (layout && !state.seg && state.stillLeadSec > 2.1) {
           const closingKeep = closingKeepOutsRef.current;
-          const region = regionForDef(def, layout, closingKeep);
+          const region = regionForCursor(def, layout, closingKeep);
           const fullKeep = keepOutsRef.current;
           const pickKeep = keepOutsForRegionPick(
             region,
@@ -1393,6 +1385,7 @@ export default function HomeDriftingCursors({ className }: Props) {
             isNarrowRef.current,
             pickKeep,
             closingKeep,
+            roster,
           );
           state.stillLeadSec = 0;
           if (!p) {
@@ -1452,7 +1445,7 @@ export default function HomeDriftingCursors({ className }: Props) {
     const { w, h } = sizeRef.current;
     if (w <= 1 || h <= 1) return;
     seedStates(w, h, false);
-    for (let i = 0; i < CURSOR_DEFS.length; i += 1) {
+    for (let i = 0; i < roster.length; i += 1) {
       const state = statesRef.current[i];
       if (state && !state.hidden) putCursor(i, state.x, state.y);
     }
@@ -1494,7 +1487,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
       if (staticMode) layoutStatic();
       else {
-        for (let i = 0; i < CURSOR_DEFS.length; i += 1) {
+        for (let i = 0; i < roster.length; i += 1) {
           const state = statesRef.current[i];
           if (state) putCursor(i, state.x, state.y);
         }
@@ -1556,7 +1549,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [motionEnabled, staticMode]);
+  }, [motionEnabled, staticMode, roster]);
 
   useEffect(() => {
     syncLoop();
@@ -1569,7 +1562,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
-      {CURSOR_DEFS.map((def, index) => {
+      {roster.map((def, index) => {
         if (
           (staticMode && narrowStaticHidden.has(index)) ||
           motionHidden.has(index)
