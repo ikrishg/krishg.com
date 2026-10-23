@@ -430,7 +430,7 @@ export default function HomeSplashOverlay() {
   const tree = (
     <div
       ref={overlayRef}
-      className="home-splash-overlay pointer-events-none fixed inset-0 z-[45] opacity-0"
+      className="home-splash-overlay pointer-events-none fixed inset-0 z-40 opacity-0"
       aria-hidden="true"
     >
       {maskMode === "organic" ? (

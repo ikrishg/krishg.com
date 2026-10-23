@@ -57,7 +57,7 @@ function PrimaryRow() {
   return (
     <div
       ref={rowRef}
-      className="home-closing-primary-row flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-4 md:gap-5 md:max-lg:flex-col lg:flex-row lg:gap-[clamp(2rem,9vw,9rem)]"
+      className="home-closing-primary-row flex w-full max-w-[var(--home-content-max)] flex-col items-center justify-center gap-3 md:max-lg:gap-2 md:max-lg:flex-col lg:flex-row lg:gap-[clamp(2rem,9vw,9rem)]"
     >
       {closingBandRow.map((link) => (
         <HomeClosingLink
@@ -83,12 +83,12 @@ function MobileStack() {
 
 function DesktopIndex() {
   return (
-    <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3svh,2rem)] py-4 md:gap-[clamp(1rem,3.5svh,2.5rem)] md:py-5 lg:contents">
-        <div className="home-closing-index__primary flex w-full min-h-0 flex-col items-center justify-center lg:flex lg:flex-1 lg:py-4">
+    <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center">
+      <div className="home-closing-index__stack flex w-full flex-col items-center">
+        <div className="home-closing-index__primary flex w-full flex-col items-center justify-center">
           <PrimaryRow />
         </div>
-        <div className="home-closing-index__nav w-full shrink-0 pb-2 pt-1 lg:w-auto">
+        <div className="home-closing-index__nav w-full shrink-0">
           <NavRow />
         </div>
       </div>
