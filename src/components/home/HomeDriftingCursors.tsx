@@ -8,6 +8,7 @@ import {
 } from "react";
 
 const REF_FOOTER_W = 1440;
+const TINY_VIEWPORT_W = 390;
 
 /** Mock footer landmarks (A.html / notes) for Y remapping only. */
 const MOCK_FOOTER_H = 836;
@@ -30,7 +31,7 @@ const SPRING_C = 2 * Math.sqrt(SPRING_K) * 0.92;
 
 type Rect = { x: number; y: number; w: number; h: number };
 
-type FooterLayout = {
+type FooterSliceLayout = {
   w: number;
   h: number;
   gutter: number;
@@ -41,11 +42,16 @@ type FooterLayout = {
   socialTop: number;
   socialBottom: number;
   bandTop: number;
-  /** Horizontal span of email + social pills (footer-local). */
   contentLeft: number;
   contentRight: number;
   emailRect: Rect | null;
   pillRects: Rect[];
+};
+
+/** Full `.home-closing-tail` walk space (tail-local coordinates). */
+type LandscapeLayout = FooterSliceLayout & {
+  footerTop: number;
+  footerH: number;
 };
 
 type CursorDef = {
@@ -195,7 +201,7 @@ function narrowStaticCursorBoxAt(x: number, y: number, pad = 0): Rect {
 
 const NARROW_STATIC_PAD = 16;
 
-function buildNarrowStaticKeepOuts(layout: FooterLayout, w: number, h: number): Rect[] {
+function buildNarrowStaticKeepOuts(layout: LandscapeLayout, w: number, h: number): Rect[] {
   const keep: Rect[] = [
     { x: 0, y: 0, w, h: layout.headerH },
     { x: 0, y: h - layout.bottomH, w, h: layout.bottomH },
@@ -227,7 +233,7 @@ let narrowStaticPoseCache: {
   poses: Record<string, NarrowStaticPose>;
 } | null = null;
 
-function narrowStaticLayoutKey(layout: FooterLayout) {
+function narrowStaticLayoutKey(layout: LandscapeLayout) {
   const er = layout.emailRect;
   const pills = layout.pillRects
     .map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.w.toFixed(1)},${r.h.toFixed(1)}`)
@@ -243,7 +249,7 @@ function narrowStaticLayoutKey(layout: FooterLayout) {
   ].join(":");
 }
 
-function narrowStaticYAboveEmail(layout: FooterLayout, edge: number) {
+function narrowStaticYAboveEmail(layout: LandscapeLayout, edge: number) {
   const { bandTop, emailRect } = layout;
   if (!emailRect) return [];
   const boxH = CURSOR_BOX_H * NARROW_ROOT_SCALE;
@@ -257,7 +263,7 @@ function narrowStaticYAboveEmail(layout: FooterLayout, edge: number) {
   return ys;
 }
 
-function narrowStaticYBelowPills(layout: FooterLayout, edge: number) {
+function narrowStaticYBelowPills(layout: LandscapeLayout, edge: number) {
   const { h, socialBottom, bottomH } = layout;
   const boxH = CURSOR_BOX_H * NARROW_ROOT_SCALE;
   const minY = (socialBottom + edge + 4) / NARROW_ROOT_SCALE;
@@ -270,7 +276,7 @@ function narrowStaticYBelowPills(layout: FooterLayout, edge: number) {
   return ys;
 }
 
-function solveNarrowStaticPoses(layout: FooterLayout): Record<string, NarrowStaticPose> {
+function solveNarrowStaticPoses(layout: LandscapeLayout): Record<string, NarrowStaticPose> {
   const key = narrowStaticLayoutKey(layout);
   if (narrowStaticPoseCache?.key === key) return narrowStaticPoseCache.poses;
 
@@ -325,7 +331,7 @@ function solveNarrowStaticPoses(layout: FooterLayout): Record<string, NarrowStat
 
 function narrowStaticPoseFor(
   def: CursorDef,
-  layout: FooterLayout,
+  layout: LandscapeLayout,
 ): NarrowStaticPose {
   return solveNarrowStaticPoses(layout)[def.id] ?? null;
 }
@@ -355,10 +361,10 @@ function pathClear(
   return true;
 }
 
-function toFooterLocal(rect: DOMRect, footer: DOMRect) {
+function toContainerLocal(rect: DOMRect, container: DOMRect) {
   return {
-    x: rect.left - footer.left,
-    y: rect.top - footer.top,
+    x: rect.left - container.left,
+    y: rect.top - container.top,
     w: rect.width,
     h: rect.height,
   };
@@ -373,19 +379,23 @@ function padRect(r: Rect, padX: number, padY: number): Rect {
   };
 }
 
-function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayout {
+function readFooterSliceLayout(
+  footer: HTMLElement,
+  w: number,
+  footerH: number,
+): FooterSliceLayout {
   const fr = footer.getBoundingClientRect();
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   const pills = footer.querySelectorAll<HTMLElement>(".home-footer__social-pill");
 
-  let emailTop = h * 0.28;
-  let emailBottom = h * 0.48;
+  let emailTop = footerH * 0.28;
+  let emailBottom = footerH * 0.48;
   let contentLeft = w * 0.12;
   let contentRight = w * 0.88;
   let emailRect: Rect | null = null;
   const pillRects: Rect[] = [];
   if (email) {
-    const er = toFooterLocal(email.getBoundingClientRect(), fr);
+    const er = toContainerLocal(email.getBoundingClientRect(), fr);
     emailTop = er.y;
     emailBottom = er.y + er.h;
     contentLeft = er.x;
@@ -393,13 +403,13 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
     emailRect = er;
   }
 
-  let socialTop = h * 0.62;
-  let socialBottom = h - 6;
+  let socialTop = footerH * 0.62;
+  let socialBottom = footerH - 6;
   if (pills.length > 0) {
     let minY = Infinity;
     let maxY = -Infinity;
     pills.forEach((pill) => {
-      const pr = toFooterLocal(pill.getBoundingClientRect(), fr);
+      const pr = toContainerLocal(pill.getBoundingClientRect(), fr);
       pillRects.push(pr);
       minY = Math.min(minY, pr.y);
       maxY = Math.max(maxY, pr.y + pr.h);
@@ -413,12 +423,12 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
   }
 
   const gutter = Math.min(scaleX(64, w), w * 0.08);
-  const headerH = Math.min(h * 0.18, 72);
-  const bottomH = Math.min(h * 0.1, 40);
+  const headerH = Math.min(footerH * 0.18, 72);
+  const bottomH = Math.min(footerH * 0.1, 40);
 
   return {
     w,
-    h,
+    h: footerH,
     gutter,
     headerH,
     bottomH,
@@ -434,15 +444,47 @@ function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayo
   };
 }
 
-function remapMockY(mockY: number, layout: FooterLayout): number {
+function readClosingTailLandscape(
+  tail: HTMLElement,
+  footer: HTMLElement,
+): LandscapeLayout {
+  const tr = tail.getBoundingClientRect();
+  const fr = footer.getBoundingClientRect();
+  const w = Math.max(1, tr.width);
+  const h = Math.max(1, tr.height);
+  const footerTop = Math.max(0, fr.top - tr.top);
+  const footerH = Math.max(1, fr.height);
+  const slice = readFooterSliceLayout(footer, w, footerH);
+
+  const offsetY = (r: Rect) => ({ ...r, y: r.y + footerTop });
+
+  return {
+    ...slice,
+    w,
+    h,
+    bandTop: 0,
+    headerH: 0,
+    footerTop,
+    footerH,
+    emailTop: footerTop + slice.emailTop,
+    emailBottom: footerTop + slice.emailBottom,
+    socialTop: footerTop + slice.socialTop,
+    socialBottom: footerTop + slice.socialBottom,
+    emailRect: slice.emailRect ? offsetY(slice.emailRect) : null,
+    pillRects: slice.pillRects.map(offsetY),
+  };
+}
+
+function remapMockY(mockY: number, layout: LandscapeLayout): number {
+  const footerHeader = Math.min(layout.footerH * 0.18, 72);
   const liveY: Record<string, number> = {
-    top: 0,
-    header: layout.headerH,
+    top: layout.footerTop,
+    header: layout.footerTop + footerHeader,
     emailTop: layout.emailTop,
     emailBottom: layout.emailBottom,
     socialTop: layout.socialTop,
     socialBottom: layout.socialBottom,
-    footerBottom: layout.h,
+    footerBottom: layout.footerTop + layout.footerH,
   };
 
   for (let i = 0; i < MOCK_Y_ANCHORS.length - 1; i += 1) {
@@ -456,12 +498,12 @@ function remapMockY(mockY: number, layout: FooterLayout): number {
       return ya + (yb - ya) * t;
     }
   }
-  return (mockY / MOCK_FOOTER_H) * layout.h;
+  return layout.footerTop + (mockY / MOCK_FOOTER_H) * layout.footerH;
 }
 
 const SIDE_COL_MIN_W = 180;
 
-function sideColumnWidths(layout: FooterLayout) {
+function sideColumnWidths(layout: LandscapeLayout) {
   const { w, gutter, contentLeft, contentRight } = layout;
   const midWidth = w <= 820;
   const maxCarve = midWidth ? 56 : 28;
@@ -490,11 +532,11 @@ function sideColumnWidths(layout: FooterLayout) {
   };
 }
 
-function liveRegions(layout: FooterLayout): Record<string, Rect> {
-  const { w, h, gutter, bandTop, bottomH, socialBottom } = layout;
+function liveRegions(layout: LandscapeLayout): Record<string, Rect> {
+  const { w, h, gutter, bandTop, bottomH } = layout;
 
   const y0 = bandTop;
-  const y1 = Math.min(h - bottomH, socialBottom + 20);
+  const y1 = h - bottomH;
   const colH = Math.max(40, y1 - y0);
   const { leftW, rightX, rightW } = sideColumnWidths(layout);
   const midWidth = w <= 820;
@@ -534,7 +576,7 @@ function liveRegions(layout: FooterLayout): Record<string, Rect> {
   return { builder, creator, educator };
 }
 
-function regionForDef(def: CursorDef, layout: FooterLayout): Rect {
+function regionForDef(def: CursorDef, layout: LandscapeLayout): Rect {
   const regions = liveRegions(layout);
   const fallback = regions.builder ?? {
     x: layout.gutter,
@@ -594,7 +636,7 @@ function regionDistanceBounds(region: Rect) {
   return { minDist, maxDist };
 }
 
-function motionContentPads(layout: FooterLayout, w: number) {
+function motionContentPads(layout: LandscapeLayout, w: number) {
   const regions = liveRegions(layout);
   const minColW = Math.min(
     regions.builder?.w ?? 0,
@@ -611,7 +653,7 @@ function motionContentPads(layout: FooterLayout, w: number) {
   return { emailX: 72, emailY: 48, pillX: 40, pillY: 36 };
 }
 
-function isStructuralKeepOut(k: Rect, layout: FooterLayout, w: number) {
+function isStructuralKeepOut(k: Rect, layout: LandscapeLayout, w: number) {
   return (
     k.y < layout.headerH + 1 ||
     k.y > layout.h - layout.bottomH - 1 ||
@@ -621,7 +663,7 @@ function isStructuralKeepOut(k: Rect, layout: FooterLayout, w: number) {
 }
 
 /** Motion pick tests: keep-outs that can affect this side column (not full-width email bleed). */
-function isSideWalkColumn(region: Rect, layout: FooterLayout) {
+function isSideWalkColumn(region: Rect, layout: LandscapeLayout) {
   const leftEdge = region.x + region.w <= layout.contentLeft + 14;
   const rightEdge = region.x >= layout.contentRight - 14;
   return leftEdge || rightEdge;
@@ -630,7 +672,7 @@ function isSideWalkColumn(region: Rect, layout: FooterLayout) {
 function keepOutsForRegionPick(
   region: Rect,
   keepOuts: Rect[],
-  layout: FooterLayout,
+  layout: LandscapeLayout,
   w: number,
 ) {
   if (isSideWalkColumn(region, layout)) {
@@ -648,17 +690,21 @@ function keepOutsForRegionPick(
   });
 }
 
-function buildKeepOuts(footer: HTMLElement, w: number, h: number): Rect[] {
-  const layout = readFooterLayout(footer, w, h);
+function buildKeepOuts(
+  tail: HTMLElement,
+  footer: HTMLElement,
+  layout: LandscapeLayout,
+): Rect[] {
+  const { w, h } = layout;
   const pads = motionContentPads(layout, w);
-  const fr = footer.getBoundingClientRect();
+  const tr = tail.getBoundingClientRect();
   const keep: Rect[] = [];
 
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   if (email) {
     keep.push(
       padRect(
-        toFooterLocal(email.getBoundingClientRect(), fr),
+        toContainerLocal(email.getBoundingClientRect(), tr),
         pads.emailX,
         pads.emailY,
       ),
@@ -671,14 +717,26 @@ function buildKeepOuts(footer: HTMLElement, w: number, h: number): Rect[] {
   for (const el of socialHits) {
     keep.push(
       padRect(
-        toFooterLocal(el.getBoundingClientRect(), fr),
+        toContainerLocal(el.getBoundingClientRect(), tr),
         pads.pillX,
         pads.pillY,
       ),
     );
   }
 
-  keep.push({ x: 0, y: 0, w, h: layout.headerH });
+  tail.querySelectorAll<HTMLElement>(".home-closing-link--primary").forEach(
+    (el) => {
+      keep.push(
+        padRect(toContainerLocal(el.getBoundingClientRect(), tr), 52, 44),
+      );
+    },
+  );
+  tail.querySelectorAll<HTMLElement>(".home-closing-star").forEach((el) => {
+    keep.push(
+      padRect(toContainerLocal(el.getBoundingClientRect(), tr), 36, 28),
+    );
+  });
+
   keep.push({ x: 0, y: h - layout.bottomH, w, h: layout.bottomH });
   keep.push({ x: 0, y: 0, w: layout.gutter, h });
   keep.push({ x: w - layout.gutter, y: 0, w: layout.gutter, h });
@@ -831,7 +889,7 @@ function pickTarget(
 function pickClearStart(
   region: Rect,
   keepOuts: Rect[],
-  layout: FooterLayout,
+  layout: LandscapeLayout,
   def: CursorDef,
   narrow: boolean,
   pickKeepOuts?: Rect[],
@@ -851,7 +909,7 @@ function pickClearStart(
 
 function staticPoseFor(
   def: CursorDef,
-  layout: FooterLayout,
+  layout: LandscapeLayout,
   narrow: boolean,
   keepOuts: Rect[] = [],
 ): { x: number; y: number } | null {
@@ -934,7 +992,7 @@ export default function HomeDriftingCursors({ className }: Props) {
   const inViewRef = useRef(false);
   const pageVisibleRef = useRef(true);
   const sizeRef = useRef({ w: 1, h: 1 });
-  const layoutRef = useRef<FooterLayout | null>(null);
+  const layoutRef = useRef<LandscapeLayout | null>(null);
   const keepOutsRef = useRef<Rect[]>([]);
   const statesRef = useRef<StudioCursorState[]>([]);
   const rafRef = useRef(0);
@@ -942,6 +1000,8 @@ export default function HomeDriftingCursors({ className }: Props) {
   const simTimeRef = useRef(0);
   const [isNarrow, setIsNarrow] = useState(false);
   const isNarrowRef = useRef(false);
+  const [isTiny, setIsTiny] = useState(false);
+  const isTinyRef = useRef(false);
   const [narrowStaticHidden, setNarrowStaticHidden] = useState<ReadonlySet<number>>(
     () => new Set(),
   );
@@ -1237,7 +1297,9 @@ export default function HomeDriftingCursors({ className }: Props) {
     const root = rootRef.current;
     if (!root) return;
 
-    const footer = root.closest(".home-footer");
+    const tail = root.closest(".home-closing-tail");
+    if (!tail || !(tail instanceof HTMLElement)) return;
+    const footer = tail.querySelector(".home-footer");
     if (!footer || !(footer instanceof HTMLElement)) return;
 
     const measure = () => {
@@ -1245,11 +1307,19 @@ export default function HomeDriftingCursors({ className }: Props) {
       const w = Math.max(1, rect.width);
       const h = Math.max(1, rect.height);
       sizeRef.current = { w, h };
+      const tiny = w <= TINY_VIEWPORT_W;
+      isTinyRef.current = tiny;
+      setIsTiny(tiny);
       const narrow = w < 768;
       isNarrowRef.current = narrow;
       setIsNarrow(narrow);
-      layoutRef.current = readFooterLayout(footer, w, h);
-      keepOutsRef.current = buildKeepOuts(footer, w, h);
+      layoutRef.current = readClosingTailLandscape(tail, footer);
+      keepOutsRef.current = buildKeepOuts(tail, footer, layoutRef.current);
+
+      if (tiny) {
+        stopLoop();
+        return;
+      }
 
       if (statesRef.current.length === 0) {
         seedStates(w, h, motionEnabled);
@@ -1280,22 +1350,29 @@ export default function HomeDriftingCursors({ className }: Props) {
     );
     observer.observe(root);
 
-    const roFooter = new ResizeObserver(() => {
+    const roLayout = new ResizeObserver(() => {
       measure();
     });
-    roFooter.observe(footer);
-    roFooter.observe(root);
+    roLayout.observe(tail);
+    roLayout.observe(footer);
+    roLayout.observe(root);
 
     const roKeep = new ResizeObserver(() => {
-      const { w, h } = sizeRef.current;
-      layoutRef.current = readFooterLayout(footer, w, h);
-      keepOutsRef.current = buildKeepOuts(footer, w, h);
+      if (isTinyRef.current) return;
+      layoutRef.current = readClosingTailLandscape(tail, footer);
+      keepOutsRef.current = buildKeepOuts(tail, footer, layoutRef.current);
     });
 
     const email = footer.querySelector(".home-footer__email");
     if (email) roKeep.observe(email);
     footer.querySelectorAll(".home-footer__social-pill").forEach((pill) => {
       roKeep.observe(pill);
+    });
+    tail.querySelectorAll(".home-closing-link--primary").forEach((link) => {
+      roKeep.observe(link);
+    });
+    tail.querySelectorAll(".home-closing-star").forEach((star) => {
+      roKeep.observe(star);
     });
 
     document.addEventListener("visibilitychange", onVisibility);
@@ -1305,7 +1382,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     return () => {
       stopLoop();
-      roFooter.disconnect();
+      roLayout.disconnect();
       roKeep.disconnect();
       observer.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
@@ -1317,14 +1394,14 @@ export default function HomeDriftingCursors({ className }: Props) {
     return () => stopLoop();
   }, [motionEnabled]);
 
+  if (isTiny) {
+    return null;
+  }
+
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
       {CURSOR_DEFS.map((def, index) => {
-        if (
-          staticMode &&
-          isNarrow &&
-          (index === 1 || narrowStaticHidden.has(index))
-        ) {
+        if (staticMode && narrowStaticHidden.has(index)) {
           return null;
         }
         return (
