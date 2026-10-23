@@ -41,6 +41,32 @@ export function maxMeshWidthFraction(kind: KrishModelKind): number {
   return kind === "computer" ? 0.48 : 1;
 }
 
+const GROUND_MESH_RE =
+  /shadow|contact|ground_?plane|stage_?plane|backdrop|drop_?shadow/i;
+
+/** Hide baked shadow / ground planes shipped in GLBs (not part of the hero object). */
+export function hideArtifactGroundMeshes(root: THREE.Object3D) {
+  root.traverse((node) => {
+    const mesh = node as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const name = mesh.name ?? "";
+    if (GROUND_MESH_RE.test(name)) {
+      mesh.visible = false;
+      return;
+    }
+    const materials = Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material];
+    for (const material of materials) {
+      const matName = material?.name ?? "";
+      if (GROUND_MESH_RE.test(matName)) {
+        mesh.visible = false;
+        return;
+      }
+    }
+  });
+}
+
 export function meshWorldBox(root: THREE.Object3D): THREE.Box3 {
   const box = new THREE.Box3();
   root.updateWorldMatrix(true, true);

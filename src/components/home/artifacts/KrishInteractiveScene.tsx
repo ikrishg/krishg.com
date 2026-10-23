@@ -12,6 +12,7 @@ import { useArtifactShell } from "./ArtifactShellContext";
 import {
   bandHeightPx,
   frameFitBox,
+  hideArtifactGroundMeshes,
   projectBoxToScreenPx,
   targetMeshHeightPx,
 } from "./fitArtifactStage";
@@ -65,6 +66,7 @@ export function KrishInteractiveScene({
         }
       }
     });
+    hideArtifactGroundMeshes(clone);
     return clone;
   }, [scene]);
 
