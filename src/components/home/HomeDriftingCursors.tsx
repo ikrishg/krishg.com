@@ -291,14 +291,15 @@ function pathClear(
   from: { x: number; y: number },
   to: { x: number; y: number },
   keepOuts: Rect[],
+  samplePad = 8,
 ) {
-  const fromInside = hitKeepOut(cursorBoxAt(from.x, from.y, 8), keepOuts);
+  const fromInside = hitKeepOut(cursorBoxAt(from.x, from.y, samplePad), keepOuts);
   const startSample = fromInside ? 1 : 0;
   for (let i = startSample; i <= 24; i += 1) {
     const t = i / 24;
     const x = from.x + (to.x - from.x) * t;
     const y = from.y + (to.y - from.y) * t;
-    if (hitKeepOut(cursorBoxAt(x, y, 8), keepOuts)) return false;
+    if (hitKeepOut(cursorBoxAt(x, y, samplePad), keepOuts)) return false;
   }
   return true;
 }
@@ -411,11 +412,14 @@ const SIDE_COL_MIN_W = 180;
 
 function sideColumnWidths(layout: FooterLayout) {
   const { w, gutter, contentLeft, contentRight } = layout;
-  let inset = 6;
+  const midWidth = w <= 820;
+  const maxCarve = midWidth ? 52 : 28;
+
+  let inset = midWidth ? 4 : 6;
   let leftW = Math.max(0, contentLeft - gutter - inset);
   if (leftW < SIDE_COL_MIN_W) {
-    const carve = Math.min(28, SIDE_COL_MIN_W - leftW);
-    inset = Math.max(0, inset - carve);
+    const carve = Math.min(maxCarve, SIDE_COL_MIN_W - leftW);
+    inset = Math.max(0, inset - Math.min(inset, carve));
     leftW = Math.max(0, contentLeft - gutter - inset + carve);
   }
 
@@ -423,7 +427,7 @@ function sideColumnWidths(layout: FooterLayout) {
   let rightX = contentRight + rightInset;
   let rightW = Math.max(0, w - gutter - rightX);
   if (rightW < SIDE_COL_MIN_W) {
-    const carve = Math.min(28, SIDE_COL_MIN_W - rightW);
+    const carve = Math.min(maxCarve, SIDE_COL_MIN_W - rightW);
     rightX = Math.max(contentRight + 2, rightX - carve);
     rightW = Math.max(0, w - gutter - rightX);
   }
@@ -436,12 +440,13 @@ function sideColumnWidths(layout: FooterLayout) {
 }
 
 function liveRegions(layout: FooterLayout): Record<string, Rect> {
-  const { h, gutter, bandTop, bottomH, socialBottom } = layout;
+  const { w, h, gutter, bandTop, bottomH, socialBottom } = layout;
 
   const y0 = bandTop;
   const y1 = Math.min(h - bottomH, socialBottom + 20);
   const colH = Math.max(40, y1 - y0);
   const { leftW, rightX, rightW } = sideColumnWidths(layout);
+  const midWidth = w <= 820;
 
   const builder: Rect = {
     x: gutter,
@@ -450,19 +455,26 @@ function liveRegions(layout: FooterLayout): Record<string, Rect> {
     h: colH,
   };
 
-  const splitY = y0 + colH * 0.46;
+  const minCreatorH = CURSOR_BOX_H + 32;
+  const educatorMinH = 36;
+  let creatorH = midWidth
+    ? Math.max(minCreatorH, colH * 0.58)
+    : Math.max(36, colH * 0.46);
+  creatorH = Math.min(creatorH, colH - educatorMinH);
+  const splitY = y0 + creatorH;
+
   const creator: Rect = {
     x: rightX,
     y: y0,
     w: rightW,
-    h: Math.max(36, splitY - y0),
+    h: creatorH,
   };
 
   const educator: Rect = {
     x: rightX,
     y: splitY,
     w: rightW,
-    h: Math.max(36, y1 - splitY),
+    h: Math.max(educatorMinH, y1 - splitY),
   };
 
   return { builder, creator, educator };
@@ -495,14 +507,26 @@ function pointInRegion(p: { x: number; y: number }, region: Rect, inset = 4) {
   );
 }
 
+function isShortMotionPocket(region: Rect) {
+  return region.h < 96 || region.w < SIDE_COL_MIN_W;
+}
+
 function regionDistanceBounds(region: Rect) {
-  const narrowCol = region.w < SIDE_COL_MIN_W;
-  const minDist = narrowCol
-    ? Math.min(72, Math.max(16, region.w * 0.2))
+  const shortPocket = isShortMotionPocket(region);
+  const minDist = shortPocket
+    ? Math.min(
+        64,
+        Math.max(12, region.w * 0.14, region.h * 0.24, Math.min(region.w, region.h) * 0.17),
+      )
     : Math.min(90, Math.max(22, region.h * 0.28));
   const maxDist = Math.min(
     480,
-    Math.max(220, minDist + 48, region.w * 1.15, region.h * 0.75),
+    Math.max(
+      220,
+      minDist + 36,
+      region.w * 1.15,
+      region.h * (shortPocket ? 1.4 : 0.75),
+    ),
   );
   return { minDist, maxDist };
 }
@@ -601,13 +625,13 @@ function pickTarget(
     }
     if (hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) continue;
     if (from && straight) {
-      const pathKeep =
+      const inColumn =
         pickKeepOuts &&
         pointInRegion(from, region) &&
-        pointInRegion(p, region)
-          ? placementKeep
-          : pathKeepOuts;
-      if (!pathClear(from, p, pathKeep)) continue;
+        pointInRegion(p, region);
+      const pathKeep = inColumn ? placementKeep : pathKeepOuts;
+      const pathPad = inColumn && isShortMotionPocket(region) ? 4 : 8;
+      if (!pathClear(from, p, pathKeep, pathPad)) continue;
     }
     return p;
   }
