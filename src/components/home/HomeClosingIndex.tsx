@@ -83,12 +83,12 @@ function MobileStack() {
 
 function DesktopIndex() {
   return (
-    <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col min-h-inherit">
-      <div className="flex min-h-inherit flex-1 flex-col items-center justify-center gap-[clamp(2rem,6svh,4.5rem)] py-8 md:gap-[clamp(2.5rem,7svh,5rem)] md:py-10 lg:contents">
-        <div className="home-closing-index__primary flex w-full flex-col items-center justify-center lg:flex lg:flex-1 lg:py-12">
+    <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[clamp(0.75rem,3svh,2rem)] py-4 md:gap-[clamp(1rem,3.5svh,2.5rem)] md:py-5 lg:contents">
+        <div className="home-closing-index__primary flex w-full min-h-0 flex-col items-center justify-center lg:flex lg:flex-1 lg:py-4">
           <PrimaryRow />
         </div>
-        <div className="home-closing-index__nav w-full pb-[max(1.5rem,5svh)] pt-2 lg:w-auto">
+        <div className="home-closing-index__nav w-full shrink-0 pb-2 pt-1 lg:w-auto">
           <NavRow />
         </div>
       </div>
