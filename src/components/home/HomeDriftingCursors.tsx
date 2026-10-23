@@ -356,23 +356,46 @@ function remapMockY(mockY: number, layout: FooterLayout): number {
   return (mockY / MOCK_FOOTER_H) * layout.h;
 }
 
+const SIDE_COL_MIN_W = 180;
+
+function sideColumnWidths(layout: FooterLayout) {
+  const { w, gutter, contentLeft, contentRight } = layout;
+  let inset = 6;
+  let leftW = Math.max(0, contentLeft - gutter - inset);
+  if (leftW < SIDE_COL_MIN_W) {
+    const carve = Math.min(28, SIDE_COL_MIN_W - leftW);
+    inset = Math.max(0, inset - carve);
+    leftW = Math.max(0, contentLeft - gutter - inset + carve);
+  }
+
+  let rightInset = inset;
+  let rightX = contentRight + rightInset;
+  let rightW = Math.max(0, w - gutter - rightX);
+  if (rightW < SIDE_COL_MIN_W) {
+    const carve = Math.min(28, SIDE_COL_MIN_W - rightW);
+    rightX = Math.max(contentRight + 2, rightX - carve);
+    rightW = Math.max(0, w - gutter - rightX);
+  }
+
+  return {
+    leftW: Math.max(32, leftW),
+    rightX,
+    rightW: Math.max(32, rightW),
+  };
+}
+
 function liveRegions(layout: FooterLayout): Record<string, Rect> {
-  const { w, h, gutter, bandTop, bottomH, socialBottom, contentLeft, contentRight } =
-    layout;
+  const { h, gutter, bandTop, bottomH, socialBottom } = layout;
 
   const y0 = bandTop;
   const y1 = Math.min(h - bottomH, socialBottom + 20);
   const colH = Math.max(40, y1 - y0);
-  const inset = 6;
-
-  const leftW = Math.max(0, contentLeft - gutter - inset);
-  const rightX = contentRight + inset;
-  const rightW = Math.max(0, w - gutter - rightX);
+  const { leftW, rightX, rightW } = sideColumnWidths(layout);
 
   const builder: Rect = {
     x: gutter,
     y: y0,
-    w: Math.max(32, leftW),
+    w: leftW,
     h: colH,
   };
 
@@ -380,14 +403,14 @@ function liveRegions(layout: FooterLayout): Record<string, Rect> {
   const creator: Rect = {
     x: rightX,
     y: y0,
-    w: Math.max(48, rightW),
+    w: rightW,
     h: Math.max(36, splitY - y0),
   };
 
   const educator: Rect = {
     x: rightX,
     y: splitY,
-    w: Math.max(48, rightW),
+    w: rightW,
     h: Math.max(36, y1 - splitY),
   };
 
@@ -412,8 +435,20 @@ function clampToRegion(p: { x: number; y: number }, region: Rect) {
   };
 }
 
+function pointInRegion(p: { x: number; y: number }, region: Rect, inset = 4) {
+  return (
+    p.x >= region.x + inset &&
+    p.x <= region.x + region.w - inset &&
+    p.y >= region.y + inset &&
+    p.y <= region.y + region.h - inset
+  );
+}
+
 function regionDistanceBounds(region: Rect) {
-  const minDist = Math.min(90, Math.max(22, region.h * 0.28));
+  const narrowCol = region.w < SIDE_COL_MIN_W;
+  const minDist = narrowCol
+    ? Math.min(72, Math.max(16, region.w * 0.2))
+    : Math.min(90, Math.max(22, region.h * 0.28));
   const maxDist = Math.min(
     480,
     Math.max(220, minDist + 48, region.w * 1.15, region.h * 0.75),
@@ -421,23 +456,72 @@ function regionDistanceBounds(region: Rect) {
   return { minDist, maxDist };
 }
 
+function motionContentPads(layout: FooterLayout, w: number) {
+  const regions = liveRegions(layout);
+  const minColW = Math.min(
+    regions.builder?.w ?? 0,
+    regions.creator?.w ?? 0,
+    regions.educator?.w ?? 0,
+  );
+  const tight = w <= 820 || minColW < SIDE_COL_MIN_W;
+  if (tight) {
+    return { emailX: 40, emailY: 28, pillX: 24, pillY: 20 };
+  }
+  return { emailX: 72, emailY: 48, pillX: 40, pillY: 36 };
+}
+
+function isStructuralKeepOut(k: Rect, layout: FooterLayout, w: number) {
+  return (
+    k.y < layout.headerH + 1 ||
+    k.y > layout.h - layout.bottomH - 1 ||
+    k.x < layout.gutter + 1 ||
+    k.x + k.w > w - layout.gutter - 1
+  );
+}
+
+/** Motion pick tests: keep-outs that can affect this side column (not full-width email bleed). */
+function keepOutsForRegionPick(
+  region: Rect,
+  keepOuts: Rect[],
+  layout: FooterLayout,
+  w: number,
+) {
+  const probe = padRect(region, 20, 20);
+  return keepOuts.filter(
+    (k) => isStructuralKeepOut(k, layout, w) || rectsOverlap(probe, k),
+  );
+}
+
 function buildKeepOuts(footer: HTMLElement, w: number, h: number): Rect[] {
+  const layout = readFooterLayout(footer, w, h);
+  const pads = motionContentPads(layout, w);
   const fr = footer.getBoundingClientRect();
   const keep: Rect[] = [];
 
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   if (email) {
-    keep.push(padRect(toFooterLocal(email.getBoundingClientRect(), fr), 72, 48));
+    keep.push(
+      padRect(
+        toFooterLocal(email.getBoundingClientRect(), fr),
+        pads.emailX,
+        pads.emailY,
+      ),
+    );
   }
 
   const socialHits = footer.querySelectorAll<HTMLElement>(
     ".home-footer__social-pill",
   );
   for (const el of socialHits) {
-    keep.push(padRect(toFooterLocal(el.getBoundingClientRect(), fr), 40, 36));
+    keep.push(
+      padRect(
+        toFooterLocal(el.getBoundingClientRect(), fr),
+        pads.pillX,
+        pads.pillY,
+      ),
+    );
   }
 
-  const layout = readFooterLayout(footer, w, h);
   keep.push({ x: 0, y: 0, w, h: layout.headerH });
   keep.push({ x: 0, y: h - layout.bottomH, w, h: layout.bottomH });
   keep.push({ x: 0, y: 0, w: layout.gutter, h });
@@ -449,9 +533,11 @@ function buildKeepOuts(footer: HTMLElement, w: number, h: number): Rect[] {
 function pickTarget(
   region: Rect,
   from: { x: number; y: number } | null,
-  keepOuts: Rect[],
+  pathKeepOuts: Rect[],
   straight: boolean,
+  pickKeepOuts?: Rect[],
 ) {
+  const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const { minDist, maxDist } = regionDistanceBounds(region);
   for (let i = 0; i < 60; i += 1) {
     const p = {
@@ -462,8 +548,16 @@ function pickTarget(
       const d = Math.hypot(p.x - from.x, p.y - from.y);
       if (d < minDist || d > maxDist) continue;
     }
-    if (hitKeepOut(cursorBoxAt(p.x, p.y), keepOuts)) continue;
-    if (from && straight && !pathClear(from, p, keepOuts)) continue;
+    if (hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) continue;
+    if (from && straight) {
+      const pathKeep =
+        pickKeepOuts &&
+        pointInRegion(from, region) &&
+        pointInRegion(p, region)
+          ? placementKeep
+          : pathKeepOuts;
+      if (!pathClear(from, p, pathKeep)) continue;
+    }
     return p;
   }
   return from ?? clampToRegion({ x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 }, region);
@@ -475,10 +569,12 @@ function pickClearStart(
   layout: FooterLayout,
   def: CursorDef,
   narrow: boolean,
+  pickKeepOuts?: Rect[],
 ) {
+  const placementKeep = pickKeepOuts ?? keepOuts;
   for (let i = 0; i < 40; i += 1) {
-    const p = pickTarget(region, null, keepOuts, false);
-    if (!hitKeepOut(cursorBoxAt(p.x, p.y), keepOuts)) return p;
+    const p = pickTarget(region, null, keepOuts, false, placementKeep);
+    if (!hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) return p;
   }
   return staticPoseFor(def, layout, narrow, keepOuts);
 }
@@ -632,19 +728,25 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     const crossDef =
       CURSOR_DEFS[Math.floor(Math.random() * CURSOR_DEFS.length)] ?? def;
-    const region =
-      Math.random() < 0.15
-        ? regionForDef(crossDef, layout)
-        : regionForDef(def, layout);
+    const crossRegion = Math.random() < 0.15;
+    const region = crossRegion
+      ? regionForDef(crossDef, layout)
+      : regionForDef(def, layout);
+
+    const fullKeep = keepOutsRef.current;
+    const pickKeep = crossRegion
+      ? fullKeep
+      : keepOutsForRegionPick(region, fullKeep, layout, layout.w);
 
     let from = { x: state.leadX, y: state.leadY };
-    if (hitKeepOut(cursorBoxAt(from.x, from.y), keepOutsRef.current)) {
+    if (hitKeepOut(cursorBoxAt(from.x, from.y), pickKeep)) {
       from = pickClearStart(
         region,
-        keepOutsRef.current,
+        fullKeep,
         layout,
         def,
         isNarrowRef.current,
+        pickKeep,
       );
       state.leadX = from.x;
       state.leadY = from.y;
@@ -652,7 +754,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       state.y = from.y;
     }
 
-    const to = pickTarget(region, from, keepOutsRef.current, true);
+    const to = pickTarget(region, from, fullKeep, true, pickKeep);
     const d = Math.hypot(to.x - from.x, to.y - from.y);
     if (d < 4) {
       state.wait = randomBetween(0.4, 1);
@@ -675,9 +777,11 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     statesRef.current = CURSOR_DEFS.map((def, i) => {
       const region = regionForDef(def, layout);
+      const fullKeep = keepOutsRef.current;
+      const pickKeep = keepOutsForRegionPick(region, fullKeep, layout, layout.w);
       const p = animate
-        ? pickClearStart(region, keepOutsRef.current, layout, def, narrow)
-        : staticPoseFor(def, layout, narrow, keepOutsRef.current);
+        ? pickClearStart(region, fullKeep, layout, def, narrow, pickKeep)
+        : staticPoseFor(def, layout, narrow, fullKeep);
       return {
         x: p.x,
         y: p.y,
