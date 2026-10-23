@@ -1,3 +1,4 @@
+import { contactEmail } from "~site-links";
 import { socials, title } from "~shared";
 
 export function getPersonSchema(siteUrl: string) {
@@ -6,7 +7,7 @@ export function getPersonSchema(siteUrl: string) {
     "@type": "Person",
     name: title,
     url: siteUrl,
-    email: "send@krishg.com",
+    email: contactEmail,
     jobTitle: "Engineer, builder, educator",
     sameAs: [socials.x, socials.linkedin],
   };
