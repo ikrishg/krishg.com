@@ -42,6 +42,7 @@ export default defineConfig({
             ) {
               return "creating";
             }
+            return undefined;
           },
         },
       },
