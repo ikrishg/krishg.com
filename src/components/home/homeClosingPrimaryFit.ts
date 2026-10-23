@@ -13,6 +13,52 @@ const PRIMARY_FIT_OPTS = {
   maxSize: 160,
 };
 
+const PRIMARY_LINE_HEIGHT = 1.08;
+
+function readGapPx(element: HTMLElement | null) {
+  if (!element) return 0;
+  const gap = parseFloat(getComputedStyle(element).rowGap);
+  return Number.isFinite(gap) ? gap : 0;
+}
+
+/** Remaining block height for the three primary words inside the shared closing viewport. */
+function availablePrimaryHeightPx(row: HTMLElement) {
+  const index = row.closest<HTMLElement>(".home-closing-index");
+  if (!index || index.clientHeight <= 0) return null;
+
+  const nav = index.querySelector<HTMLElement>(".home-closing-index__nav");
+  const navHeight = nav?.getBoundingClientRect().height ?? 0;
+  const stack = row.parentElement?.parentElement ?? null;
+  const stackGap = readGapPx(stack);
+  const indexStyles = getComputedStyle(index);
+  const paddingBlock =
+    (parseFloat(indexStyles.paddingTop) || 0) +
+    (parseFloat(indexStyles.paddingBottom) || 0);
+
+  const reserved = navHeight + stackGap + paddingBlock + 12;
+  return Math.max(0, index.clientHeight - reserved);
+}
+
+function maxFontSizeForAvailableHeight(
+  row: HTMLElement,
+  linkCount: number,
+  availablePx: number,
+) {
+  if (availablePx <= 0) return PRIMARY_FIT_OPTS.minSize;
+  const flexDir = getComputedStyle(row).flexDirection;
+  if (flexDir === "row") {
+    return Math.min(
+      PRIMARY_FIT_OPTS.maxSize,
+      availablePx / PRIMARY_LINE_HEIGHT,
+    );
+  }
+
+  const rowGap = readGapPx(row);
+  const totalGap = rowGap * Math.max(0, linkCount - 1);
+  const perLine = (availablePx - totalGap) / (linkCount * PRIMARY_LINE_HEIGHT);
+  return Math.min(PRIMARY_FIT_OPTS.maxSize, perLine);
+}
+
 export type SharedPrimaryMeasure = {
   appliedPx: number;
   clampPx: number;
@@ -162,7 +208,19 @@ export function measureSharedPrimaryFontSize(
 
   const minFitPx = Math.min(...fitsPx);
   const clampPx = Math.max(...clampsPx);
-  const appliedPx = Math.max(clampPx, minFitPx);
+  let appliedPx = Math.max(clampPx, minFitPx);
+
+  const row = anchors[0]?.closest<HTMLElement>(".home-closing-primary-row");
+  const availableHeight = row ? availablePrimaryHeightPx(row) : null;
+  if (row && availableHeight != null && availableHeight > 0) {
+    const heightCap = maxFontSizeForAvailableHeight(
+      row,
+      links.length,
+      availableHeight,
+    );
+    appliedPx = Math.min(appliedPx, heightCap);
+  }
+  appliedPx = Math.max(PRIMARY_FIT_OPTS.minSize, appliedPx);
 
   const overflowsAtApplied: { label: string; excessPx: number }[] = [];
   const clampOverflows: { label: string; excessPx: number }[] = [];
@@ -262,6 +320,8 @@ export function useSharedPrimaryFontSize(
     for (const anchor of row.querySelectorAll(".home-closing-link--primary")) {
       ro.observe(anchor);
     }
+    const index = row.closest(".home-closing-index");
+    if (index) ro.observe(index);
 
     void document.fonts.ready.then(() => {
       if (!cancelled) remeasure();

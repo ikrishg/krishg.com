@@ -218,23 +218,34 @@ html[data-overscroll-reveal="true"] body.site-body {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: calc(100dvh - var(--home-nav-height));
+  min-height: calc(100svh - var(--home-nav-height));
+  min-height: calc(100lvh - var(--home-nav-height));
+  height: calc(100dvh - var(--home-nav-height));
+  height: calc(100svh - var(--home-nav-height));
+  height: calc(100lvh - var(--home-nav-height));
 }
 
 .home-closing-index {
   position: relative;
+  display: flex;
   flex: 1 1 auto;
-  min-height: calc(100svh - var(--home-nav-height));
-  min-height: calc(100lvh - var(--home-nav-height));
+  min-height: 0;
+  flex-direction: column;
   background-color: var(--home-closing-bg);
 }
 
 .home-closing-desktop {
-  min-height: inherit;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
 @media (width < 768px) {
   html[data-home-closing-layout="mobile-stack"] .home-closing-tail {
     min-height: 0;
+    height: auto;
     background-color: transparent;
   }
 
@@ -291,7 +302,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   width: 100%;
   max-width: var(--home-content-max);
   margin-inline: auto;
-  padding-block: 56px 52px;
+  padding-block: 24px 28px;
   box-sizing: border-box;
 }
 
@@ -299,7 +310,7 @@ html[data-overscroll-reveal="true"] body.site-body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   width: 100%;
   max-width: 100%;
 }
@@ -375,7 +386,8 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 .home-footer__social-pill {
   display: inline-flex;
-  min-height: 3.25rem;
+  min-height: 2.75rem;
+  max-height: 3.25rem;
   min-width: 2.75rem;
   align-items: center;
   justify-content: center;
