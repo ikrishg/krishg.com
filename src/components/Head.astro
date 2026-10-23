@@ -42,6 +42,8 @@ const canonicalHref = props.canonical
   ? String(props.canonical)
   : Astro.url.href;
 const personSchema = getPersonSchema(siteUrl.href);
+const ogImageAlt =
+  "Krish Gupta — builder, creator, and educator; portrait for krishg.com";
 const xHandle = new URL(shared.socials.x).pathname.replace(/^\//, "");
 ---
 
@@ -83,18 +85,18 @@ const xHandle = new URL(shared.socials.x).pathname.replace(/^\//, "");
 <meta property="og:image" content={new URL(image.src, shared.site)} />
 <meta property="og:image:width" content={image.width.toString()} />
 <meta property="og:image:height" content={image.height.toString()} />
+<meta property="og:image:alt" content={ogImageAlt} />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:url" content={Astro.url} />
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={new URL(image.src, siteUrl)} />
+<meta name="twitter:image:alt" content={ogImageAlt} />
 <meta name="twitter:creator" content={`@${xHandle}`} />
 <meta name="twitter:site" content={`@${xHandle}`} />
 
-<Font cssVariable="--font-space-grotesk" />
-<Font cssVariable="--font-inter-tight" />
-<Font cssVariable="--font-inter" />
+<Font cssVariable="--font-inter-tight" preload />
 <Font cssVariable="--font-newsreader" preload />
 
 <script type="application/ld+json" set:html={JSON.stringify(personSchema)} />

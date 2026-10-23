@@ -37,7 +37,7 @@ function trySplashActivate(
 }
 
 const primaryClass =
-  "home-closing-link home-closing-link--primary inline-block min-h-11 w-full max-w-full py-2 text-center font-[family-name:var(--font-inter-tight),var(--font-space-grotesk),system-ui,sans-serif] font-extrabold lowercase tracking-[-0.045em] underline underline-offset-[0.08em] decoration-[0.055em] transition-[color,opacity,text-decoration-thickness] duration-200 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
+  "home-closing-link home-closing-link--primary inline-block min-h-11 w-full max-w-full py-2 text-center font-[family-name:var(--font-inter-tight),system-ui,sans-serif] font-extrabold lowercase tracking-[-0.045em] underline underline-offset-[0.08em] decoration-[0.055em] transition-[color,opacity,text-decoration-thickness] duration-200 ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
 
 /** SSR fallback sizing; FitText refines after hydration without layout jump. */
 /** md–lg stacks primaries vertically; avoid the old 4rem floor that blew the shared viewport. */
@@ -47,10 +47,10 @@ const primaryFitClass =
 const mobileFitClass = "block max-w-full text-[clamp(1.5rem,7.2vw,2rem)]";
 
 const navClass =
-  "home-closing-link home-closing-link--nav inline-block min-h-11 py-2 font-[family-name:var(--font-inter),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.25rem,2.15vw,2rem)] font-normal lowercase tracking-[-0.02em] underline underline-offset-[0.18em] decoration-[0.07em] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
+  "home-closing-link home-closing-link--nav inline-block min-h-11 py-2 font-[family-name:var(--font-inter-tight),system-ui,sans-serif] text-[clamp(1.25rem,2.15vw,2rem)] font-medium lowercase tracking-[-0.02em] underline underline-offset-[0.18em] decoration-[0.07em] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
 
 const mobileBlockClass =
-  "home-closing-link home-closing-link--mobile box-border flex min-h-[calc((100svh-var(--home-nav-height))/6)] min-h-[calc((100lvh-var(--home-nav-height))/6)] w-full flex-1 items-center justify-center px-[var(--gutter)] py-4 text-center font-[family-name:var(--font-inter),var(--font-space-grotesk),system-ui,sans-serif] text-[clamp(1.5rem,7.2vw,2rem)] font-normal lowercase tracking-[-0.02em] underline decoration-[0.07em] underline-offset-[0.2em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]";
+  "home-closing-link home-closing-link--mobile box-border flex min-h-[calc((100svh-var(--home-nav-height))/6)] min-h-[calc((100lvh-var(--home-nav-height))/6)] w-full flex-1 items-center justify-center px-[var(--gutter)] py-4 text-center font-[family-name:var(--font-inter-tight),system-ui,sans-serif] text-[clamp(1.5rem,7.2vw,2rem)] font-medium lowercase tracking-[-0.02em] underline decoration-[0.07em] underline-offset-[0.2em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]";
 
 export default function HomeClosingLink({
   link,
