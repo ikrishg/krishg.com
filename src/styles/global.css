@@ -249,7 +249,8 @@ html[data-overscroll-reveal="true"] body.site-body {
 @media (width >= 768px) {
   .home-closing-tail {
     justify-content: center;
-    gap: 10px;
+    /* No flex gap — splash (z-40) must not show between opaque index/footer bands. */
+    gap: 0;
   }
 
   .home-closing-index {
@@ -257,6 +258,8 @@ html[data-overscroll-reveal="true"] body.site-body {
     position: relative;
     z-index: 46;
     isolation: isolate;
+    /* Replaces former tail gap; stays inside opaque index background. */
+    padding-bottom: 10px;
   }
 
   .home-closing-desktop {

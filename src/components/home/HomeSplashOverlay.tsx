@@ -418,9 +418,13 @@ export default function HomeSplashOverlay() {
   ]);
 
   useEffect(() => {
+    const host =
+      document.querySelector<HTMLElement>(".home-closing-tail") ??
+      document.body;
     const node = document.createElement("div");
     node.id = "home-splash-portal";
-    document.body.appendChild(node);
+    node.className = "home-splash-portal-host";
+    host.appendChild(node);
     setPortal(node);
     return () => {
       node.remove();
