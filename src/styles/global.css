@@ -441,6 +441,11 @@ html[data-overscroll-reveal="true"] body.site-body {
   animation: home-drifting-cursors-fade-in 200ms ease-out both;
 }
 
+.home-drifting-cursors--narrow {
+  transform: scale(0.9);
+  transform-origin: 0 0;
+}
+
 @keyframes home-drifting-cursors-fade-in {
   from {
     opacity: 0;
