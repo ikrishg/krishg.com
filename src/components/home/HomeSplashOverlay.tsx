@@ -33,6 +33,7 @@ function coverRadius(ox: number, oy: number): number {
 
 function readSplashMask(): SplashMask {
   if (typeof window === "undefined") return "circle";
+  if (!import.meta.env.DEV) return "circle";
   const value = new URLSearchParams(window.location.search).get("splashMask");
   return value === "organic" ? "organic" : "circle";
 }
@@ -281,6 +282,16 @@ export default function HomeSplashOverlay() {
     stateRef.current = "hiding";
     setInk(null);
     syncHtmlSplash(null);
+
+    const exitKey = keyRef.current;
+    if (exitKey) {
+      const exitColor = closingSplashHex[exitKey];
+      if (maskRef.current === "organic") {
+        organicPathRef.current?.setAttribute("fill", exitColor);
+      } else {
+        el.style.backgroundColor = exitColor;
+      }
+    }
 
     const finish = () => {
       resetOverlay();

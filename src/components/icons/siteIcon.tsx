@@ -18,7 +18,7 @@ export type SiteIconName =
   | "asterisk"
   | "arrow-up-right";
 
-export type SiteIconWeight = "bold" | "fill";
+export type SiteIconWeight = "bold";
 
 const ICONS: Record<SiteIconName, Icon> = {
   x: XLogo,
