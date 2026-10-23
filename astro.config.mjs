@@ -22,7 +22,26 @@ export default defineConfig({
       rollupOptions: {
         output: {
           manualChunks(id) {
-      weights: ["500", "600", "700", "800"],
+            if (
+              id.includes("/node_modules/react/") ||
+              id.includes("/node_modules/react-dom/") ||
+              id.includes("/node_modules/scheduler/")
+            ) {
+              return "react-vendor";
+            }
+            if (
+              id.includes("/node_modules/three/") ||
+              id.includes("/node_modules/@react-three/")
+            ) {
+              return "three-vendor";
+            }
+            if (id.includes("/node_modules/gsap/")) return "gsap";
+            if (
+              id.includes("/src/components/creating/") ||
+              id.includes("/src/lib/creating/")
+            ) {
+              return "creating";
+            }
           },
         },
       },
