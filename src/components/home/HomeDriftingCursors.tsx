@@ -255,14 +255,14 @@ function liveRegions(layout: FooterLayout): Record<string, Rect> {
   const colH = Math.max(40, y1 - y0);
   const inset = 6;
 
-  const leftW = contentLeft - gutter - inset;
+  const leftW = Math.max(0, contentLeft - gutter - inset);
   const rightX = contentRight + inset;
-  const rightW = w - gutter - rightX;
+  const rightW = Math.max(0, w - gutter - rightX);
 
   const builder: Rect = {
     x: gutter,
     y: y0,
-    w: Math.max(48, leftW),
+    w: Math.max(32, leftW),
     h: colH,
   };
 
@@ -382,22 +382,33 @@ function staticPoseFor(
   const region = regionForDef(def, layout);
   if (narrow) {
     const regions = liveRegions(layout);
-    const side =
-      (def.id === "builder"
-        ? regions.builder
-        : def.id === "educator"
-          ? regions.educator
-          : regions.creator) ?? region;
+    const left = regions.builder ?? region;
+    const rightLower = regions.educator ?? region;
+    const useLeftColumn =
+      def.id === "builder" ||
+      def.id === "educator" ||
+      left.w >= (regions.educator?.w ?? 0);
+    const side = useLeftColumn ? left : rightLower;
     const anchor = {
-      x: side.x + side.w * (def.id === "builder" ? 0.62 : 0.38),
-      y: side.y + side.h * (def.id === "educator" ? 0.55 : 0.28),
+      x: side.x + side.w * (def.id === "builder" ? 0.68 : 0.52),
+      y:
+        side.y +
+        side.h *
+          (def.id === "builder"
+            ? 0.22
+            : def.id === "educator"
+              ? 0.78
+              : 0.45),
     };
     const clamped = clampToRegion(anchor, side);
-    if (!hitKeepOut(cursorBoxAt(clamped.x, clamped.y), keepOuts)) return clamped;
-    return clampToRegion(
-      { x: side.x + side.w * 0.45, y: side.y + side.h * 0.4 },
-      side,
-    );
+    if (!hitKeepOut(cursorBoxAt(clamped.x, clamped.y, 12), keepOuts)) {
+      return clamped;
+    }
+    const fallbackY =
+      def.id === "educator"
+        ? side.y + side.h * 0.65
+        : side.y + side.h * 0.35;
+    return clampToRegion({ x: side.x + side.w * 0.5, y: fallbackY }, side);
   }
 
   const p = {
