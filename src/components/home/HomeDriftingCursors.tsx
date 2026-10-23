@@ -132,14 +132,37 @@ function cursorBoxInRegion(
   return { x: bx, y: by, w: bw, h: bh };
 }
 
-function anchorXRangeInRegion(region: Rect, boxW = DEFAULT_BOX_W) {
-  const minX = region.x + 10;
-  const maxX = region.x + region.w - (boxW - 4) - 10;
+function anchorXRangeInRegion(
+  region: Rect,
+  boxW = DEFAULT_BOX_W,
+  layout?: LandscapeLayout,
+) {
+  const edge = 10;
+  const minX = region.x + edge;
+  const maxX = region.x + region.w - (boxW - 4) - edge;
+  if (!layout || layout.w > 820) {
+    return { minX, maxX: Math.max(minX, maxX) };
+  }
+  const leftCol = region.x + region.w <= layout.contentLeft + 6;
+  const rightCol = region.x >= layout.contentRight - 6;
+  if (leftCol && maxX < minX) {
+    // Hug the outer gutter so wide tags stay left of center primaries.
+    const outerX = region.x + region.w - edge;
+    return { minX: outerX, maxX: outerX };
+  }
+  if (rightCol && maxX < minX) {
+    const outerX = region.x + edge;
+    return { minX: outerX, maxX: outerX };
+  }
   return { minX, maxX: Math.max(minX, maxX) };
 }
 
-function randomAnchorInRegion(region: Rect, boxW = DEFAULT_BOX_W) {
-  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+function randomAnchorInRegion(
+  region: Rect,
+  boxW = DEFAULT_BOX_W,
+  layout?: LandscapeLayout,
+) {
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
   return {
     x: randomBetween(minX, maxX),
     y: randomBetween(region.y + 8, region.y + region.h - 8),
@@ -518,12 +541,14 @@ function sixLandscapeRegions(
   let centerL = Math.max(gutter + 32, contentLeft - 14);
   let centerR = Math.min(w - gutter - 32, contentRight + 14);
   if (midWidth) {
-    centerL = gutter;
-    centerR = Math.max(contentRight + 6, w - gutter - 6);
+    // Shared-viewport tablet: keep full side gutters for measured tag boxes.
+    centerL = Math.max(gutter + 12, contentLeft - 10);
+    centerR = Math.min(w - gutter - 12, contentRight + 10);
   }
 
-  const leftW = Math.max(midWidth ? 72 : 56, centerL - gutter);
-  const rightW = Math.max(midWidth ? 72 : 56, w - gutter - centerR);
+  const minSideW = midWidth ? 96 : 56;
+  const leftW = Math.max(minSideW, centerL - gutter);
+  const rightW = Math.max(minSideW, w - gutter - centerR);
   const rightX = centerR;
 
   const totalH = Math.max(minPocketH * 3 + 8, y1 - y0);
@@ -565,8 +590,10 @@ function adjustRegionForClosing(
   region: Rect,
   belowRegion: Rect | undefined,
   closingKeepOuts: Rect[],
+  layout?: LandscapeLayout,
 ): Rect {
-  const minPocketH = CURSOR_BOX_H + 28;
+  const midWidth = layout ? layout.w <= 820 : false;
+  const minPocketH = midWidth ? CURSOR_BOX_H + 20 : CURSOR_BOX_H + 28;
   let floorY = region.y;
   for (const k of closingKeepOuts) {
     if (!keepOutOverlapsRegion(k, region, 4)) continue;
@@ -615,7 +642,7 @@ function regionForCursor(
     h: 40,
   };
   const below = columnBelowRegion(idx, regions);
-  return adjustRegionForClosing(base, below, closingKeepOuts);
+  return adjustRegionForClosing(base, below, closingKeepOuts, layout);
 }
 
 function seededUnit(seed: number, salt: number) {
@@ -623,8 +650,13 @@ function seededUnit(seed: number, salt: number) {
   return v - Math.floor(v);
 }
 
-function poseFromSeed(region: Rect, seed: number, boxW: number) {
-  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+function poseFromSeed(
+  region: Rect,
+  seed: number,
+  boxW: number,
+  layout?: LandscapeLayout,
+) {
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
   const spanX = Math.max(0, maxX - minX);
   const spanY = Math.max(0, region.h - 16);
   return {
@@ -656,8 +688,9 @@ function findClearAnchorInRegion(
   placementKeep: Rect[],
   boxW = DEFAULT_BOX_W,
   closingKeepOuts: Rect[] = [],
+  layout?: LandscapeLayout,
 ): { x: number; y: number } | null {
-  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
   for (let yi = 0; yi <= 16; yi += 1) {
     for (let xi = 0; xi <= 12; xi += 1) {
       const p = {
@@ -870,6 +903,7 @@ function forceLeadTarget(
   pickKeepOuts?: Rect[],
   boxW = DEFAULT_BOX_W,
   closingKeepOuts: Rect[] = [],
+  layout?: LandscapeLayout,
 ) {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const shortPocket = isShortMotionPocket(region);
@@ -877,7 +911,7 @@ function forceLeadTarget(
     shortPocket || region.w < SIDE_COL_MIN_W ? 3 : 6;
   let best: { x: number; y: number; d: number } | null = null;
 
-  const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+  const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
   for (let yi = 0; yi <= 12; yi += 1) {
     for (let xi = 0; xi <= 12; xi += 1) {
       const p = {
@@ -930,6 +964,7 @@ function pickTarget(
   pickKeepOuts?: Rect[],
   boxW = DEFAULT_BOX_W,
   closingKeepOuts: Rect[] = [],
+  layout?: LandscapeLayout,
 ): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const { minDist, maxDist } = regionDistanceBounds(region);
@@ -940,7 +975,7 @@ function pickTarget(
   for (let pass = 0; pass < passes; pass += 1) {
     const relaxMin = pass === 1;
     for (let i = 0; i < attempts; i += 1) {
-      const p = randomAnchorInRegion(region, boxW);
+      const p = randomAnchorInRegion(region, boxW, layout);
       if (from) {
         const d = Math.hypot(p.x - from.x, p.y - from.y);
         if (relaxMin) {
@@ -988,7 +1023,7 @@ function pickTarget(
   }
 
   if (from) {
-    const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+    const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
     const corners = [
       { x: minX, y: region.y + region.h * 0.22 },
       { x: maxX, y: region.y + region.h * 0.32 },
@@ -1042,12 +1077,13 @@ function pickTarget(
       pickKeepOuts,
       boxW,
       closingKeepOuts,
+      layout,
     );
     if (forced) return { x: forced.x, y: forced.y };
   }
 
   if (from) {
-    const { minX, maxX } = anchorXRangeInRegion(region, boxW);
+    const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
     const midX = minX + (maxX - minX) * 0.5;
     for (let yi = 0; yi <= 16; yi += 1) {
       const y = region.y + 10 + ((region.h - 20) * yi) / 16;
@@ -1084,6 +1120,7 @@ function pickTarget(
       placementKeep,
       boxW,
       closingKeepOuts,
+      layout,
     );
   }
   return null;
@@ -1110,6 +1147,7 @@ function pickClearStart(
       placementKeep,
       boxW,
       closingKeepOuts,
+      layout,
     );
     if (
       p &&
@@ -1152,6 +1190,7 @@ function pickClearStart(
     placementKeep,
     boxW,
     closingKeepOuts,
+    layout,
   );
 }
 
@@ -1170,7 +1209,7 @@ function staticPoseFor(
     return narrowStaticPoseFor(def, layout, roster);
   }
 
-  const p = poseFromSeed(region, def.poseSeed, def.boxW);
+  const p = poseFromSeed(region, def.poseSeed, def.boxW, layout);
   const clamped = clampToRegion(p, region);
   if (
     isPlacementClear(
@@ -1189,6 +1228,7 @@ function staticPoseFor(
     placementKeep,
     def.boxW,
     closingKeepOuts,
+    layout,
   );
 }
 
@@ -1394,6 +1434,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       pickKeep,
       def.boxW,
       closingKeep,
+      layout,
     );
     if (!to) {
       state.wait =
@@ -1409,6 +1450,7 @@ export default function HomeDriftingCursors({ className }: Props) {
         pickKeep,
         def.boxW,
         closingKeep,
+        layout,
       );
       if (forced) {
         to = { x: forced.x, y: forced.y };
