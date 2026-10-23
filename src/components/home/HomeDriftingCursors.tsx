@@ -46,6 +46,27 @@ type LandscapeLayout = FooterSliceLayout & {
   footerH: number;
 };
 
+/** Email + pill pads for placement/path (full tip+tag box @≤820). */
+type ChromeKeepContext = {
+  closing: Rect[];
+  contact: Rect[];
+  layout?: LandscapeLayout;
+};
+
+function chromeCtx(
+  closing: Rect[],
+  contact: Rect[],
+  layout?: LandscapeLayout | null,
+): ChromeKeepContext {
+  const ctx: ChromeKeepContext = { closing, contact };
+  if (layout != null) ctx.layout = layout;
+  return ctx;
+}
+
+function midWidthHardContact(ctx: ChromeKeepContext) {
+  return ctx.layout != null && ctx.layout.w <= 820;
+}
+
 type CursorDef = EasterEggCursorDef;
 
 type StudioCursorState = {
@@ -336,16 +357,19 @@ function hitsPlacementKeeps(
   region: Rect | undefined,
   boxW: number,
   keepOuts: Rect[],
-  closingKeepOuts: Rect[],
+  ctx: ChromeKeepContext,
   pad = 0,
 ) {
-  const closingSet = new Set(closingKeepOuts);
+  const closingSet = new Set(ctx.closing);
+  const contactSet = new Set(ctx.contact);
+  const hardContact = midWidthHardContact(ctx);
   const clipped = region
     ? cursorBoxInRegion(x, y, region, pad, boxW)
     : cursorBoxAt(x, y, pad, boxW);
   const full = cursorBoxAt(x, y, pad, boxW);
   for (const k of keepOuts) {
-    const box = closingSet.has(k) ? full : clipped;
+    const box =
+      closingSet.has(k) || (hardContact && contactSet.has(k)) ? full : clipped;
     if (rectsOverlap(box, k)) return true;
   }
   return false;
@@ -358,7 +382,7 @@ function pathClear(
   samplePad = 8,
   region?: Rect,
   boxW = DEFAULT_BOX_W,
-  closingKeepOuts: Rect[] = [],
+  ctx: ChromeKeepContext = chromeCtx([], []),
 ) {
   const fromInside = hitsPlacementKeeps(
     from.x,
@@ -366,7 +390,7 @@ function pathClear(
     region,
     boxW,
     keepOuts,
-    closingKeepOuts,
+    ctx,
     samplePad,
   );
   const startSample = fromInside ? 1 : 0;
@@ -374,17 +398,7 @@ function pathClear(
     const t = i / 24;
     const x = from.x + (to.x - from.x) * t;
     const y = from.y + (to.y - from.y) * t;
-    if (
-      hitsPlacementKeeps(
-        x,
-        y,
-        region,
-        boxW,
-        keepOuts,
-        closingKeepOuts,
-        samplePad,
-      )
-    ) {
+    if (hitsPlacementKeeps(x, y, region, boxW, keepOuts, ctx, samplePad)) {
       return false;
     }
   }
@@ -538,6 +552,10 @@ function sixLandscapeRegions(
     y0 = Math.max(y0, stackBottom + (midWidth ? 10 : 8));
   }
 
+  if (midWidth && layout.emailTop > y0 + minPocketH) {
+    y1 = Math.min(y1, layout.emailTop - 10);
+  }
+
   let centerL = Math.max(gutter + 32, contentLeft - 14);
   let centerR = Math.min(w - gutter - 32, contentRight + 14);
   if (midWidth) {
@@ -671,23 +689,16 @@ function isPlacementClear(
   region: Rect,
   placementKeep: Rect[],
   boxW = DEFAULT_BOX_W,
-  closingKeepOuts: Rect[] = [],
+  ctx: ChromeKeepContext = chromeCtx([], []),
 ) {
-  return !hitsPlacementKeeps(
-    x,
-    y,
-    region,
-    boxW,
-    placementKeep,
-    closingKeepOuts,
-  );
+  return !hitsPlacementKeeps(x, y, region, boxW, placementKeep, ctx);
 }
 
 function findClearAnchorInRegion(
   region: Rect,
   placementKeep: Rect[],
   boxW = DEFAULT_BOX_W,
-  closingKeepOuts: Rect[] = [],
+  ctx: ChromeKeepContext = chromeCtx([], []),
   layout?: LandscapeLayout,
 ): { x: number; y: number } | null {
   const { minX, maxX } = anchorXRangeInRegion(region, boxW, layout);
@@ -697,16 +708,7 @@ function findClearAnchorInRegion(
         x: minX + ((maxX - minX) * xi) / 12,
         y: region.y + 8 + ((region.h - 16) * yi) / 16,
       };
-      if (
-        isPlacementClear(
-          p.x,
-          p.y,
-          region,
-          placementKeep,
-          boxW,
-          closingKeepOuts,
-        )
-      ) {
+      if (isPlacementClear(p.x, p.y, region, placementKeep, boxW, ctx)) {
         return p;
       }
     }
@@ -806,7 +808,17 @@ function keepOutsForRegionPick(
   layout: LandscapeLayout,
   w: number,
   closingKeepOuts: Rect[] = [],
+  contactKeepOuts: Rect[] = [],
 ) {
+  if (w <= 820) {
+    const structural = keepOuts.filter((k) =>
+      isStructuralKeepOut(k, layout, w),
+    );
+    const closing = closingKeepOuts.filter((k) =>
+      keepOutOverlapsRegion(k, region),
+    );
+    return [...structural, ...contactKeepOuts, ...closing];
+  }
   if (isSideWalkColumn(region, layout)) {
     const structural = keepOuts.filter((k) =>
       isStructuralKeepOut(k, layout, w),
@@ -831,6 +843,7 @@ function keepOutsForRegionPick(
 type KeepOutBundle = {
   all: Rect[];
   closing: Rect[];
+  contact: Rect[];
 };
 
 function buildKeepOuts(
@@ -843,29 +856,30 @@ function buildKeepOuts(
   const tr = tail.getBoundingClientRect();
   const keep: Rect[] = [];
   const closing: Rect[] = [];
+  const contact: Rect[] = [];
 
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   if (email) {
-    keep.push(
-      padRect(
-        toContainerLocal(email.getBoundingClientRect(), tr),
-        pads.emailX,
-        pads.emailY,
-      ),
+    const box = padRect(
+      toContainerLocal(email.getBoundingClientRect(), tr),
+      pads.emailX,
+      pads.emailY,
     );
+    keep.push(box);
+    contact.push(box);
   }
 
   const socialHits = footer.querySelectorAll<HTMLElement>(
     ".home-footer__social-pill",
   );
   for (const el of socialHits) {
-    keep.push(
-      padRect(
-        toContainerLocal(el.getBoundingClientRect(), tr),
-        pads.pillX,
-        pads.pillY,
-      ),
+    const box = padRect(
+      toContainerLocal(el.getBoundingClientRect(), tr),
+      pads.pillX,
+      pads.pillY,
     );
+    keep.push(box);
+    contact.push(box);
   }
 
   tail.querySelectorAll<HTMLElement>(".home-closing-link--primary").forEach(
@@ -893,7 +907,7 @@ function buildKeepOuts(
   keep.push({ x: 0, y: 0, w: layout.gutter, h });
   keep.push({ x: w - layout.gutter, y: 0, w: layout.gutter, h });
 
-  return { all: keep, closing };
+  return { all: keep, closing, contact };
 }
 
 function forceLeadTarget(
@@ -902,7 +916,7 @@ function forceLeadTarget(
   pathKeepOuts: Rect[],
   pickKeepOuts?: Rect[],
   boxW = DEFAULT_BOX_W,
-  closingKeepOuts: Rect[] = [],
+  ctx: ChromeKeepContext = chromeCtx([], []),
   layout?: LandscapeLayout,
 ) {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
@@ -919,14 +933,7 @@ function forceLeadTarget(
         y: region.y + 8 + ((region.h - 16) * yi) / 12,
       };
       if (
-        hitsPlacementKeeps(
-          p.x,
-          p.y,
-          region,
-          boxW,
-          placementKeep,
-          closingKeepOuts,
-        )
+        hitsPlacementKeeps(p.x, p.y, region, boxW, placementKeep, ctx)
       ) {
         continue;
       }
@@ -943,7 +950,7 @@ function forceLeadTarget(
           pathPad,
           inColumn ? region : undefined,
           boxW,
-          closingKeepOuts,
+          ctx,
         )
       ) {
         continue;
@@ -963,9 +970,9 @@ function pickTarget(
   straight: boolean,
   pickKeepOuts?: Rect[],
   boxW = DEFAULT_BOX_W,
-  closingKeepOuts: Rect[] = [],
-  layout?: LandscapeLayout,
+  ctx: ChromeKeepContext = chromeCtx([], []),
 ): { x: number; y: number } | null {
+  const layout = ctx.layout;
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const { minDist, maxDist } = regionDistanceBounds(region);
   const shortPocket = isShortMotionPocket(region);
@@ -984,16 +991,7 @@ function pickTarget(
           continue;
         }
       }
-      if (
-        hitsPlacementKeeps(
-          p.x,
-          p.y,
-          region,
-          boxW,
-          placementKeep,
-          closingKeepOuts,
-        )
-      ) {
+      if (hitsPlacementKeeps(p.x, p.y, region, boxW, placementKeep, ctx)) {
         continue;
       }
       if (from && straight) {
@@ -1012,7 +1010,7 @@ function pickTarget(
             pathPad,
             inColumn ? region : undefined,
             boxW,
-            closingKeepOuts,
+            ctx,
           )
         ) {
           continue;
@@ -1041,7 +1039,7 @@ function pickTarget(
           region,
           boxW,
           placementKeep,
-          closingKeepOuts,
+          ctx,
         )
       ) {
         continue;
@@ -1060,7 +1058,7 @@ function pickTarget(
           pathPad,
           inColumn ? region : undefined,
           boxW,
-          closingKeepOuts,
+          ctx,
         )
       ) {
         continue;
@@ -1076,7 +1074,7 @@ function pickTarget(
       pathKeepOuts,
       pickKeepOuts,
       boxW,
-      closingKeepOuts,
+      ctx,
       layout,
     );
     if (forced) return { x: forced.x, y: forced.y };
@@ -1088,23 +1086,12 @@ function pickTarget(
     for (let yi = 0; yi <= 16; yi += 1) {
       const y = region.y + 10 + ((region.h - 20) * yi) / 16;
       const p = { x: midX, y };
-      if (
-        hitsPlacementKeeps(
-          p.x,
-          p.y,
-          region,
-          boxW,
-          placementKeep,
-          closingKeepOuts,
-        )
-      ) {
+      if (hitsPlacementKeeps(p.x, p.y, region, boxW, placementKeep, ctx)) {
         continue;
       }
       const d = Math.hypot(p.x - from.x, p.y - from.y);
       if (d < 8) continue;
-      if (
-        pathClear(from, p, placementKeep, 4, region, boxW, closingKeepOuts)
-      ) {
+      if (pathClear(from, p, placementKeep, 4, region, boxW, ctx)) {
         return p;
       }
     }
@@ -1119,7 +1106,7 @@ function pickTarget(
       region,
       placementKeep,
       boxW,
-      closingKeepOuts,
+      ctx,
       layout,
     );
   }
@@ -1133,7 +1120,7 @@ function pickClearStart(
   def: CursorDef,
   narrow: boolean,
   pickKeepOuts?: Rect[],
-  closingKeepOuts: Rect[] = [],
+  ctx: ChromeKeepContext = chromeCtx([], []),
   roster: CursorDef[] = [],
 ): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? keepOuts;
@@ -1146,20 +1133,9 @@ function pickClearStart(
       false,
       placementKeep,
       boxW,
-      closingKeepOuts,
-      layout,
+      ctx,
     );
-    if (
-      p &&
-      isPlacementClear(
-        p.x,
-        p.y,
-        region,
-        placementKeep,
-        boxW,
-        closingKeepOuts,
-      )
-    ) {
+    if (p && isPlacementClear(p.x, p.y, region, placementKeep, boxW, ctx)) {
       return p;
     }
   }
@@ -1168,30 +1144,17 @@ function pickClearStart(
     layout,
     narrow,
     keepOuts,
-    closingKeepOuts,
+    ctx,
     placementKeep,
     roster,
   );
   if (
     fallback &&
-    isPlacementClear(
-      fallback.x,
-      fallback.y,
-      region,
-      placementKeep,
-      boxW,
-      closingKeepOuts,
-    )
+    isPlacementClear(fallback.x, fallback.y, region, placementKeep, boxW, ctx)
   ) {
     return fallback;
   }
-  return findClearAnchorInRegion(
-    region,
-    placementKeep,
-    boxW,
-    closingKeepOuts,
-    layout,
-  );
+  return findClearAnchorInRegion(region, placementKeep, boxW, ctx, layout);
 }
 
 function staticPoseFor(
@@ -1199,11 +1162,11 @@ function staticPoseFor(
   layout: LandscapeLayout,
   narrow: boolean,
   keepOuts: Rect[] = [],
-  closingKeepOuts: Rect[] = [],
+  ctx: ChromeKeepContext = chromeCtx([], []),
   pickKeepOuts?: Rect[],
   roster: CursorDef[] = [],
 ): { x: number; y: number } | null {
-  const region = regionForCursor(def, layout, closingKeepOuts);
+  const region = regionForCursor(def, layout, ctx.closing);
   const placementKeep = pickKeepOuts ?? keepOuts;
   if (narrow) {
     return narrowStaticPoseFor(def, layout, roster);
@@ -1211,25 +1174,10 @@ function staticPoseFor(
 
   const p = poseFromSeed(region, def.poseSeed, def.boxW, layout);
   const clamped = clampToRegion(p, region);
-  if (
-    isPlacementClear(
-      clamped.x,
-      clamped.y,
-      region,
-      placementKeep,
-      def.boxW,
-      closingKeepOuts,
-    )
-  ) {
+  if (isPlacementClear(clamped.x, clamped.y, region, placementKeep, def.boxW, ctx)) {
     return clamped;
   }
-  return findClearAnchorInRegion(
-    region,
-    placementKeep,
-    def.boxW,
-    closingKeepOuts,
-    layout,
-  );
+  return findClearAnchorInRegion(region, placementKeep, def.boxW, ctx, layout);
 }
 
 function driftingCursorsMotionEnabled() {
@@ -1299,6 +1247,14 @@ export default function HomeDriftingCursors({ className }: Props) {
   const layoutRef = useRef<LandscapeLayout | null>(null);
   const keepOutsRef = useRef<Rect[]>([]);
   const closingKeepOutsRef = useRef<Rect[]>([]);
+  const contactKeepOutsRef = useRef<Rect[]>([]);
+
+  const keepChromeCtx = (layout: LandscapeLayout | null): ChromeKeepContext =>
+    chromeCtx(
+      closingKeepOutsRef.current,
+      contactKeepOutsRef.current,
+      layout,
+    );
   const statesRef = useRef<StudioCursorState[]>([]);
   const rafRef = useRef(0);
   const lastFrameMsRef = useRef(0);
@@ -1371,6 +1327,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       roster[Math.floor(Math.random() * roster.length)] ?? def;
     const crossRegion = layout.w > 820 && Math.random() < 0.15;
     const closingKeep = closingKeepOutsRef.current;
+    const ctx = keepChromeCtx(layout);
     const region = crossRegion
       ? regionForCursor(crossDef, layout, closingKeep)
       : regionForCursor(def, layout, closingKeep);
@@ -1383,19 +1340,13 @@ export default function HomeDriftingCursors({ className }: Props) {
           fullKeep,
           layout,
           layout.w,
-          closingKeepOutsRef.current,
+          closingKeep,
+          contactKeepOutsRef.current,
         );
 
     let from = { x: state.leadX, y: state.leadY };
     if (
-      hitsPlacementKeeps(
-        from.x,
-        from.y,
-        region,
-        def.boxW,
-        pickKeep,
-        closingKeep,
-      )
+      hitsPlacementKeeps(from.x, from.y, region, def.boxW, pickKeep, ctx)
     ) {
       const start = pickClearStart(
         region,
@@ -1404,7 +1355,7 @@ export default function HomeDriftingCursors({ className }: Props) {
         def,
         isNarrowRef.current,
         pickKeep,
-        closingKeep,
+        ctx,
         roster,
       );
       if (!start) {
@@ -1426,16 +1377,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       state.y = from.y;
     }
 
-    let to = pickTarget(
-      region,
-      from,
-      fullKeep,
-      true,
-      pickKeep,
-      def.boxW,
-      closingKeep,
-      layout,
-    );
+    let to = pickTarget(region, from, fullKeep, true, pickKeep, def.boxW, ctx);
     if (!to) {
       state.wait =
         layout.w <= 820 ? randomBetween(0.1, 0.28) : randomBetween(0.4, 1);
@@ -1449,7 +1391,7 @@ export default function HomeDriftingCursors({ className }: Props) {
         fullKeep,
         pickKeep,
         def.boxW,
-        closingKeep,
+        ctx,
         layout,
       );
       if (forced) {
@@ -1480,6 +1422,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     const hiddenIdx = new Set<number>();
     const closingKeep = closingKeepOutsRef.current;
+    const ctx = keepChromeCtx(layout);
     statesRef.current = roster.map((def, i) => {
       const region = regionForCursor(def, layout, closingKeep);
       const fullKeep = keepOutsRef.current;
@@ -1489,6 +1432,7 @@ export default function HomeDriftingCursors({ className }: Props) {
         layout,
         layout.w,
         closingKeep,
+        contactKeepOutsRef.current,
       );
       const p = animate
         ? pickClearStart(
@@ -1498,7 +1442,7 @@ export default function HomeDriftingCursors({ className }: Props) {
             def,
             narrow,
             pickKeep,
-            closingKeep,
+            ctx,
             roster,
           )
         : staticPoseFor(
@@ -1506,7 +1450,7 @@ export default function HomeDriftingCursors({ className }: Props) {
             layout,
             narrow,
             fullKeep,
-            closingKeep,
+            ctx,
             pickKeep,
             roster,
           );
@@ -1619,6 +1563,7 @@ export default function HomeDriftingCursors({ className }: Props) {
 
         if (layout && !state.seg && state.stillLeadSec > 2.1) {
           const closingKeep = closingKeepOutsRef.current;
+          const ctx = keepChromeCtx(layout);
           const region = regionForCursor(def, layout, closingKeep);
           const fullKeep = keepOutsRef.current;
           const pickKeep = keepOutsForRegionPick(
@@ -1627,6 +1572,7 @@ export default function HomeDriftingCursors({ className }: Props) {
             layout,
             layout.w,
             closingKeep,
+            contactKeepOutsRef.current,
           );
           const p = pickClearStart(
             region,
@@ -1635,7 +1581,7 @@ export default function HomeDriftingCursors({ className }: Props) {
             def,
             isNarrowRef.current,
             pickKeep,
-            closingKeep,
+            ctx,
             roster,
           );
           state.stillLeadSec = 0;
@@ -1674,6 +1620,60 @@ export default function HomeDriftingCursors({ className }: Props) {
         state.vy += (SPRING_K * (targetY - state.y) - SPRING_C * state.vy) * dt;
         state.x += state.vx * dt;
         state.y += state.vy * dt;
+
+        if (layout && layout.w <= 820 && contactKeepOutsRef.current.length > 0) {
+          const ctx = keepChromeCtx(layout);
+          const region = regionForCursor(def, layout, closingKeepOutsRef.current);
+          const box = cursorBoxAt(state.x, state.y, 2, def.boxW);
+          const onContact = contactKeepOutsRef.current.some((k) =>
+            rectsOverlap(box, k),
+          );
+          if (
+            onContact ||
+            hitsPlacementKeeps(
+              state.leadX,
+              state.leadY,
+              region,
+              def.boxW,
+              keepOutsRef.current,
+              ctx,
+              2,
+            )
+          ) {
+            state.seg = null;
+            state.stillLeadSec = 0;
+            state.wait = randomBetween(0.05, 0.2);
+            const start = pickClearStart(
+              region,
+              keepOutsRef.current,
+              layout,
+              def,
+              isNarrowRef.current,
+              keepOutsForRegionPick(
+                region,
+                keepOutsRef.current,
+                layout,
+                layout.w,
+                closingKeepOutsRef.current,
+                contactKeepOutsRef.current,
+              ),
+              ctx,
+              roster,
+            );
+            if (!start) {
+              state.hidden = true;
+              setMotionHidden((prev) => new Set(prev).add(i));
+              continue;
+            }
+            state.hidden = false;
+            state.leadX = start.x;
+            state.leadY = start.y;
+            state.x = start.x;
+            state.y = start.y;
+            state.vx = 0;
+            state.vy = 0;
+          }
+        }
 
         putCursor(i, state.x, state.y);
       }
@@ -1726,6 +1726,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       const keepBundle = buildKeepOuts(tail, footer, layoutRef.current);
       keepOutsRef.current = keepBundle.all;
       closingKeepOutsRef.current = keepBundle.closing;
+      contactKeepOutsRef.current = keepBundle.contact;
 
       if (tiny) {
         stopLoop();
