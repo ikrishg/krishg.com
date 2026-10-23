@@ -254,6 +254,10 @@ html[data-overscroll-reveal="true"] body.site-body {
     font-weight: 400;
   }
 
+  .home-closing-link--mobile:active {
+    filter: brightness(0.96);
+  }
+
   .home-navbar .home-logo__svg path {
     stroke-width: 4.15;
   }
@@ -273,6 +277,8 @@ html[data-overscroll-reveal="true"] body.site-body {
 .home-footer {
   position: relative;
   min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .home-footer__layout {
@@ -433,7 +439,7 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 /* A. Studio drifting cursors (footer island) */
 .home-drifting-cursors {
-  z-index: 50;
+  z-index: 1;
   opacity: 1;
 }
 
