@@ -1,17 +1,95 @@
 ---
+import creatingDemo from "../data/creating-demo.json";
+import CreatingGallery from "~components/creating/CreatingGallery.tsx";
+import HomeFooter from "~components/home/HomeFooter.astro";
 import RootLayout from "~layouts/RootLayout.astro";
-import StubPage from "~components/StubPage.astro";
+import type { CreatingEntry } from "~lib/creating/types";
+import "~styles/creating.css";
+
+const entries = (creatingDemo.entries as CreatingEntry[]).sort(
+  (a, b) => a.order - b.order,
+);
 ---
 
 <RootLayout
   head={{
-    title: "The atelier — Krish Gupta",
-    description: "Leaving a poetic imprint.",
+    title: "Creating — Krish Gupta",
+    description: "A gallery of poetry, prose, photography, paintings, and design.",
   }}
   pageAccent="creator"
+  homeIntro="skip"
+  class="creating-root"
 >
-  <StubPage
-    title="The atelier"
-    description="Leaving a poetic imprint."
-  />
+  <script is:inline>
+    (() => {
+      try {
+        const root = document.documentElement;
+        root.dataset.creatingPage = "true";
+        root.dataset.introSkip = "1";
+        root.dataset.introPhase = "ready";
+        delete root.dataset.logoMorph;
+        root.dataset.pageAccent = "creator";
+      } catch {
+        /* ignore */
+      }
+    })();
+  </script>
+  <div class="creating-layout">
+    <section
+      class="creating-stage"
+      aria-label="Creating gallery"
+      data-home-nav-theme="creator"
+      data-lenis-prevent
+    >
+      <CreatingGallery client:only="react" entries={entries} />
+    </section>
+    <HomeFooter />
+  </div>
 </RootLayout>
+
+<style is:global>
+  html[data-creating-page][data-page-accent="creator"] {
+    --home-canvas: #e7ddcc;
+    color: #141a2b;
+    --home-nav-bg: #b94a3f;
+    --home-nav-fg: #fff8ea;
+    --home-nav-logo: #fff8ea;
+    --home-nav-muted: color-mix(in srgb, #fff8ea 70%, #b94a3f);
+  }
+
+  html[data-creating-page] .home-page-loader {
+    display: none !important;
+  }
+
+  html[data-creating-page] .home-navbar,
+  html[data-creating-page] .home-navbar[data-scrolled="true"] {
+    background-color: #b94a3f !important;
+    color: #fff8ea !important;
+    box-shadow: 0 1px 0 color-mix(in srgb, #fff8ea 14%, transparent);
+  }
+
+  html[data-creating-page] .home-navbar .home-logo {
+    color: #fff8ea !important;
+    visibility: visible !important;
+  }
+
+  .creating-root {
+    overflow-x: clip;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .creating-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100lvh - var(--home-nav-height));
+  }
+
+  .creating-stage {
+    position: relative;
+    flex: none;
+    height: calc(100lvh - var(--home-nav-height));
+    height: calc(100svh - var(--home-nav-height));
+    min-height: 28rem;
+  }
+</style>
