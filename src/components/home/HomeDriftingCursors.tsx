@@ -135,6 +135,50 @@ function cursorBoxAt(x: number, y: number, pad = 0): Rect {
   };
 }
 
+/** Clip pointer+tag box to a walk column so wide tags do not false-hit center keep-outs. */
+function cursorBoxInRegion(
+  x: number,
+  y: number,
+  region: Rect,
+  pad = 0,
+): Rect {
+  const box = cursorBoxAt(x, y, pad);
+  let { x: bx, y: by, w: bw, h: bh } = box;
+  const left = region.x;
+  const right = region.x + region.w;
+  const top = region.y;
+  const bottom = region.y + region.h;
+  if (bx < left) {
+    bw -= left - bx;
+    bx = left;
+  }
+  if (by < top) {
+    bh -= top - by;
+    by = top;
+  }
+  if (bx + bw > right) {
+    bw = Math.max(20, right - bx);
+  }
+  if (by + bh > bottom) {
+    bh = Math.max(20, bottom - by);
+  }
+  return { x: bx, y: by, w: bw, h: bh };
+}
+
+function anchorXRangeInRegion(region: Rect) {
+  const minX = region.x + 10;
+  const maxX = region.x + region.w - (CURSOR_BOX_W - 4) - 10;
+  return { minX, maxX: Math.max(minX, maxX) };
+}
+
+function randomAnchorInRegion(region: Rect) {
+  const { minX, maxX } = anchorXRangeInRegion(region);
+  return {
+    x: randomBetween(minX, maxX),
+    y: randomBetween(region.y + 8, region.y + region.h - 8),
+  };
+}
+
 /** Pointer + tag bounds for narrow static (root scale 0.9). */
 function narrowStaticCursorBoxAt(x: number, y: number, pad = 0): Rect {
   const sx = x * NARROW_ROOT_SCALE;
@@ -295,14 +339,18 @@ function pathClear(
   to: { x: number; y: number },
   keepOuts: Rect[],
   samplePad = 8,
+  region?: Rect,
 ) {
-  const fromInside = hitKeepOut(cursorBoxAt(from.x, from.y, samplePad), keepOuts);
+  const boxAt = region
+    ? (x: number, y: number, pad: number) => cursorBoxInRegion(x, y, region, pad)
+    : (x: number, y: number, pad: number) => cursorBoxAt(x, y, pad);
+  const fromInside = hitKeepOut(boxAt(from.x, from.y, samplePad), keepOuts);
   const startSample = fromInside ? 1 : 0;
   for (let i = startSample; i <= 24; i += 1) {
     const t = i / 24;
     const x = from.x + (to.x - from.x) * t;
     const y = from.y + (to.y - from.y) * t;
-    if (hitKeepOut(cursorBoxAt(x, y, samplePad), keepOuts)) return false;
+    if (hitKeepOut(boxAt(x, y, samplePad), keepOuts)) return false;
   }
   return true;
 }
@@ -539,7 +587,7 @@ function regionDistanceBounds(region: Rect) {
       220,
       minDist + 32,
       region.w * 1.15,
-      region.h * (shortPocket ? 1.9 : 0.75),
+      region.h * (shortPocket ? 2.15 : 0.75),
       tallNarrow ? region.h * 1.05 : 0,
     ),
   );
@@ -573,12 +621,21 @@ function isStructuralKeepOut(k: Rect, layout: FooterLayout, w: number) {
 }
 
 /** Motion pick tests: keep-outs that can affect this side column (not full-width email bleed). */
+function isSideWalkColumn(region: Rect, layout: FooterLayout) {
+  const leftEdge = region.x + region.w <= layout.contentLeft + 14;
+  const rightEdge = region.x >= layout.contentRight - 14;
+  return leftEdge || rightEdge;
+}
+
 function keepOutsForRegionPick(
   region: Rect,
   keepOuts: Rect[],
   layout: FooterLayout,
   w: number,
 ) {
+  if (isSideWalkColumn(region, layout)) {
+    return keepOuts.filter((k) => isStructuralKeepOut(k, layout, w));
+  }
   const probe = padRect(region, 14, 14);
   return keepOuts.filter((k) => {
     if (isStructuralKeepOut(k, layout, w)) return true;
@@ -641,19 +698,24 @@ function forceLeadTarget(
     shortPocket || region.w < SIDE_COL_MIN_W ? 3 : 6;
   let best: { x: number; y: number; d: number } | null = null;
 
+  const { minX, maxX } = anchorXRangeInRegion(region);
   for (let yi = 0; yi <= 12; yi += 1) {
     for (let xi = 0; xi <= 12; xi += 1) {
       const p = {
-        x: region.x + 8 + ((region.w - 16) * xi) / 12,
+        x: minX + ((maxX - minX) * xi) / 12,
         y: region.y + 8 + ((region.h - 16) * yi) / 12,
       };
-      if (hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) continue;
+      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) {
+        continue;
+      }
       const inColumn =
         pickKeepOuts &&
         pointInRegion(from, region) &&
         pointInRegion(p, region);
       const pathKeep = inColumn ? placementKeep : pathKeepOuts;
-      if (!pathClear(from, p, pathKeep, pathPad)) continue;
+      if (!pathClear(from, p, pathKeep, pathPad, inColumn ? region : undefined)) {
+        continue;
+      }
       const d = Math.hypot(p.x - from.x, p.y - from.y);
       if (d < 6) continue;
       if (!best || d > best.d) best = { x: p.x, y: p.y, d };
@@ -678,10 +740,7 @@ function pickTarget(
   for (let pass = 0; pass < passes; pass += 1) {
     const relaxMin = pass === 1;
     for (let i = 0; i < attempts; i += 1) {
-      const p = {
-        x: randomBetween(region.x + 6, region.x + region.w - 6),
-        y: randomBetween(region.y + 6, region.y + region.h - 6),
-      };
+      const p = randomAnchorInRegion(region);
       if (from) {
         const d = Math.hypot(p.x - from.x, p.y - from.y);
         if (relaxMin) {
@@ -690,7 +749,9 @@ function pickTarget(
           continue;
         }
       }
-      if (hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) continue;
+      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) {
+        continue;
+      }
       if (from && straight) {
         const inColumn =
           pickKeepOuts &&
@@ -699,31 +760,38 @@ function pickTarget(
         const pathKeep = inColumn ? placementKeep : pathKeepOuts;
         const pathPad =
           inColumn && (shortPocket || region.w < SIDE_COL_MIN_W) ? 4 : 8;
-        if (!pathClear(from, p, pathKeep, pathPad)) continue;
+        if (!pathClear(from, p, pathKeep, pathPad, inColumn ? region : undefined)) {
+          continue;
+        }
       }
       return p;
     }
   }
 
   if (from) {
+    const { minX, maxX } = anchorXRangeInRegion(region);
     const corners = [
-      { x: region.x + region.w * 0.2, y: region.y + region.h * 0.25 },
-      { x: region.x + region.w * 0.75, y: region.y + region.h * 0.35 },
-      { x: region.x + region.w * 0.35, y: region.y + region.h * 0.78 },
-      { x: region.x + region.w * 0.8, y: region.y + region.h * 0.82 },
+      { x: minX, y: region.y + region.h * 0.22 },
+      { x: maxX, y: region.y + region.h * 0.32 },
+      { x: minX + (maxX - minX) * 0.45, y: region.y + region.h * 0.72 },
+      { x: maxX, y: region.y + region.h * 0.82 },
     ];
     for (const p of corners) {
       const clamped = clampToRegion(p, region);
       const d = Math.hypot(clamped.x - from.x, clamped.y - from.y);
       if (d < 8) continue;
-      if (hitKeepOut(cursorBoxAt(clamped.x, clamped.y), placementKeep)) continue;
+      if (hitKeepOut(cursorBoxInRegion(clamped.x, clamped.y, region), placementKeep)) {
+        continue;
+      }
       const pathPad = shortPocket || region.w < SIDE_COL_MIN_W ? 4 : 8;
       const inColumn =
         pickKeepOuts &&
         pointInRegion(from, region) &&
         pointInRegion(clamped, region);
       const pathKeep = inColumn ? placementKeep : pathKeepOuts;
-      if (!pathClear(from, clamped, pathKeep, pathPad)) continue;
+      if (!pathClear(from, clamped, pathKeep, pathPad, inColumn ? region : undefined)) {
+        continue;
+      }
       return clamped;
     }
   }
@@ -733,9 +801,30 @@ function pickTarget(
     if (forced) return { x: forced.x, y: forced.y };
   }
 
-  return (
-    from ??
-    clampToRegion({ x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 }, region)
+  if (from) {
+    const { minX, maxX } = anchorXRangeInRegion(region);
+    const midX = minX + (maxX - minX) * 0.5;
+    for (let yi = 0; yi <= 16; yi += 1) {
+      const y = region.y + 10 + ((region.h - 20) * yi) / 16;
+      const p = { x: midX, y };
+      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) continue;
+      const d = Math.hypot(p.x - from.x, p.y - from.y);
+      if (d < 8) continue;
+      if (
+        pathClear(from, p, placementKeep, 4, region)
+      ) {
+        return p;
+      }
+    }
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      const wn = window as Window & { __driftBuilderPickFail?: string };
+      wn.__driftBuilderPickFail = `no-target region=${region.w}x${region.h}`;
+    }
+  }
+
+  return clampToRegion(
+    randomAnchorInRegion(region),
+    region,
   );
 }
 
@@ -750,7 +839,7 @@ function pickClearStart(
   const placementKeep = pickKeepOuts ?? keepOuts;
   for (let i = 0; i < 40; i += 1) {
     const p = pickTarget(region, null, keepOuts, false, placementKeep);
-    if (!hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) return p;
+    if (!hitKeepOut(cursorBoxInRegion(p.x, p.y, region), placementKeep)) return p;
   }
   const fallback = staticPoseFor(def, layout, narrow, keepOuts);
   if (fallback) return fallback;
@@ -923,7 +1012,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       : keepOutsForRegionPick(region, fullKeep, layout, layout.w);
 
     let from = { x: state.leadX, y: state.leadY };
-    if (hitKeepOut(cursorBoxAt(from.x, from.y), pickKeep)) {
+    if (hitKeepOut(cursorBoxInRegion(from.x, from.y, region), pickKeep)) {
       from = pickClearStart(
         region,
         fullKeep,
