@@ -90,6 +90,7 @@ type StudioCursorState = {
   leadX: number;
   leadY: number;
   wait: number;
+  hidden?: boolean;
   seg: null | {
     fromX: number;
     fromY: number;
@@ -145,6 +146,8 @@ function narrowStaticCursorBoxAt(x: number, y: number, pad = 0): Rect {
   };
 }
 
+const NARROW_STATIC_PAD = 16;
+
 function buildNarrowStaticKeepOuts(layout: FooterLayout, w: number, h: number): Rect[] {
   const keep: Rect[] = [
     { x: 0, y: 0, w, h: layout.headerH },
@@ -153,7 +156,7 @@ function buildNarrowStaticKeepOuts(layout: FooterLayout, w: number, h: number): 
     { x: w - layout.gutter, y: 0, w: layout.gutter, h },
   ];
   if (layout.emailRect) {
-    keep.push(padRect(layout.emailRect, 80, 56));
+    keep.push(padRect(layout.emailRect, 64, 56));
   }
   for (const pr of layout.pillRects) {
     keep.push(padRect(pr, 64, 56));
@@ -165,71 +168,119 @@ function narrowStaticPoseClear(
   x: number,
   y: number,
   keepOuts: Rect[],
-  pad = 14,
+  pad = NARROW_STATIC_PAD,
 ) {
   return !hitKeepOut(narrowStaticCursorBoxAt(x, y, pad), keepOuts);
 }
 
-function narrowStaticPoseFor(def: CursorDef, layout: FooterLayout): { x: number; y: number } {
-  const { w, h, gutter, bandTop, emailTop, socialBottom, contentLeft, contentRight } =
-    layout;
-  const keep = buildNarrowStaticKeepOuts(layout, w, h);
+type NarrowStaticPose = { x: number; y: number } | null;
 
-  const boxW = CURSOR_BOX_W * NARROW_ROOT_SCALE;
-  const edge = 12;
-  const leftX = Math.max(
-    gutter + edge,
-    contentLeft - edge - (boxW - 4),
-  );
-  const rightX = Math.min(
-    w - gutter - edge,
-    contentRight + edge + 4,
-  );
+let narrowStaticPoseCache: {
+  key: string;
+  poses: Record<string, NarrowStaticPose>;
+} | null = null;
 
-  const yAbove: number[] = [];
-  const aboveH = emailTop - bandTop - edge * 2;
-  if (aboveH > boxW * 0.4) {
-    const y0 = bandTop + edge;
-    const y1 = emailTop - edge - CURSOR_BOX_H * NARROW_ROOT_SCALE;
-    if (y1 > y0) {
-      for (const t of [0.2, 0.42, 0.62, 0.82]) {
-        yAbove.push(y0 + (y1 - y0) * t);
+function narrowStaticLayoutKey(layout: FooterLayout) {
+  const er = layout.emailRect;
+  const pills = layout.pillRects
+    .map((r) => `${r.x.toFixed(1)},${r.y.toFixed(1)},${r.w.toFixed(1)},${r.h.toFixed(1)}`)
+    .join("|");
+  return [
+    layout.w,
+    layout.h,
+    layout.bandTop,
+    layout.emailTop,
+    layout.socialBottom,
+    er ? `${er.x},${er.y},${er.w},${er.h}` : "",
+    pills,
+  ].join(":");
+}
+
+function narrowStaticYAboveEmail(layout: FooterLayout, edge: number) {
+  const { bandTop, emailRect } = layout;
+  if (!emailRect) return [];
+  const boxH = CURSOR_BOX_H * NARROW_ROOT_SCALE;
+  const maxY = (emailRect.y - edge - boxH + 4) / NARROW_ROOT_SCALE;
+  const minY = bandTop + edge;
+  if (maxY <= minY + 6) return [];
+  const ys: number[] = [];
+  for (const t of [0.15, 0.32, 0.5, 0.68, 0.85]) {
+    ys.push(minY + (maxY - minY) * t);
+  }
+  return ys;
+}
+
+function narrowStaticYBelowPills(layout: FooterLayout, edge: number) {
+  const { h, socialBottom, bottomH } = layout;
+  const boxH = CURSOR_BOX_H * NARROW_ROOT_SCALE;
+  const minY = (socialBottom + edge + 4) / NARROW_ROOT_SCALE;
+  const maxY = (h - bottomH - edge - boxH + 4) / NARROW_ROOT_SCALE;
+  if (maxY <= minY + 6) return [];
+  const ys: number[] = [];
+  for (const t of [0.2, 0.45, 0.7, 0.9]) {
+    ys.push(minY + (maxY - minY) * t);
+  }
+  return ys;
+}
+
+function solveNarrowStaticPoses(layout: FooterLayout): Record<string, NarrowStaticPose> {
+  const key = narrowStaticLayoutKey(layout);
+  if (narrowStaticPoseCache?.key === key) return narrowStaticPoseCache.poses;
+
+  const keep = buildNarrowStaticKeepOuts(layout, layout.w, layout.h);
+  const { w, gutter } = layout;
+  const edge = 14;
+  const xLeft = gutter + edge;
+  const xRight = w - gutter - edge;
+
+  const yAbove = narrowStaticYAboveEmail(layout, edge);
+  const yBelow = narrowStaticYBelowPills(layout, edge);
+  const ySlots = [...yAbove, ...yBelow];
+
+  const roles: { id: string; xs: number[]; ys: number[] }[] = [
+    {
+      id: "builder",
+      xs: [xLeft, xLeft + 10, xRight],
+      ys: yAbove.length > 0 ? yAbove : ySlots,
+    },
+    {
+      id: "educator",
+      xs: [xRight, xRight - 10, xLeft + 18],
+      ys: yAbove.length > 0 ? [...yAbove].reverse() : [...ySlots].reverse(),
+    },
+  ];
+
+  const poses: Record<string, NarrowStaticPose> = {
+    builder: null,
+    creator: null,
+    educator: null,
+  };
+  const reserved: Rect[] = [];
+
+  for (const role of roles) {
+    let placed: NarrowStaticPose = null;
+    for (const y of role.ys) {
+      for (const x of role.xs) {
+        const trial = [...keep, ...reserved];
+        if (!narrowStaticPoseClear(x, y, trial)) continue;
+        placed = { x, y };
+        reserved.push(narrowStaticCursorBoxAt(x, y, 12));
+        break;
       }
+      if (placed) break;
     }
+    poses[role.id] = placed;
   }
 
-  const yBelow: number[] = [];
-  const belowTop = socialBottom + edge;
-  const belowH = h - layout.bottomH - belowTop - edge;
-  if (belowH > boxW * 0.35) {
-    for (const t of [0.25, 0.5, 0.78]) {
-      yBelow.push(belowTop + belowH * t);
-    }
-  }
+  narrowStaticPoseCache = { key, poses };
+  return poses;
+}
 
-  const xForBuilder = [leftX, gutter + edge, rightX];
-  const xForEducator = [rightX, w - gutter - boxW * 0.35, leftX];
-  const xOrder = def.id === "builder" ? xForBuilder : xForEducator;
-  const yOrder =
-    def.id === "builder"
-      ? [...yAbove, ...yBelow]
-      : def.id === "educator"
-        ? [...yAbove.slice().reverse(), ...yBelow]
-        : [...yAbove, ...yBelow];
-
-  for (const y of yOrder) {
-    for (const x of xOrder) {
-      if (narrowStaticPoseClear(x, y, keep)) return { x, y };
-    }
-  }
-
-  for (let y = bandTop + edge; y < h - layout.bottomH - edge; y += 12) {
-    for (const x of [gutter + edge, leftX, rightX, w - gutter - edge]) {
-      if (narrowStaticPoseClear(x, y, keep)) return { x, y };
-    }
-  }
-
-  return { x: gutter + edge, y: bandTop + edge };
+function narrowStaticPoseFor(
+  def: CursorDef,
+  layout: FooterLayout,
+): NarrowStaticPose {
+  return solveNarrowStaticPoses(layout)[def.id] ?? null;
 }
 
 function hitKeepOut(box: Rect, keepOuts: Rect[]) {
@@ -576,7 +627,12 @@ function pickClearStart(
     const p = pickTarget(region, null, keepOuts, false, placementKeep);
     if (!hitKeepOut(cursorBoxAt(p.x, p.y), placementKeep)) return p;
   }
-  return staticPoseFor(def, layout, narrow, keepOuts);
+  const fallback = staticPoseFor(def, layout, narrow, keepOuts);
+  if (fallback) return fallback;
+  return clampToRegion(
+    { x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 },
+    region,
+  );
 }
 
 function staticPoseFor(
@@ -584,7 +640,7 @@ function staticPoseFor(
   layout: FooterLayout,
   narrow: boolean,
   keepOuts: Rect[] = [],
-) {
+): { x: number; y: number } | null {
   const region = regionForDef(def, layout);
   if (narrow) {
     return narrowStaticPoseFor(def, layout);
@@ -672,6 +728,9 @@ export default function HomeDriftingCursors({ className }: Props) {
   const simTimeRef = useRef(0);
   const [isNarrow, setIsNarrow] = useState(false);
   const isNarrowRef = useRef(false);
+  const [narrowStaticHidden, setNarrowStaticHidden] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
 
   const staticMode = !motionEnabled;
 
@@ -775,6 +834,7 @@ export default function HomeDriftingCursors({ className }: Props) {
     if (!layout) return;
     const narrow = isNarrowRef.current;
 
+    const hiddenIdx = new Set<number>();
     statesRef.current = CURSOR_DEFS.map((def, i) => {
       const region = regionForDef(def, layout);
       const fullKeep = keepOutsRef.current;
@@ -782,6 +842,21 @@ export default function HomeDriftingCursors({ className }: Props) {
       const p = animate
         ? pickClearStart(region, fullKeep, layout, def, narrow, pickKeep)
         : staticPoseFor(def, layout, narrow, fullKeep);
+      if (!p) {
+        hiddenIdx.add(i);
+        return {
+          x: 0,
+          y: 0,
+          vx: 0,
+          vy: 0,
+          leadX: 0,
+          leadY: 0,
+          wait: randomBetween(0.2, 1.2),
+          hidden: true,
+          seg: null,
+          idlePhase: i * 1.7,
+        };
+      }
       return {
         x: p.x,
         y: p.y,
@@ -790,10 +865,14 @@ export default function HomeDriftingCursors({ className }: Props) {
         leadX: p.x,
         leadY: p.y,
         wait: randomBetween(0.2, 1.2),
+        hidden: false,
         seg: null,
         idlePhase: i * 1.7,
       };
     });
+    if (!animate && narrow) {
+      setNarrowStaticHidden(hiddenIdx);
+    }
   };
 
   const startLoop = () => {
@@ -876,7 +955,7 @@ export default function HomeDriftingCursors({ className }: Props) {
     seedStates(w, h, false);
     for (let i = 0; i < CURSOR_DEFS.length; i += 1) {
       const state = statesRef.current[i];
-      if (state) putCursor(i, state.x, state.y);
+      if (state && !state.hidden) putCursor(i, state.x, state.y);
     }
   };
 
@@ -967,7 +1046,13 @@ export default function HomeDriftingCursors({ className }: Props) {
   return (
     <div ref={rootRef} className={rootClassName} aria-hidden="true">
       {CURSOR_DEFS.map((def, index) => {
-        if (staticMode && isNarrow && index === 1) return null;
+        if (
+          staticMode &&
+          isNarrow &&
+          (index === 1 || narrowStaticHidden.has(index))
+        ) {
+          return null;
+        }
         return (
           <div
             key={def.id}
