@@ -8,7 +8,18 @@ import {
 } from "react";
 
 const REF_FOOTER_W = 1440;
-const REF_FOOTER_H = 836;
+
+/** Mock footer landmarks (A.html / notes) for Y remapping only. */
+const MOCK_FOOTER_H = 836;
+const MOCK_Y_ANCHORS = [
+  { mock: 0, key: "top" as const },
+  { mock: 72, key: "header" as const },
+  { mock: 392, key: "emailTop" as const },
+  { mock: 501, key: "emailBottom" as const },
+  { mock: 693, key: "socialTop" as const },
+  { mock: 809, key: "socialBottom" as const },
+  { mock: MOCK_FOOTER_H, key: "footerBottom" as const },
+];
 
 const CURSOR_BOX_W = 110;
 const CURSOR_BOX_H = 46;
@@ -18,13 +29,25 @@ const SPRING_C = 2 * Math.sqrt(SPRING_K) * 0.92;
 
 type Rect = { x: number; y: number; w: number; h: number };
 
+type FooterLayout = {
+  w: number;
+  h: number;
+  gutter: number;
+  headerH: number;
+  bottomH: number;
+  emailTop: number;
+  emailBottom: number;
+  socialTop: number;
+  socialBottom: number;
+  bandTop: number;
+};
+
 type CursorDef = {
   id: string;
   label: string;
   color: string;
   ink: string;
-  region: Rect;
-  pose: { x: number; y: number };
+  mockPose: { x: number; y: number };
   staticRing?: boolean;
 };
 
@@ -34,24 +57,21 @@ const CURSOR_DEFS: CursorDef[] = [
     label: "Builder",
     color: "#398fd0",
     ink: "#141a2b",
-    region: { x: 110, y: 110, w: 330, h: 600 },
-    pose: { x: 262, y: 236 },
+    mockPose: { x: 262, y: 236 },
   },
   {
     id: "creator",
     label: "Creator",
     color: "#b94a3f",
     ink: "#fff8ea",
-    region: { x: 960, y: 110, w: 340, h: 240 },
-    pose: { x: 1096, y: 196 },
+    mockPose: { x: 1096, y: 196 },
   },
   {
     id: "educator",
     label: "Educator",
     color: "#d8a12a",
     ink: "#141a2b",
-    region: { x: 900, y: 540, w: 380, h: 170 },
-    pose: { x: 1012, y: 604 },
+    mockPose: { x: 1012, y: 604 },
     staticRing: true,
   },
 ];
@@ -87,23 +107,6 @@ function scaleX(x: number, w: number) {
   return x * (w / REF_FOOTER_W);
 }
 
-function scaleY(y: number, h: number) {
-  return y * (h / REF_FOOTER_H);
-}
-
-function scaleRect(r: Rect, w: number, h: number): Rect {
-  return {
-    x: scaleX(r.x, w),
-    y: scaleY(r.y, h),
-    w: scaleX(r.w, w),
-    h: scaleY(r.h, h),
-  };
-}
-
-function scalePoint(p: { x: number; y: number }, w: number, h: number) {
-  return { x: scaleX(p.x, w), y: scaleY(p.y, h) };
-}
-
 function rectsOverlap(a: Rect, b: Rect) {
   return (
     a.x < b.x + b.w &&
@@ -131,7 +134,9 @@ function pathClear(
   to: { x: number; y: number },
   keepOuts: Rect[],
 ) {
-  for (let i = 0; i <= 24; i += 1) {
+  const fromInside = hitKeepOut(cursorBoxAt(from.x, from.y, 8), keepOuts);
+  const startSample = fromInside ? 1 : 0;
+  for (let i = startSample; i <= 24; i += 1) {
     const t = i / 24;
     const x = from.x + (to.x - from.x) * t;
     const y = from.y + (to.y - from.y) * t;
@@ -158,28 +163,156 @@ function padRect(r: Rect, padX: number, padY: number): Rect {
   };
 }
 
+function readFooterLayout(footer: HTMLElement, w: number, h: number): FooterLayout {
+  const fr = footer.getBoundingClientRect();
+  const email = footer.querySelector<HTMLElement>(".home-footer__email");
+  const pills = footer.querySelectorAll<HTMLElement>(".home-footer__social-pill");
+
+  let emailTop = h * 0.28;
+  let emailBottom = h * 0.48;
+  if (email) {
+    const er = toFooterLocal(email.getBoundingClientRect(), fr);
+    emailTop = er.y;
+    emailBottom = er.y + er.h;
+  }
+
+  let socialTop = h * 0.62;
+  let socialBottom = h - 6;
+  if (pills.length > 0) {
+    let minY = Infinity;
+    let maxY = -Infinity;
+    pills.forEach((pill) => {
+      const pr = toFooterLocal(pill.getBoundingClientRect(), fr);
+      minY = Math.min(minY, pr.y);
+      maxY = Math.max(maxY, pr.y + pr.h);
+    });
+    if (Number.isFinite(minY)) {
+      socialTop = minY;
+      socialBottom = maxY;
+    }
+  }
+
+  const gutter = Math.min(scaleX(64, w), w * 0.08);
+  const headerH = Math.min(h * 0.18, 72);
+  const bottomH = Math.min(h * 0.1, 40);
+
+  return {
+    w,
+    h,
+    gutter,
+    headerH,
+    bottomH,
+    emailTop,
+    emailBottom,
+    socialTop,
+    socialBottom,
+    bandTop: headerH,
+  };
+}
+
+function remapMockY(mockY: number, layout: FooterLayout): number {
+  const liveY: Record<string, number> = {
+    top: 0,
+    header: layout.headerH,
+    emailTop: layout.emailTop,
+    emailBottom: layout.emailBottom,
+    socialTop: layout.socialTop,
+    socialBottom: layout.socialBottom,
+    footerBottom: layout.h,
+  };
+
+  for (let i = 0; i < MOCK_Y_ANCHORS.length - 1; i += 1) {
+    const a = MOCK_Y_ANCHORS[i];
+    const b = MOCK_Y_ANCHORS[i + 1];
+    if (!a || !b) continue;
+    if (mockY >= a.mock && mockY <= b.mock) {
+      const t = (mockY - a.mock) / (b.mock - a.mock);
+      const ya = liveY[a.key] ?? 0;
+      const yb = liveY[b.key] ?? layout.h;
+      return ya + (yb - ya) * t;
+    }
+  }
+  return (mockY / MOCK_FOOTER_H) * layout.h;
+}
+
+function liveRegions(layout: FooterLayout): Record<string, Rect> {
+  const { w, gutter, bandTop, emailTop, emailBottom, socialTop } = layout;
+
+  const aboveEmailH = Math.max(32, emailTop - bandTop - 10);
+  const midX = w * 0.48;
+
+  const builder: Rect = {
+    x: gutter,
+    y: bandTop,
+    w: Math.max(72, midX - gutter),
+    h: aboveEmailH,
+  };
+
+  const creator: Rect = {
+    x: midX + 12,
+    y: bandTop,
+    w: Math.max(72, w - gutter - midX - 12),
+    h: aboveEmailH,
+  };
+
+  const educatorY = emailBottom + 8;
+  const educatorH = Math.max(28, socialTop - educatorY - 8);
+
+  const educator: Rect = {
+    x: w * 0.52,
+    y: educatorY,
+    w: Math.max(72, w - gutter - w * 0.52),
+    h: educatorH,
+  };
+
+  return { builder, creator, educator };
+}
+
+function regionForDef(def: CursorDef, layout: FooterLayout): Rect {
+  const regions = liveRegions(layout);
+  const fallback = regions.builder ?? {
+    x: layout.gutter,
+    y: layout.bandTop,
+    w: 80,
+    h: 40,
+  };
+  return regions[def.id] ?? fallback;
+}
+
+function clampToRegion(p: { x: number; y: number }, region: Rect) {
+  return {
+    x: Math.min(region.x + region.w - 8, Math.max(region.x + 8, p.x)),
+    y: Math.min(region.y + region.h - 8, Math.max(region.y + 8, p.y)),
+  };
+}
+
+function regionDistanceBounds(region: Rect) {
+  const minDist = Math.min(90, Math.max(22, region.h * 0.45));
+  const maxDist = Math.min(480, Math.max(minDist + 60, region.h * 3.2));
+  return { minDist, maxDist };
+}
+
 function buildKeepOuts(footer: HTMLElement, w: number, h: number): Rect[] {
   const fr = footer.getBoundingClientRect();
   const keep: Rect[] = [];
 
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
-  const social = footer.querySelector<HTMLElement>(".home-footer__social");
-
   if (email) {
-    keep.push(padRect(toFooterLocal(email.getBoundingClientRect(), fr), 72, 56));
-  }
-  if (social) {
-    keep.push(padRect(toFooterLocal(social.getBoundingClientRect(), fr), 40, 36));
+    keep.push(padRect(toFooterLocal(email.getBoundingClientRect(), fr), 72, 48));
   }
 
-  const headerH = scaleY(72, h);
-  const bottomH = scaleY(40, h);
-  const gutter = scaleX(64, w);
+  const socialHits = footer.querySelectorAll<HTMLElement>(
+    ".home-footer__social-pill",
+  );
+  for (const el of socialHits) {
+    keep.push(padRect(toFooterLocal(el.getBoundingClientRect(), fr), 40, 36));
+  }
 
-  keep.push({ x: 0, y: 0, w, h: headerH });
-  keep.push({ x: 0, y: h - bottomH, w, h: bottomH });
-  keep.push({ x: 0, y: 0, w: gutter, h });
-  keep.push({ x: w - gutter, y: 0, w: gutter, h });
+  const layout = readFooterLayout(footer, w, h);
+  keep.push({ x: 0, y: 0, w, h: layout.headerH });
+  keep.push({ x: 0, y: h - layout.bottomH, w, h: layout.bottomH });
+  keep.push({ x: 0, y: 0, w: layout.gutter, h });
+  keep.push({ x: w - layout.gutter, y: 0, w: layout.gutter, h });
 
   return keep;
 }
@@ -190,20 +323,64 @@ function pickTarget(
   keepOuts: Rect[],
   straight: boolean,
 ) {
+  const { minDist, maxDist } = regionDistanceBounds(region);
   for (let i = 0; i < 60; i += 1) {
     const p = {
-      x: randomBetween(region.x, region.x + region.w),
-      y: randomBetween(region.y, region.y + region.h),
+      x: randomBetween(region.x + 6, region.x + region.w - 6),
+      y: randomBetween(region.y + 6, region.y + region.h - 6),
     };
     if (from) {
       const d = Math.hypot(p.x - from.x, p.y - from.y);
-      if (d < 90 || d > 480) continue;
+      if (d < minDist || d > maxDist) continue;
     }
     if (hitKeepOut(cursorBoxAt(p.x, p.y), keepOuts)) continue;
     if (from && straight && !pathClear(from, p, keepOuts)) continue;
     return p;
   }
-  return from ?? { x: region.x, y: region.y };
+  return from ?? clampToRegion({ x: region.x + region.w * 0.4, y: region.y + region.h * 0.45 }, region);
+}
+
+function pickClearStart(
+  region: Rect,
+  keepOuts: Rect[],
+  layout: FooterLayout,
+  def: CursorDef,
+  narrow: boolean,
+) {
+  for (let i = 0; i < 40; i += 1) {
+    const p = pickTarget(region, null, keepOuts, false);
+    if (!hitKeepOut(cursorBoxAt(p.x, p.y), keepOuts)) return p;
+  }
+  return staticPoseFor(def, layout, narrow, keepOuts);
+}
+
+function staticPoseFor(
+  def: CursorDef,
+  layout: FooterLayout,
+  narrow: boolean,
+  keepOuts: Rect[] = [],
+) {
+  const region = regionForDef(def, layout);
+  if (narrow) {
+    const bandH = Math.max(24, layout.emailTop - layout.bandTop - 12);
+    const y = layout.bandTop + bandH * (def.id === "builder" ? 0.38 : 0.62);
+    const x =
+      def.id === "builder"
+        ? layout.gutter + layout.w * 0.14
+        : layout.w - layout.gutter - layout.w * 0.22;
+    return clampToRegion({ x, y }, region);
+  }
+
+  const p = {
+    x: scaleX(def.mockPose.x, layout.w),
+    y: remapMockY(def.mockPose.y, layout),
+  };
+  const clamped = clampToRegion(p, region);
+  if (!hitKeepOut(cursorBoxAt(clamped.x, clamped.y), keepOuts)) return clamped;
+  return clampToRegion(
+    { x: region.x + region.w * 0.35, y: region.y + region.h * 0.42 },
+    region,
+  );
 }
 
 function driftingCursorsMotionEnabled() {
@@ -268,6 +445,7 @@ export default function HomeDriftingCursors({ className }: Props) {
   const inViewRef = useRef(false);
   const pageVisibleRef = useRef(true);
   const sizeRef = useRef({ w: 1, h: 1 });
+  const layoutRef = useRef<FooterLayout | null>(null);
   const keepOutsRef = useRef<Rect[]>([]);
   const statesRef = useRef<StudioCursorState[]>([]);
   const rafRef = useRef(0);
@@ -327,17 +505,37 @@ export default function HomeDriftingCursors({ className }: Props) {
   const beginSegment = (index: number) => {
     const state = statesRef.current[index];
     const def = CURSOR_DEFS[index];
-    if (!state || !def) return;
-    const { w, h } = sizeRef.current;
+    const layout = layoutRef.current;
+    if (!state || !def || !layout) return;
+
     const crossDef =
       CURSOR_DEFS[Math.floor(Math.random() * CURSOR_DEFS.length)] ?? def;
     const region =
       Math.random() < 0.15
-        ? scaleRect(crossDef.region, w, h)
-        : scaleRect(def.region, w, h);
-    const from = { x: state.leadX, y: state.leadY };
+        ? regionForDef(crossDef, layout)
+        : regionForDef(def, layout);
+
+    let from = { x: state.leadX, y: state.leadY };
+    if (hitKeepOut(cursorBoxAt(from.x, from.y), keepOutsRef.current)) {
+      from = pickClearStart(
+        region,
+        keepOutsRef.current,
+        layout,
+        def,
+        isNarrowRef.current,
+      );
+      state.leadX = from.x;
+      state.leadY = from.y;
+      state.x = from.x;
+      state.y = from.y;
+    }
+
     const to = pickTarget(region, from, keepOutsRef.current, true);
     const d = Math.hypot(to.x - from.x, to.y - from.y);
+    if (d < 4) {
+      state.wait = randomBetween(0.4, 1);
+      return;
+    }
     state.seg = {
       fromX: from.x,
       fromY: from.y,
@@ -348,12 +546,16 @@ export default function HomeDriftingCursors({ className }: Props) {
     };
   };
 
-  const seedStates = (w: number, h: number, animate: boolean) => {
+  const seedStates = (_w: number, _h: number, animate: boolean) => {
+    const layout = layoutRef.current;
+    if (!layout) return;
+    const narrow = isNarrowRef.current;
+
     statesRef.current = CURSOR_DEFS.map((def, i) => {
-      const pose = scalePoint(def.pose, w, h);
+      const region = regionForDef(def, layout);
       const p = animate
-        ? pickTarget(scaleRect(def.region, w, h), null, keepOutsRef.current, false)
-        : pose;
+        ? pickClearStart(region, keepOutsRef.current, layout, def, narrow)
+        : staticPoseFor(def, layout, narrow, keepOutsRef.current);
       return {
         x: p.x,
         y: p.y,
@@ -467,6 +669,7 @@ export default function HomeDriftingCursors({ className }: Props) {
       const narrow = w < 768;
       isNarrowRef.current = narrow;
       setIsNarrow(narrow);
+      layoutRef.current = readFooterLayout(footer, w, h);
       keepOutsRef.current = buildKeepOuts(footer, w, h);
 
       if (statesRef.current.length === 0) {
@@ -504,14 +707,17 @@ export default function HomeDriftingCursors({ className }: Props) {
     roFooter.observe(footer);
     roFooter.observe(root);
 
-    const email = footer.querySelector(".home-footer__email");
-    const social = footer.querySelector(".home-footer__social");
     const roKeep = new ResizeObserver(() => {
       const { w, h } = sizeRef.current;
+      layoutRef.current = readFooterLayout(footer, w, h);
       keepOutsRef.current = buildKeepOuts(footer, w, h);
     });
+
+    const email = footer.querySelector(".home-footer__email");
     if (email) roKeep.observe(email);
-    if (social) roKeep.observe(social);
+    footer.querySelectorAll(".home-footer__social-pill").forEach((pill) => {
+      roKeep.observe(pill);
+    });
 
     document.addEventListener("visibilitychange", onVisibility);
 
