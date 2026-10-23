@@ -267,6 +267,12 @@ html[data-overscroll-reveal="true"] body.site-body {
     position: relative;
     z-index: 46;
   }
+
+  /* Nav→email spacing comes from tail gap only (no extra footer top pad). */
+  .home-closing-tail .home-footer__layout {
+    padding-top: 0;
+    padding-bottom: 16px;
+  }
 }
 
 .home-splash-overlay {
