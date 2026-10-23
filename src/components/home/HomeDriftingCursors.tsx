@@ -307,6 +307,27 @@ function hitKeepOut(box: Rect, keepOuts: Rect[]) {
   return keepOuts.some((k) => rectsOverlap(box, k));
 }
 
+function hitsPlacementKeeps(
+  x: number,
+  y: number,
+  region: Rect | undefined,
+  boxW: number,
+  keepOuts: Rect[],
+  closingKeepOuts: Rect[],
+  pad = 0,
+) {
+  const closingSet = new Set(closingKeepOuts);
+  const clipped = region
+    ? cursorBoxInRegion(x, y, region, pad, boxW)
+    : cursorBoxAt(x, y, pad, boxW);
+  const full = cursorBoxAt(x, y, pad, boxW);
+  for (const k of keepOuts) {
+    const box = closingSet.has(k) ? full : clipped;
+    if (rectsOverlap(box, k)) return true;
+  }
+  return false;
+}
+
 function pathClear(
   from: { x: number; y: number },
   to: { x: number; y: number },
@@ -314,18 +335,35 @@ function pathClear(
   samplePad = 8,
   region?: Rect,
   boxW = DEFAULT_BOX_W,
+  closingKeepOuts: Rect[] = [],
 ) {
-  const boxAt = region
-    ? (x: number, y: number, pad: number) =>
-        cursorBoxInRegion(x, y, region, pad, boxW)
-    : (x: number, y: number, pad: number) => cursorBoxAt(x, y, pad, boxW);
-  const fromInside = hitKeepOut(boxAt(from.x, from.y, samplePad), keepOuts);
+  const fromInside = hitsPlacementKeeps(
+    from.x,
+    from.y,
+    region,
+    boxW,
+    keepOuts,
+    closingKeepOuts,
+    samplePad,
+  );
   const startSample = fromInside ? 1 : 0;
   for (let i = startSample; i <= 24; i += 1) {
     const t = i / 24;
     const x = from.x + (to.x - from.x) * t;
     const y = from.y + (to.y - from.y) * t;
-    if (hitKeepOut(boxAt(x, y, samplePad), keepOuts)) return false;
+    if (
+      hitsPlacementKeeps(
+        x,
+        y,
+        region,
+        boxW,
+        keepOuts,
+        closingKeepOuts,
+        samplePad,
+      )
+    ) {
+      return false;
+    }
   }
   return true;
 }
@@ -446,18 +484,50 @@ function readClosingTailLandscape(
 
 const SIDE_COL_MIN_W = 180;
 
-function sixLandscapeRegions(layout: LandscapeLayout): Rect[] {
+function stackedPrimaryBottom(
+  closingKeepOuts: Rect[],
+  layout: LandscapeLayout,
+): number | null {
+  let bottom = -Infinity;
+  let sawWide = false;
+  for (const k of closingKeepOuts) {
+    if (k.w < layout.w * 0.42) continue;
+    sawWide = true;
+    bottom = Math.max(bottom, k.y + k.h);
+  }
+  return sawWide && Number.isFinite(bottom) ? bottom : null;
+}
+
+function sixLandscapeRegions(
+  layout: LandscapeLayout,
+  closingKeepOuts: Rect[] = [],
+): Rect[] {
   const { w, h, gutter, bandTop, bottomH, contentLeft, contentRight } = layout;
-  const y0 = bandTop;
-  const y1 = h - bottomH;
-  const totalH = Math.max(48, y1 - y0);
-  const rowH = totalH / 3;
-  const centerL = Math.max(gutter + 32, contentLeft - 14);
-  const centerR = Math.min(w - gutter - 32, contentRight + 14);
-  const leftW = Math.max(56, centerL - gutter);
-  const rightW = Math.max(56, w - gutter - centerR);
+  const midWidth = w <= 820;
+  const minPocketH =
+    midWidth ? CURSOR_BOX_H + 20 : CURSOR_BOX_H + 28;
+
+  let y0 = bandTop;
+  let y1 = h - bottomH;
+
+  const stackBottom = stackedPrimaryBottom(closingKeepOuts, layout);
+  if (stackBottom != null) {
+    y0 = Math.max(y0, stackBottom + (midWidth ? 10 : 8));
+  }
+
+  let centerL = Math.max(gutter + 32, contentLeft - 14);
+  let centerR = Math.min(w - gutter - 32, contentRight + 14);
+  if (midWidth) {
+    centerL = gutter;
+    centerR = Math.max(contentRight + 6, w - gutter - 6);
+  }
+
+  const leftW = Math.max(midWidth ? 72 : 56, centerL - gutter);
+  const rightW = Math.max(midWidth ? 72 : 56, w - gutter - centerR);
   const rightX = centerR;
-  const minPocketH = CURSOR_BOX_H + 28;
+
+  const totalH = Math.max(minPocketH * 3 + 8, y1 - y0);
+  const rowH = totalH / 3;
 
   const row = (rh: number) => Math.max(minPocketH, rh - 6);
 
@@ -479,6 +549,16 @@ function sixLandscapeRegions(layout: LandscapeLayout): Rect[] {
       h: row(totalH - rowH * 2),
     },
   ];
+}
+
+function columnBelowRegion(
+  idx: number,
+  regions: Rect[],
+): Rect | undefined {
+  if (idx === 0 || idx === 1 || idx === 3 || idx === 4) {
+    return regions[idx + 1];
+  }
+  return undefined;
 }
 
 function adjustRegionForClosing(
@@ -505,6 +585,19 @@ function adjustRegionForClosing(
   if (shrunkH >= minPocketH) {
     return { ...region, y: floorY, h: shrunkH };
   }
+
+  if (belowRegion) {
+    const mergedH = belowRegion.y + belowRegion.h - floorY;
+    if (mergedH >= minPocketH) {
+      return {
+        ...region,
+        y: floorY,
+        h: mergedH,
+        w: Math.max(region.w, belowRegion.w),
+        x: Math.min(region.x, belowRegion.x),
+      };
+    }
+  }
   return region;
 }
 
@@ -513,7 +606,7 @@ function regionForCursor(
   layout: LandscapeLayout,
   closingKeepOuts: Rect[] = [],
 ): Rect {
-  const regions = sixLandscapeRegions(layout);
+  const regions = sixLandscapeRegions(layout, closingKeepOuts);
   const idx = def.regionIndex % regions.length;
   const base = regions[idx] ?? {
     x: layout.gutter,
@@ -521,7 +614,7 @@ function regionForCursor(
     w: 80,
     h: 40,
   };
-  const below = regions[idx + 1];
+  const below = columnBelowRegion(idx, regions);
   return adjustRegionForClosing(base, below, closingKeepOuts);
 }
 
@@ -546,10 +639,15 @@ function isPlacementClear(
   region: Rect,
   placementKeep: Rect[],
   boxW = DEFAULT_BOX_W,
+  closingKeepOuts: Rect[] = [],
 ) {
-  return !hitKeepOut(
-    cursorBoxInRegion(x, y, region, 0, boxW),
+  return !hitsPlacementKeeps(
+    x,
+    y,
+    region,
+    boxW,
     placementKeep,
+    closingKeepOuts,
   );
 }
 
@@ -557,6 +655,7 @@ function findClearAnchorInRegion(
   region: Rect,
   placementKeep: Rect[],
   boxW = DEFAULT_BOX_W,
+  closingKeepOuts: Rect[] = [],
 ): { x: number; y: number } | null {
   const { minX, maxX } = anchorXRangeInRegion(region, boxW);
   for (let yi = 0; yi <= 16; yi += 1) {
@@ -565,7 +664,18 @@ function findClearAnchorInRegion(
         x: minX + ((maxX - minX) * xi) / 12,
         y: region.y + 8 + ((region.h - 16) * yi) / 16,
       };
-      if (isPlacementClear(p.x, p.y, region, placementKeep, boxW)) return p;
+      if (
+        isPlacementClear(
+          p.x,
+          p.y,
+          region,
+          placementKeep,
+          boxW,
+          closingKeepOuts,
+        )
+      ) {
+        return p;
+      }
     }
   }
   return null;
@@ -621,7 +731,7 @@ function regionDistanceBounds(region: Rect) {
 }
 
 function motionContentPads(layout: LandscapeLayout, w: number) {
-  const regions = sixLandscapeRegions(layout);
+  const regions = sixLandscapeRegions(layout, []);
   const minColW = Math.min(...regions.map((r) => r.w), w);
   const tight = w <= 820 || minColW < SIDE_COL_MIN_W;
   if (w <= 768) {
@@ -759,6 +869,7 @@ function forceLeadTarget(
   pathKeepOuts: Rect[],
   pickKeepOuts?: Rect[],
   boxW = DEFAULT_BOX_W,
+  closingKeepOuts: Rect[] = [],
 ) {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const shortPocket = isShortMotionPocket(region);
@@ -773,7 +884,16 @@ function forceLeadTarget(
         x: minX + ((maxX - minX) * xi) / 12,
         y: region.y + 8 + ((region.h - 16) * yi) / 12,
       };
-      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region, 0, boxW), placementKeep)) {
+      if (
+        hitsPlacementKeeps(
+          p.x,
+          p.y,
+          region,
+          boxW,
+          placementKeep,
+          closingKeepOuts,
+        )
+      ) {
         continue;
       }
       const inColumn =
@@ -789,6 +909,7 @@ function forceLeadTarget(
           pathPad,
           inColumn ? region : undefined,
           boxW,
+          closingKeepOuts,
         )
       ) {
         continue;
@@ -808,6 +929,7 @@ function pickTarget(
   straight: boolean,
   pickKeepOuts?: Rect[],
   boxW = DEFAULT_BOX_W,
+  closingKeepOuts: Rect[] = [],
 ): { x: number; y: number } | null {
   const placementKeep = pickKeepOuts ?? pathKeepOuts;
   const { minDist, maxDist } = regionDistanceBounds(region);
@@ -827,7 +949,16 @@ function pickTarget(
           continue;
         }
       }
-      if (hitKeepOut(cursorBoxInRegion(p.x, p.y, region, 0, boxW), placementKeep)) {
+      if (
+        hitsPlacementKeeps(
+          p.x,
+          p.y,
+          region,
+          boxW,
+          placementKeep,
+          closingKeepOuts,
+        )
+      ) {
         continue;
       }
       if (from && straight) {
@@ -846,6 +977,7 @@ function pickTarget(
             pathPad,
             inColumn ? region : undefined,
             boxW,
+            closingKeepOuts,
           )
         ) {
           continue;
@@ -868,9 +1000,13 @@ function pickTarget(
       const d = Math.hypot(clamped.x - from.x, clamped.y - from.y);
       if (d < 8) continue;
       if (
-        hitKeepOut(
-          cursorBoxInRegion(clamped.x, clamped.y, region, 0, boxW),
+        hitsPlacementKeeps(
+          clamped.x,
+          clamped.y,
+          region,
+          boxW,
           placementKeep,
+          closingKeepOuts,
         )
       ) {
         continue;
@@ -889,6 +1025,7 @@ function pickTarget(
           pathPad,
           inColumn ? region : undefined,
           boxW,
+          closingKeepOuts,
         )
       ) {
         continue;
@@ -904,6 +1041,7 @@ function pickTarget(
       pathKeepOuts,
       pickKeepOuts,
       boxW,
+      closingKeepOuts,
     );
     if (forced) return { x: forced.x, y: forced.y };
   }
@@ -915,13 +1053,22 @@ function pickTarget(
       const y = region.y + 10 + ((region.h - 20) * yi) / 16;
       const p = { x: midX, y };
       if (
-        hitKeepOut(cursorBoxInRegion(p.x, p.y, region, 0, boxW), placementKeep)
+        hitsPlacementKeeps(
+          p.x,
+          p.y,
+          region,
+          boxW,
+          placementKeep,
+          closingKeepOuts,
+        )
       ) {
         continue;
       }
       const d = Math.hypot(p.x - from.x, p.y - from.y);
       if (d < 8) continue;
-      if (pathClear(from, p, placementKeep, 4, region, boxW)) {
+      if (
+        pathClear(from, p, placementKeep, 4, region, boxW, closingKeepOuts)
+      ) {
         return p;
       }
     }
@@ -932,7 +1079,12 @@ function pickTarget(
   }
 
   if (!from) {
-    return findClearAnchorInRegion(region, placementKeep, boxW);
+    return findClearAnchorInRegion(
+      region,
+      placementKeep,
+      boxW,
+      closingKeepOuts,
+    );
   }
   return null;
 }
@@ -950,8 +1102,26 @@ function pickClearStart(
   const placementKeep = pickKeepOuts ?? keepOuts;
   const boxW = def.boxW;
   for (let i = 0; i < 40; i += 1) {
-    const p = pickTarget(region, null, keepOuts, false, placementKeep, boxW);
-    if (p && isPlacementClear(p.x, p.y, region, placementKeep, boxW)) {
+    const p = pickTarget(
+      region,
+      null,
+      keepOuts,
+      false,
+      placementKeep,
+      boxW,
+      closingKeepOuts,
+    );
+    if (
+      p &&
+      isPlacementClear(
+        p.x,
+        p.y,
+        region,
+        placementKeep,
+        boxW,
+        closingKeepOuts,
+      )
+    ) {
       return p;
     }
   }
@@ -966,11 +1136,23 @@ function pickClearStart(
   );
   if (
     fallback &&
-    isPlacementClear(fallback.x, fallback.y, region, placementKeep, boxW)
+    isPlacementClear(
+      fallback.x,
+      fallback.y,
+      region,
+      placementKeep,
+      boxW,
+      closingKeepOuts,
+    )
   ) {
     return fallback;
   }
-  return findClearAnchorInRegion(region, placementKeep, boxW);
+  return findClearAnchorInRegion(
+    region,
+    placementKeep,
+    boxW,
+    closingKeepOuts,
+  );
 }
 
 function staticPoseFor(
@@ -990,10 +1172,24 @@ function staticPoseFor(
 
   const p = poseFromSeed(region, def.poseSeed, def.boxW);
   const clamped = clampToRegion(p, region);
-  if (isPlacementClear(clamped.x, clamped.y, region, placementKeep, def.boxW)) {
+  if (
+    isPlacementClear(
+      clamped.x,
+      clamped.y,
+      region,
+      placementKeep,
+      def.boxW,
+      closingKeepOuts,
+    )
+  ) {
     return clamped;
   }
-  return findClearAnchorInRegion(region, placementKeep, def.boxW);
+  return findClearAnchorInRegion(
+    region,
+    placementKeep,
+    def.boxW,
+    closingKeepOuts,
+  );
 }
 
 function driftingCursorsMotionEnabled() {
@@ -1152,9 +1348,13 @@ export default function HomeDriftingCursors({ className }: Props) {
 
     let from = { x: state.leadX, y: state.leadY };
     if (
-      hitKeepOut(
-        cursorBoxInRegion(from.x, from.y, region, 0, def.boxW),
+      hitsPlacementKeeps(
+        from.x,
+        from.y,
+        region,
+        def.boxW,
         pickKeep,
+        closingKeep,
       )
     ) {
       const start = pickClearStart(
@@ -1186,7 +1386,15 @@ export default function HomeDriftingCursors({ className }: Props) {
       state.y = from.y;
     }
 
-    let to = pickTarget(region, from, fullKeep, true, pickKeep, def.boxW);
+    let to = pickTarget(
+      region,
+      from,
+      fullKeep,
+      true,
+      pickKeep,
+      def.boxW,
+      closingKeep,
+    );
     if (!to) {
       state.wait =
         layout.w <= 820 ? randomBetween(0.1, 0.28) : randomBetween(0.4, 1);
@@ -1200,6 +1408,7 @@ export default function HomeDriftingCursors({ className }: Props) {
         fullKeep,
         pickKeep,
         def.boxW,
+        closingKeep,
       );
       if (forced) {
         to = { x: forced.x, y: forced.y };
@@ -1481,8 +1690,12 @@ export default function HomeDriftingCursors({ className }: Props) {
         return;
       }
 
-      if (statesRef.current.length === 0) {
+      const layoutKey = `${w}:${h}:${keepBundle.closing.length}`;
+      const prevKey = (root as HTMLElement).dataset.driftLayoutKey ?? "";
+      if (statesRef.current.length === 0 || prevKey !== layoutKey) {
+        statesRef.current = [];
         seedStates(w, h, motionEnabled);
+        root.dataset.driftLayoutKey = layoutKey;
       }
 
       if (staticMode) layoutStatic();
