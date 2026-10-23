@@ -669,14 +669,29 @@ function isSideWalkColumn(region: Rect, layout: LandscapeLayout) {
   return leftEdge || rightEdge;
 }
 
+function keepOutOverlapsRegion(k: Rect, region: Rect, minOverlap = 8) {
+  const overlapX =
+    Math.min(region.x + region.w, k.x + k.w) - Math.max(region.x, k.x);
+  const overlapY =
+    Math.min(region.y + region.h, k.y + k.h) - Math.max(region.y, k.y);
+  return overlapX > minOverlap && overlapY > minOverlap;
+}
+
 function keepOutsForRegionPick(
   region: Rect,
   keepOuts: Rect[],
   layout: LandscapeLayout,
   w: number,
+  closingKeepOuts: Rect[] = [],
 ) {
   if (isSideWalkColumn(region, layout)) {
-    return keepOuts.filter((k) => isStructuralKeepOut(k, layout, w));
+    const structural = keepOuts.filter((k) =>
+      isStructuralKeepOut(k, layout, w),
+    );
+    const closing = closingKeepOuts.filter((k) =>
+      keepOutOverlapsRegion(k, region),
+    );
+    return [...structural, ...closing];
   }
   const probe = padRect(region, 14, 14);
   return keepOuts.filter((k) => {
@@ -690,15 +705,21 @@ function keepOutsForRegionPick(
   });
 }
 
+type KeepOutBundle = {
+  all: Rect[];
+  closing: Rect[];
+};
+
 function buildKeepOuts(
   tail: HTMLElement,
   footer: HTMLElement,
   layout: LandscapeLayout,
-): Rect[] {
+): KeepOutBundle {
   const { w, h } = layout;
   const pads = motionContentPads(layout, w);
   const tr = tail.getBoundingClientRect();
   const keep: Rect[] = [];
+  const closing: Rect[] = [];
 
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   if (email) {
@@ -726,22 +747,30 @@ function buildKeepOuts(
 
   tail.querySelectorAll<HTMLElement>(".home-closing-link--primary").forEach(
     (el) => {
-      keep.push(
-        padRect(toContainerLocal(el.getBoundingClientRect(), tr), 52, 44),
+      const box = padRect(
+        toContainerLocal(el.getBoundingClientRect(), tr),
+        52,
+        44,
       );
+      keep.push(box);
+      closing.push(box);
     },
   );
   tail.querySelectorAll<HTMLElement>(".home-closing-star").forEach((el) => {
-    keep.push(
-      padRect(toContainerLocal(el.getBoundingClientRect(), tr), 36, 28),
+    const box = padRect(
+      toContainerLocal(el.getBoundingClientRect(), tr),
+      36,
+      28,
     );
+    keep.push(box);
+    closing.push(box);
   });
 
   keep.push({ x: 0, y: h - layout.bottomH, w, h: layout.bottomH });
   keep.push({ x: 0, y: 0, w: layout.gutter, h });
   keep.push({ x: w - layout.gutter, y: 0, w: layout.gutter, h });
 
-  return keep;
+  return { all: keep, closing };
 }
 
 function forceLeadTarget(
@@ -994,6 +1023,7 @@ export default function HomeDriftingCursors({ className }: Props) {
   const sizeRef = useRef({ w: 1, h: 1 });
   const layoutRef = useRef<LandscapeLayout | null>(null);
   const keepOutsRef = useRef<Rect[]>([]);
+  const closingKeepOutsRef = useRef<Rect[]>([]);
   const statesRef = useRef<StudioCursorState[]>([]);
   const rafRef = useRef(0);
   const lastFrameMsRef = useRef(0);
@@ -1069,7 +1099,13 @@ export default function HomeDriftingCursors({ className }: Props) {
     const fullKeep = keepOutsRef.current;
     const pickKeep = crossRegion
       ? fullKeep
-      : keepOutsForRegionPick(region, fullKeep, layout, layout.w);
+      : keepOutsForRegionPick(
+          region,
+          fullKeep,
+          layout,
+          layout.w,
+          closingKeepOutsRef.current,
+        );
 
     let from = { x: state.leadX, y: state.leadY };
     if (hitKeepOut(cursorBoxInRegion(from.x, from.y, region), pickKeep)) {
@@ -1121,7 +1157,13 @@ export default function HomeDriftingCursors({ className }: Props) {
     statesRef.current = CURSOR_DEFS.map((def, i) => {
       const region = regionForDef(def, layout);
       const fullKeep = keepOutsRef.current;
-      const pickKeep = keepOutsForRegionPick(region, fullKeep, layout, layout.w);
+      const pickKeep = keepOutsForRegionPick(
+        region,
+        fullKeep,
+        layout,
+        layout.w,
+        closingKeepOutsRef.current,
+      );
       const p = animate
         ? pickClearStart(region, fullKeep, layout, def, narrow, pickKeep)
         : staticPoseFor(def, layout, narrow, fullKeep);
@@ -1232,7 +1274,13 @@ export default function HomeDriftingCursors({ className }: Props) {
         if (layout && !state.seg && state.stillLeadSec > 2.1) {
           const region = regionForDef(def, layout);
           const fullKeep = keepOutsRef.current;
-          const pickKeep = keepOutsForRegionPick(region, fullKeep, layout, layout.w);
+          const pickKeep = keepOutsForRegionPick(
+            region,
+            fullKeep,
+            layout,
+            layout.w,
+            closingKeepOutsRef.current,
+          );
           const p = pickClearStart(
             region,
             fullKeep,
@@ -1314,7 +1362,9 @@ export default function HomeDriftingCursors({ className }: Props) {
       isNarrowRef.current = narrow;
       setIsNarrow(narrow);
       layoutRef.current = readClosingTailLandscape(tail, footer);
-      keepOutsRef.current = buildKeepOuts(tail, footer, layoutRef.current);
+      const keepBundle = buildKeepOuts(tail, footer, layoutRef.current);
+      keepOutsRef.current = keepBundle.all;
+      closingKeepOutsRef.current = keepBundle.closing;
 
       if (tiny) {
         stopLoop();
@@ -1360,7 +1410,9 @@ export default function HomeDriftingCursors({ className }: Props) {
     const roKeep = new ResizeObserver(() => {
       if (isTinyRef.current) return;
       layoutRef.current = readClosingTailLandscape(tail, footer);
-      keepOutsRef.current = buildKeepOuts(tail, footer, layoutRef.current);
+      const keepBundle = buildKeepOuts(tail, footer, layoutRef.current);
+      keepOutsRef.current = keepBundle.all;
+      closingKeepOutsRef.current = keepBundle.closing;
     });
 
     const email = footer.querySelector(".home-footer__email");
