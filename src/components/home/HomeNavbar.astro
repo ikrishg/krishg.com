@@ -27,14 +27,29 @@ import HomeNavbarScroll from "./HomeNavbarScroll.tsx";
     color: var(--home-nav-fg);
   }
 
-  :global(html[data-home-splash]) .home-navbar,
-  :global(html[data-home-splash]) .home-navbar[data-scrolled="true"] {
+  :global(html[data-home-splash]:not([data-home-closing-view])) .home-navbar,
+  :global(html[data-home-splash]:not([data-home-closing-view]))
+    .home-navbar[data-scrolled="true"] {
     background-color: transparent;
     box-shadow: none;
   }
 
-  :global(html[data-home-splash]) .home-navbar {
+  :global(html[data-home-splash]:not([data-home-closing-view])) .home-navbar {
     transition: color 0.2s ease;
+  }
+
+  :global(html[data-home-closing-view][data-home-splash]) .home-navbar,
+  :global(html[data-home-closing-view][data-home-splash])
+    .home-navbar[data-scrolled="true"] {
+    background-color: var(--home-closing-bg);
+    color: var(--home-closing-fg);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--home-closing-fg) 14%, transparent);
+  }
+
+  :global(html[data-home-closing-view][data-home-splash]) .home-navbar :global(.home-logo),
+  :global(html[data-home-closing-view][data-home-splash])
+    .home-navbar :global(.home-navbar-search__trigger) {
+    color: var(--home-closing-fg);
   }
 
   @media (prefers-reduced-motion: no-preference) {
