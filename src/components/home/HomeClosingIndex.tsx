@@ -29,7 +29,7 @@ function StarSeparator() {
   return (
     <span
       className="home-closing-star inline-flex translate-y-[0.08em] select-none px-[clamp(1rem,3.6vw,3.5rem)]"
-      style={{ color: "var(--home-closing-ink, var(--home-closing-fg))" }}
+      style={{ color: "var(--home-closing-fg)" }}
       aria-hidden="true"
     >
       <SiteIcon name="asterisk" weight="bold" size={32} />

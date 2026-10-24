@@ -102,8 +102,8 @@ export default function HomeClosingLink({
     <a
       className={className}
       style={{
-        color: `var(--home-closing-ink, var(--home-closing-fg))`,
-        outlineColor: `var(--home-closing-ink, var(--home-closing-fg))`,
+        color: "var(--home-closing-fg)",
+        outlineColor: "var(--home-closing-fg)",
       }}
       href={link.href}
       data-splash-key={link.key}
