@@ -90,8 +90,14 @@ async function measureCursors(page) {
 
 async function sampleContactKeepHits(page, samples = 20, intervalMs = 100) {
   let totalHits = 0;
+  let measuredRectsTotal = 0;
   for (let i = 0; i < samples; i += 1) {
     const hits = await page.evaluate(() => {
+      const rectsOverlap = (a, b) =>
+        a.left < b.right &&
+        a.right > b.left &&
+        a.top < b.bottom &&
+        a.bottom > b.top;
       const email = document.querySelector(".home-footer__email");
       const pills = [
         ...document.querySelectorAll(".home-footer__social-pill"),
@@ -107,15 +113,17 @@ async function sampleContactKeepHits(page, samples = 20, intervalMs = 100) {
           bottom: r.bottom + pad,
         };
       });
-      const cursors = [
-        ...document.querySelectorAll(".home-drifting-cursor"),
+      const cursorParts = [
+        ...document.querySelectorAll(
+          ".home-drifting-cursor__ptr, .home-drifting-cursor__tag",
+        ),
       ].filter((el) => {
         const r = el.getBoundingClientRect();
         return r.width > 2 && r.height > 2;
       });
       let n = 0;
-      for (const cur of cursors) {
-        const r = cur.getBoundingClientRect();
+      for (const part of cursorParts) {
+        const r = part.getBoundingClientRect();
         const box = {
           left: r.left - 3,
           top: r.top - 3,
@@ -126,12 +134,17 @@ async function sampleContactKeepHits(page, samples = 20, intervalMs = 100) {
           if (rectsOverlap(box, c)) n += 1;
         }
       }
-      return n;
+      return { hits: n, measuredRects: cursorParts.length };
     });
-    totalHits += hits;
+    totalHits += hits.hits;
+    measuredRectsTotal += hits.measuredRects;
     await page.waitForTimeout(intervalMs);
   }
-  return { samples, totalContactKeepHits: totalHits };
+  return {
+    samples,
+    totalContactKeepHits: totalHits,
+    measuredCursorRects: measuredRectsTotal,
+  };
 }
 
 async function heroSplashWhenTailOffScreen(page) {
@@ -223,7 +236,9 @@ for (const viewport of VIEWPORTS) {
     cursors.cursorCount >= 4 &&
     cursors.driftDetected;
 
-  const keepOk = keepHits.totalContactKeepHits === 0;
+  const keepMeasuredOk = keepHits.measuredCursorRects > 0;
+  const keepOk =
+    keepMeasuredOk && keepHits.totalContactKeepHits === 0;
 
   const row = {
     viewport: `${viewport.width}x${viewport.height}`,
@@ -232,6 +247,7 @@ for (const viewport of VIEWPORTS) {
     cursors,
     cursorOk,
     keepHits,
+    keepMeasuredOk,
     keepOk,
     ok: zOk && cursorOk && keepOk,
   };

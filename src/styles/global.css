@@ -281,15 +281,6 @@ html[data-overscroll-reveal="true"] body.site-body {
     padding-bottom: 16px;
   }
 
-  /* B2: transparent chrome so splash fills the shared closing viewport on hover. */
-  .home-closing-index,
-  .home-closing-desktop,
-  .home-closing-tail .home-footer,
-  .home-closing-tail .home-footer__layout,
-  .home-closing-tail .home-footer__email,
-  .home-closing-tail .home-footer__social-pill {
-    background-color: transparent;
-  }
 }
 
 .home-splash-overlay {
@@ -650,14 +641,19 @@ html[data-overscroll-reveal="true"] body.site-body {
   }
 
   .home-closing-tail .home-footer,
-  .home-footer__layout,
+  .home-closing-tail .home-footer__layout,
+  .home-closing-tail .home-footer__contact,
   .home-closing-tail .home-footer__email,
+  .home-closing-tail .home-footer__social,
+  .home-closing-tail .home-footer__social-list,
+  .home-closing-tail .home-footer__social-item,
   .home-closing-tail .home-footer__social-pill {
     background-color: var(--home-closing-bg);
   }
 }
 
 @media (width >= 768px) {
+  /* B2: transparent chrome so splash fills the shared closing viewport on hover. */
   .home-closing-index,
   .home-closing-desktop,
   .home-closing-tail .home-footer,

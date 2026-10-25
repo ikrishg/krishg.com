@@ -10,6 +10,7 @@ const SECTION_SELECTOR = "[data-home-nav-theme]";
 const TAIL_SELECTOR = ".home-closing-tail";
 const PROBE_Y = 64;
 const THEME_COLOR_META = 'meta[name="theme-color"]';
+const DESKTOP_CLOSING_MQ = "(min-width: 768px)";
 
 /**
  * Single pathway for surface accent: set `html[data-page-accent]`.
@@ -72,22 +73,28 @@ export default function HomeNavbarTheme() {
       return;
     }
 
+    const desktopClosingMq = window.matchMedia(DESKTOP_CLOSING_MQ);
+
     const pickActive = () => {
       const root = document.documentElement;
-      if (
-        root.dataset.overscrollReveal === "true" ||
-        root.dataset.overscrollPulling === "true"
-      ) {
-        setPageAccent("closing");
-        return;
-      }
+      const desktopClosingNav = desktopClosingMq.matches;
 
-      const tail = document.querySelector<HTMLElement>(TAIL_SELECTOR);
-      if (tail) {
-        const rect = tail.getBoundingClientRect();
-        if (rect.top <= PROBE_Y + 0.5) {
+      if (desktopClosingNav) {
+        if (
+          root.dataset.overscrollReveal === "true" ||
+          root.dataset.overscrollPulling === "true"
+        ) {
           setPageAccent("closing");
           return;
+        }
+
+        const tail = document.querySelector<HTMLElement>(TAIL_SELECTOR);
+        if (tail) {
+          const rect = tail.getBoundingClientRect();
+          if (rect.top <= PROBE_Y + 0.5) {
+            setPageAccent("closing");
+            return;
+          }
         }
       }
 
@@ -120,11 +127,14 @@ export default function HomeNavbarTheme() {
 
     pickActive();
     const offScroll = subscribeScroll(pickActive);
+    const onMqChange = () => pickActive();
     window.addEventListener("resize", pickActive);
+    desktopClosingMq.addEventListener("change", onMqChange);
 
     return () => {
       offScroll();
       window.removeEventListener("resize", pickActive);
+      desktopClosingMq.removeEventListener("change", onMqChange);
     };
   }, []);
 
