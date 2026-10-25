@@ -42,7 +42,7 @@ export async function countSettledCursors(page) {
         return r.width > 2 && r.height > 2 && opacity !== "0";
       });
     }).length;
-    return Math.max(cursors.length, visible);
+    return visible;
   });
 }
 

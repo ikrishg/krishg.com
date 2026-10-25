@@ -1,6 +1,6 @@
 /**
  * Shared mobile band-under-nav resolution (shallow probe only).
- * Used by nav-step and overscroll gates; mirrors HomeNavbarTheme.tsx.
+ * Used by nav-step and overscroll gates; mirrors HomeNavbarTheme.tsx shallow path.
  */
 
 export const CANVAS_HEX = {
@@ -67,8 +67,18 @@ function resolveBandUnderMobileNav() {
 
       const mobile = el.closest(".home-closing-link--mobile");
       if (mobile) {
+        const key = mobile.getAttribute("data-splash-key");
+        const map = {
+          building: "builder",
+          creating: "creator",
+          educating: "educator",
+          about: "about",
+          now: "now",
+          sitemap: "sitemap",
+        };
+        const theme = accentFrom(mobile) || map[key] || null;
         return {
-          theme: accentFrom(mobile),
+          theme,
           bandBg: getComputedStyle(mobile).backgroundColor,
           kind: "mobile",
         };
@@ -78,23 +88,26 @@ function resolveBandUnderMobileNav() {
         return { theme: "closing", bandBg: "rgb(231, 221, 204)", kind: "footer" };
       }
 
-      const scrollBand = el.closest(SECTION + "[data-home-scroll-band]");
-      if (scrollBand) {
-        const theme = accentFrom(scrollBand);
-        if (theme) {
-          return { theme, bandBg: bandBg(scrollBand), kind: "hero" };
-        }
-      }
-
       const themed = el.closest(SECTION);
-      if (themed && themed.hasAttribute("data-home-scroll-band")) {
+      if (themed) {
         const theme = accentFrom(themed);
         if (theme) {
-          return { theme, bandBg: bandBg(themed), kind: "hero" };
+          return { theme, bandBg: bandBg(themed), kind: "themed" };
         }
       }
     }
   }
   return null;
+}
+`;
+
+export const SAMPLE_NAV_ACCENT_SOURCE = `
+function sampleMobileNavAccentState() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  return {
+    scrollY: Math.round(window.scrollY),
+    pageAccent: document.documentElement.dataset.pageAccent ?? "",
+    themeColor: meta?.getAttribute("content") ?? "",
+  };
 }
 `;

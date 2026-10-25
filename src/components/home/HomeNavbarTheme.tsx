@@ -56,6 +56,20 @@ function accentFromSection(section: HTMLElement | null): PageAccent | null {
   return isPageAccent(value) ? value : null;
 }
 
+function accentFromMobileBand(section: HTMLElement | null): PageAccent | null {
+  const fromTheme = accentFromSection(section);
+  if (fromTheme) return fromTheme;
+  const key = section?.getAttribute("data-splash-key");
+  if (
+    key &&
+    key in closingMobileNavAccent &&
+    isPageAccent(closingMobileNavAccent[key as keyof typeof closingMobileNavAccent])
+  ) {
+    return closingMobileNavAccent[key as keyof typeof closingMobileNavAccent];
+  }
+  return null;
+}
+
 function pageAccentFromDom(): PageAccent | null {
   return isPageAccent(document.documentElement.dataset.pageAccent)
     ? document.documentElement.dataset.pageAccent
@@ -92,57 +106,44 @@ export default function HomeNavbarTheme() {
           tail.getBoundingClientRect().bottom >= window.innerHeight - 2,
       );
 
-      const resolveMobileBandAccent = (
-        cx: number,
-        y: number,
-        nav: HTMLElement,
-      ): PageAccent | null => {
-        for (const element of document.elementsFromPoint(cx, y)) {
-          if (nav.contains(element)) continue;
+      /** Shallow stack at nav bottom — first band wins (hero, mobile link, footer). */
+      const mobileAccentUnderNav = (): PageAccent | null => {
+        const nav = document.querySelector<HTMLElement>(".home-navbar");
+        if (!nav) return null;
+        const navBottom = nav.getBoundingClientRect().bottom ?? PROBE_Y;
+        const cx = window.innerWidth / 2;
+        for (let dy = 0; dy <= 3; dy += 1) {
+          const y = Math.min(navBottom + dy, window.innerHeight - 1);
+          const stack = document.elementsFromPoint(cx, y);
+          for (const element of stack) {
+            if (nav.contains(element)) continue;
 
-          const mobile = element.closest<HTMLElement>(
-            ".home-closing-link--mobile",
-          );
-          if (mobile) {
-            const underAccent = accentFromSection(mobile);
-            if (underAccent) return underAccent;
-          }
+            const mobile = element.closest<HTMLElement>(
+              ".home-closing-link--mobile",
+            );
+            if (mobile) {
+              const fromMobile = accentFromMobileBand(mobile);
+              if (fromMobile) return fromMobile;
+            }
 
-          if (element.closest(".home-footer")) return "closing";
+            if (element.closest(".home-footer")) return "closing";
 
-          const scrollBand = element.closest<HTMLElement>(
-            `${SECTION_SELECTOR}[data-home-scroll-band]`,
-          );
-          if (scrollBand) {
-            const fromHero = accentFromSection(scrollBand);
-            if (fromHero) return fromHero;
+            const themed = element.closest<HTMLElement>(SECTION_SELECTOR);
+            const fromThemed = accentFromSection(themed);
+            if (fromThemed) return fromThemed;
           }
         }
         return null;
       };
 
-      const pickMobileUnderNav = () => {
-        const nav = document.querySelector<HTMLElement>(".home-navbar");
-        if (!nav) return false;
-        const rect = nav.getBoundingClientRect();
-        const cx = window.innerWidth / 2;
-        for (let dy = 0; dy <= 3; dy += 1) {
-          const y = Math.min(rect.bottom + dy, window.innerHeight - 1);
-          const accent = resolveMobileBandAccent(cx, y, nav);
-          if (accent) {
-            setPageAccent(accent);
-            return true;
-          }
-        }
-        return false;
-      };
-
-      if (!desktopClosingNav && !overscrollActive) {
-        if (pickMobileUnderNav()) return;
-        if (tailAtRest) {
-          setPageAccent("closing");
+      if (!desktopClosingNav && overscrollActive) {
+        const under = mobileAccentUnderNav();
+        if (under) {
+          setPageAccent(under);
           return;
         }
+        setPageAccent("closing");
+        return;
       }
 
       const splashKey = root.dataset.homeSplash;
@@ -167,6 +168,14 @@ export default function HomeNavbarTheme() {
         }
         if (tailAtRest) {
           setPageAccent("closing");
+          return;
+        }
+      }
+
+      if (!desktopClosingNav && !overscrollActive) {
+        const under = mobileAccentUnderNav();
+        if (under) {
+          setPageAccent(under);
           return;
         }
       }
@@ -201,9 +210,6 @@ export default function HomeNavbarTheme() {
     pickActive();
     const offScroll = subscribeScroll(pickActive);
     const onMqChange = () => pickActive();
-    const onWindowScroll = () => {
-      if (!desktopClosingMq.matches) pickActive();
-    };
     const onWheel = () => {
       pickActive();
     };
@@ -228,7 +234,6 @@ export default function HomeNavbarTheme() {
     };
 
     window.addEventListener("resize", pickActive);
-    window.addEventListener("scroll", onWindowScroll, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("home-splash:activate", onSplashActivate);
     window.addEventListener("home-splash:immediate-clear", onSplashTheme);
@@ -242,7 +247,6 @@ export default function HomeNavbarTheme() {
     return () => {
       offScroll();
       window.removeEventListener("resize", pickActive);
-      window.removeEventListener("scroll", onWindowScroll);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("home-splash:activate", onSplashActivate);
       window.removeEventListener("home-splash:immediate-clear", onSplashTheme);

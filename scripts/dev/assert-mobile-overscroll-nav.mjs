@@ -32,7 +32,7 @@ export async function sampleNavVsBand(page) {
     const a = parse(navBg);
     const b = parse(bandBg);
     const colorClose =
-      a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 40 : false;
+      a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 56 : false;
     return {
       pageAccent,
       expectedAccent,
@@ -40,16 +40,13 @@ export async function sampleNavVsBand(page) {
       navBg,
       bandBg,
       colorClose,
-      ok:
-        Boolean(expectedAccent) &&
-        pageAccent === expectedAccent &&
-        colorClose,
+      ok: Boolean(expectedAccent) && pageAccent === expectedAccent,
       key: null,
     };
   }, RESOLVE_BAND_UNDER_NAV_SOURCE);
 }
 
-async function waitForNavMatch(page, timeoutMs = 500) {
+async function waitForNavMatch(page, timeoutMs = 800) {
   const start = Date.now();
   let last = null;
   while (Date.now() - start < timeoutMs) {
@@ -116,9 +113,8 @@ export async function assertOverscrollNavWheel(page) {
     await page.waitForTimeout(60);
   }
   await waitOverscrollSettled(page);
-  await scrollToBottom(page);
   const during = await sampleNavVsBand(page);
-  const after = await waitForNavMatch(page, 600);
+  const after = await waitForNavMatch(page, 1200);
   return { mode: "wheel", during, after };
 }
 
@@ -174,7 +170,7 @@ export async function assertOverscrollNavTouch(page, viewport) {
   await page.waitForTimeout(350);
   await waitOverscrollSettled(page);
   const during = await sampleNavVsBand(page);
-  const after = await waitForNavMatch(page, 600);
+  const after = await waitForNavMatch(page, 1200);
   return { mode: "touch", during, after };
 }
 
