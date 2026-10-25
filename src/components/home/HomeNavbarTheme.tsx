@@ -92,37 +92,47 @@ export default function HomeNavbarTheme() {
           tail.getBoundingClientRect().bottom >= window.innerHeight - 2,
       );
 
-      const pickMobileUnderNav = () => {
-        const navBottom =
-          document.querySelector<HTMLElement>(".home-navbar")?.getBoundingClientRect()
-            .bottom ?? PROBE_Y;
-        const cx = window.innerWidth / 2;
-        let underBand: HTMLElement | null = null;
-        for (const dy of [2, 10, 22, 36, 52, 72, 96]) {
-          const hit = document
-            .elementsFromPoint(cx, navBottom + dy)
-            .map((element) =>
-              element.closest<HTMLElement>(
-                ".home-closing-link--mobile, .home-footer",
-              ),
-            )
-            .find((section): section is HTMLElement => Boolean(section));
-          if (hit) {
-            underBand = hit;
-            break;
+      const resolveMobileBandAccent = (
+        cx: number,
+        y: number,
+        nav: HTMLElement,
+      ): PageAccent | null => {
+        for (const element of document.elementsFromPoint(cx, y)) {
+          if (nav.contains(element)) continue;
+
+          const mobile = element.closest<HTMLElement>(
+            ".home-closing-link--mobile",
+          );
+          if (mobile) {
+            const underAccent = accentFromSection(mobile);
+            if (underAccent) return underAccent;
+          }
+
+          if (element.closest(".home-footer")) return "closing";
+
+          const scrollBand = element.closest<HTMLElement>(
+            `${SECTION_SELECTOR}[data-home-scroll-band]`,
+          );
+          if (scrollBand) {
+            const fromHero = accentFromSection(scrollBand);
+            if (fromHero) return fromHero;
           }
         }
-        if (!underBand) return false;
-        if (underBand.classList.contains("home-closing-link--mobile")) {
-          const underAccent = accentFromSection(underBand);
-          if (underAccent) {
-            setPageAccent(underAccent);
+        return null;
+      };
+
+      const pickMobileUnderNav = () => {
+        const nav = document.querySelector<HTMLElement>(".home-navbar");
+        if (!nav) return false;
+        const rect = nav.getBoundingClientRect();
+        const cx = window.innerWidth / 2;
+        for (let dy = 0; dy <= 3; dy += 1) {
+          const y = Math.min(rect.bottom + dy, window.innerHeight - 1);
+          const accent = resolveMobileBandAccent(cx, y, nav);
+          if (accent) {
+            setPageAccent(accent);
             return true;
           }
-        }
-        if (underBand.closest(".home-footer")) {
-          setPageAccent("closing");
-          return true;
         }
         return false;
       };

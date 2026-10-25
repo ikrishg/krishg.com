@@ -14,6 +14,7 @@ import {
   scrollToClosing,
 } from "./pr40-cursor-baseline.mjs";
 import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
+import { runMobileNavStepGate } from "./assert-mobile-nav-step.mjs";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
@@ -226,6 +227,7 @@ async function runRegressionOnce(browser, runIndex) {
   }
 
   const mainBaselines = await measureMainCursorBaselines(browser, MAIN_BASE);
+  const mobileNavStep = await runMobileNavStepGate(browser, BASE);
   const overscrollNav = await runMobileOverscrollNavGate(browser, BASE);
   const viewports = [];
 
@@ -307,6 +309,7 @@ async function runRegressionOnce(browser, runIndex) {
   await heroPage.close();
 
   const ok =
+    mobileNavStep.ok &&
     overscrollNav.ok &&
     viewports.every((v) => v.ok) &&
     Boolean(heroSplash.ok);
@@ -315,6 +318,7 @@ async function runRegressionOnce(browser, runIndex) {
     run: runIndex,
     ok,
     mainBaselines,
+    mobileNavStep,
     overscrollNav,
     viewports,
     heroSplash,

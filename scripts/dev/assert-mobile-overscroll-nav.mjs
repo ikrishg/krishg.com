@@ -1,22 +1,15 @@
 /**
  * After bottom overscroll (wheel or touch), nav accent must match band under nav within ~300ms.
  */
+import { RESOLVE_BAND_UNDER_NAV_SOURCE } from "./mobile-nav-band-resolve.mjs";
+
 export async function sampleNavVsBand(page) {
-  return page.evaluate(() => {
+  return page.evaluate((resolveSrc) => {
+    // eslint-disable-next-line no-eval
+    eval(resolveSrc);
     const nav = document.querySelector(".home-navbar");
     const navBg = nav ? getComputedStyle(nav).backgroundColor : "";
-    const navBottom = nav?.getBoundingClientRect().bottom ?? 64;
-    const cx = window.innerWidth / 2;
-    let hit = null;
-    for (const dy of [2, 10, 22, 36, 52, 72, 96]) {
-      hit = document
-        .elementsFromPoint(cx, navBottom + dy)
-        .map((el) =>
-          el.closest(".home-closing-link--mobile, .home-footer"),
-        )
-        .find(Boolean);
-      if (hit) break;
-    }
+    const band = resolveBandUnderMobileNav();
     let expectedAccent = "";
     let bandBg = "";
     const tail = document.querySelector(".home-closing-tail");
@@ -24,12 +17,9 @@ export async function sampleNavVsBand(page) {
       tail &&
       tail.getBoundingClientRect().top <= 66 &&
       tail.getBoundingClientRect().bottom >= window.innerHeight - 2;
-    if (hit?.classList?.contains("home-closing-link--mobile")) {
-      expectedAccent = hit.getAttribute("data-home-nav-theme") ?? "";
-      bandBg = getComputedStyle(hit).backgroundColor;
-    } else if (hit?.closest?.(".home-footer")) {
-      expectedAccent = "closing";
-      bandBg = "rgb(231, 221, 204)";
+    if (band?.theme) {
+      expectedAccent = band.theme;
+      bandBg = band.bandBg;
     } else if (tailAtRest) {
       expectedAccent = "closing";
       bandBg = "rgb(231, 221, 204)";
@@ -54,9 +44,9 @@ export async function sampleNavVsBand(page) {
         Boolean(expectedAccent) &&
         pageAccent === expectedAccent &&
         colorClose,
-      key: hit?.getAttribute?.("data-splash-key") ?? null,
+      key: null,
     };
-  });
+  }, RESOLVE_BAND_UNDER_NAV_SOURCE);
 }
 
 async function waitForNavMatch(page, timeoutMs = 500) {

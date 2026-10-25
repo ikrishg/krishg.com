@@ -21,6 +21,7 @@ import {
 import { resolvePr40MetricsFile, PR40_ARTIFACTS_V7 } from "./pr40-metrics-path.mjs";
 import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
 import { runStackedPrimaryInkGate } from "./assert-stacked-primary-ink.mjs";
+import { runMobileNavStepGate } from "./assert-mobile-nav-step.mjs";
 
 const STABILITY_RUNS = 5;
 
@@ -1756,6 +1757,7 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
     browser,
     BASE,
   );
+  const mobileNavStep = await runMobileNavStepGate(browser, BASE);
   const mobileOverscrollNav = await runMobileOverscrollNavGate(browser, BASE);
   const desktopVisibleGaps = await runDesktopVisibleGapGate(browser, BASE);
   const stackedPrimaryInk = await runStackedPrimaryInkGate(browser, BASE);
@@ -1820,6 +1822,7 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
     !desktopVisibleGaps.ok ||
     !stackedPrimaryInk.ok ||
     !cursorKeepOut.ok ||
+    !mobileNavStep.ok ||
     !mobileOverscrollNav.ok ||
     run1.failed ||
     run2.failed ||
@@ -1831,6 +1834,7 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
     stabilityRun: stability,
     mobileNavCompare,
     mobileClosingNavBands,
+    mobileNavStep,
     mobileOverscrollNav,
     desktopVisibleGaps,
     stackedPrimaryInk,
@@ -1852,6 +1856,8 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
   stabilityReports.push(report);
 
   console.log(`=== prove stability run ${stability}/${STABILITY_RUNS} ===`);
+  console.log("=== mobile nav step (10px sweep) ===");
+  console.log(JSON.stringify(mobileNavStep, null, 2));
   console.log("=== mobile overscroll nav ===");
   console.log(JSON.stringify(mobileOverscrollNav, null, 2));
   console.log("=== desktop visible ink gaps (8 viewports) ===");
