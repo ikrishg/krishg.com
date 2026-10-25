@@ -91,8 +91,11 @@ export default function HomeNavbarTheme() {
         const tail = document.querySelector<HTMLElement>(TAIL_SELECTOR);
         if (tail) {
           const rect = tail.getBoundingClientRect();
-          if (rect.top <= PROBE_Y + 0.5) {
-            setPageAccent("closing");
+          const atTailRest =
+            rect.top <= PROBE_Y + 0.5 &&
+            rect.bottom >= window.innerHeight - 2;
+          if (atTailRest) {
+            setPageAccent("builder");
             return;
           }
         }
@@ -128,7 +131,9 @@ export default function HomeNavbarTheme() {
     pickActive();
     const offScroll = subscribeScroll(pickActive);
     const onMqChange = () => pickActive();
-    const onWindowScroll = () => pickActive();
+    const onWindowScroll = () => {
+      if (!desktopClosingMq.matches) pickActive();
+    };
     window.addEventListener("resize", pickActive);
     window.addEventListener("scroll", onWindowScroll, { passive: true });
     desktopClosingMq.addEventListener("change", onMqChange);

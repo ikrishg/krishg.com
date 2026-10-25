@@ -48,6 +48,9 @@ const MOBILE_CLOSING_NAV_WIDTHS = [
 ];
 
 const WORDS = ["building", "creating", "educating"];
+const NAV_ROW_INK_RGB = [20, 26, 43];
+const BUILDER_NAV_RGB = [57, 143, 208];
+const MOBILE_GAP_BEIGE_MIN_FRACTION = 0.94;
 
 function dist(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -143,6 +146,107 @@ function resultsTable(results) {
 
 async function waitLayoutSettle(page) {
   await page.waitForTimeout(LAYOUT_SETTLE_MS);
+}
+
+async function assertDesktopNavRowInk(page) {
+  return page.evaluate((target) => {
+    const link = document.querySelector(
+      ".home-closing-nav-row .home-closing-link--nav",
+    );
+    const row = document.querySelector(".home-closing-nav-row");
+    if (!link || !row) return { ok: false, reason: "missing-nav-row" };
+    const cs = getComputedStyle(link);
+    const rowCs = getComputedStyle(row);
+    const m = cs.color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return { ok: false, reason: "unparsed-color" };
+    const rgb = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const delta = Math.hypot(
+      rgb[0] - target[0],
+      rgb[1] - target[1],
+      rgb[2] - target[2],
+    );
+    const opacity = parseFloat(rowCs.opacity);
+    return {
+      ok: delta <= 12 && opacity >= 0.98,
+      rgb,
+      opacity,
+      delta: Math.round(delta),
+    };
+  }, NAV_ROW_INK_RGB);
+}
+
+async function assertDesktopNavBuilderAtTailRest(page) {
+  const navBg = await page.evaluate(() =>
+    getComputedStyle(document.querySelector(".home-navbar")).backgroundColor,
+  );
+  const rgb = parseCssRgb(navBg);
+  const ok =
+    rgb !== null &&
+    dist(rgb, BUILDER_NAV_RGB) <= 36;
+  return { ok, navBg };
+}
+
+async function assertMobileSitemapEmailGapPixels(page) {
+  const box = await page.evaluate(() => {
+    const last = document.querySelector(
+      ".home-closing-link--mobile:last-of-type",
+    );
+    const email = document.querySelector(".home-footer__email");
+    if (!last || !email) return null;
+    const a = last.getBoundingClientRect();
+    const b = email.getBoundingClientRect();
+    const y0 = Math.round(a.bottom);
+    const y1 = Math.round(b.top);
+    if (y1 - y0 < 6) return null;
+    return {
+      x: 0,
+      y: y0,
+      width: Math.round(window.innerWidth),
+      height: y1 - y0,
+    };
+  });
+  if (!box) return { ok: true, skipped: true };
+
+  const buf = await page.screenshot({ type: "png", clip: box });
+  const { data, info } = await sharp(buf)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const channels = info.channels;
+  let beigeCount = 0;
+  let offender = null;
+  const total = info.width * info.height;
+  for (let py = 0; py < info.height; py += 1) {
+    for (let px = 0; px < info.width; px += 2) {
+      const i = (py * info.width + px) * channels;
+      const rgb = [data[i], data[i + 1], data[i + 2]];
+      if (isBeigeRgb(rgb)) {
+        beigeCount += 1;
+      } else if (!offender) {
+        const classified = nearestClass(rgb);
+        if (
+          classified.dBeige > BEIGE_DIST_THRESHOLD ||
+          classified.label !== "beige"
+        ) {
+          offender = { rgb, label: classified.label };
+        }
+      }
+    }
+  }
+  const samples = Math.ceil(info.width / 2) * info.height;
+  const beigeFraction = beigeCount / samples;
+  return {
+    ok: beigeFraction >= MOBILE_GAP_BEIGE_MIN_FRACTION && !offender,
+    beigeFraction: Math.round(beigeFraction * 1000) / 1000,
+    offender,
+    box,
+  };
+}
+
+function assertHoverSplashHue(word, hoverCounts, sampleCount, splashKeyOk) {
+  const splashPx = hoverCounts[word] ?? 0;
+  const filled = sampleCount > 0 && splashPx >= sampleCount * 0.72;
+  return { ok: splashKeyOk && filled, word, splashPx, sampleCount };
 }
 
 function evaluateGapBar(gaps) {
@@ -983,16 +1087,26 @@ async function runProvePass(browser, baseUrl, runLabel) {
 
     const restStripe = hasStripeFromRows(restRows);
     const pillLayoutRest = await assertPillContactLayout(page);
+    const mobileGapPixels = isMobile
+      ? await assertMobileSitemapEmailGapPixels(page)
+      : null;
+    const navRowInk = !isMobile ? await assertDesktopNavRowInk(page) : null;
+    const desktopNavBuilder = !isMobile
+      ? await assertDesktopNavBuilderAtTailRest(page)
+      : null;
     const restOk = isMobile
       ? restCounts.beige >= restSamples.length * 0.85 &&
         pillLayoutRest.ok &&
-        closingGaps.ok
+        closingGaps.ok &&
+        mobileGapPixels.ok
       : restCounts.beige >= restSamples.length * 0.85 &&
         !restStripe &&
         restContrasts.every((c) => c.ok) &&
         navLogoRest.ok &&
         pillLayoutRest.ok &&
-        closingGaps.ok;
+        closingGaps.ok &&
+        navRowInk.ok &&
+        desktopNavBuilder.ok;
     if (!restOk) failed = true;
     results.push({
       viewport: viewportLabel,
@@ -1004,6 +1118,9 @@ async function runProvePass(browser, baseUrl, runLabel) {
       navLogo: navLogoRest,
       pillLayout: pillLayoutRest,
       closingGaps,
+      mobileGapPixels,
+      navRowInk,
+      desktopNavBuilder,
       screenshotPixels: { width: restShotMeta.width, height: restShotMeta.height },
     });
 
@@ -1058,8 +1175,19 @@ async function runProvePass(browser, baseUrl, runLabel) {
             centerSamples.filter((s) => s.label === word).length >=
               centerSamples.length * 0.7);
         const pillLayoutHover = await assertPillContactLayout(page);
+        const splashKeyOk = await page.evaluate(
+          (w) => document.documentElement.dataset.homeSplash === w,
+          word,
+        );
+        const splashHue = assertHoverSplashHue(
+          word,
+          hoverCounts,
+          hoverSamples.length,
+          splashKeyOk,
+        );
         const hoverOk =
           splashFilled &&
+          splashHue.ok &&
           hitTest.ok &&
           zOrder.ok &&
           !beigeBand &&
@@ -1079,6 +1207,7 @@ async function runProvePass(browser, baseUrl, runLabel) {
           hitTest,
           zOrder,
           pillLayout: pillLayoutHover,
+          splashHue,
           opaqueBgOffenders: bgAudit.offenders,
           contrasts: hoverContrasts,
           screenshotPixels: hoverShotMeta,

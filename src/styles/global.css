@@ -340,10 +340,12 @@ html[data-overscroll-reveal="true"] body.site-body {
     display: flex;
     flex-direction: column;
     justify-content: space-evenly;
-    margin-top: 52px;
+    margin-top: 0;
+    padding-top: 52px;
     min-height: 220px;
     padding-bottom: 52px;
     box-sizing: border-box;
+    background-color: var(--home-closing-bg);
   }
 
   html[data-home-closing-layout="mobile-stack"] .home-closing-tail .home-footer__layout {
@@ -386,6 +388,11 @@ html[data-overscroll-reveal="true"] body.site-body {
 @media (width >= 768px) {
   .home-navbar .home-logo__svg path {
     stroke-width: 3.2;
+  }
+
+  html[data-motion-enhance] #home-closing-index .home-closing-nav-row {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
