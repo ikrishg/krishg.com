@@ -26,6 +26,8 @@ const INK = {
   educating: [20, 26, 43],
 };
 const MIN_CONTRAST = 4.5;
+const ROW_STEP_PX = 8;
+const BEIGE_DIST_THRESHOLD = 28;
 
 const VIEWPORTS = [
   { width: 1440, height: 900 },
@@ -38,6 +40,10 @@ const WORDS = ["building", "creating", "educating"];
 
 function dist(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
+function isBeigeRgb(rgb) {
+  return dist(rgb, BEIGE) < BEIGE_DIST_THRESHOLD;
 }
 
 function nearestClass(rgb) {
@@ -81,6 +87,21 @@ async function scrollToClosing(page) {
   await page.waitForTimeout(500);
 }
 
+async function assertViewport(page, expected) {
+  const actual = await page.evaluate(() => ({
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+  }));
+  if (
+    actual.innerWidth !== expected.width ||
+    actual.innerHeight !== expected.height
+  ) {
+    throw new Error(
+      `viewport mismatch: expected ${expected.width}x${expected.height}, got ${actual.innerWidth}x${actual.innerHeight}`,
+    );
+  }
+}
+
 async function tailRect(page, mobileFooterOnly = false) {
   return page.evaluate((footerOnly) => {
     const el = footerOnly
@@ -97,7 +118,7 @@ async function tailRect(page, mobileFooterOnly = false) {
   }, mobileFooterOnly);
 }
 
-async function sampleTailPixels(page, rect) {
+async function sampleTailPixelsDense(page, rect) {
   const buf = await page.screenshot({
     type: "png",
     clip: {
@@ -112,55 +133,139 @@ async function sampleTailPixels(page, rect) {
     .raw()
     .toBuffer({ resolveWithObject: true });
 
+  if (info.width !== rect.width || info.height !== rect.height) {
+    throw new Error(
+      `clip/screenshot size mismatch: clip ${rect.width}x${rect.height}, image ${info.width}x${info.height}`,
+    );
+  }
+
   const w = info.width;
   const h = info.height;
   const channels = info.channels;
-  const inset = 6;
-  const xs = [
-    inset,
-    Math.floor(w / 4),
-    Math.floor(w / 2),
-    Math.floor((3 * w) / 4),
-    Math.max(inset, w - inset - 1),
-  ];
-  const ys = [inset, Math.floor(h / 2), Math.max(inset, h - inset - 1)];
-  const samples = [];
-  for (const y of ys) {
-    for (const x of xs) {
+  const insetX = 4;
+  const rowSamples = [];
+  const allSamples = [];
+
+  for (let y = 0; y < h; y += ROW_STEP_PX) {
+    const row = [];
+    for (let x = insetX; x < w; x += Math.max(8, Math.floor(w / 32))) {
       const i = (y * w + x) * channels;
-      samples.push({
-        x,
-        y,
-        rgb: [data[i], data[i + 1], data[i + 2]],
-        ...nearestClass([data[i], data[i + 1], data[i + 2]]),
-      });
+      const rgb = [data[i], data[i + 1], data[i + 2]];
+      const classified = { x, y, rgb, ...nearestClass(rgb) };
+      row.push(classified);
+      allSamples.push(classified);
     }
+    const beigeInRow = row.filter((s) => isBeigeRgb(s.rgb)).length;
+    rowSamples.push({
+      y,
+      beigeFraction: beigeInRow / row.length,
+      dominant: beigeInRow > row.length / 2 ? "beige" : "splash",
+    });
   }
-  return samples;
+
+  return { allSamples, rowSamples, imageSize: { w, h } };
 }
 
 function classifySamples(samples) {
   const counts = { beige: 0, building: 0, creating: 0, educating: 0 };
   for (const s of samples) {
-    if (s.label === "beige" || s.dBeige < 28) counts.beige += 1;
+    if (s.label === "beige" || s.dBeige < BEIGE_DIST_THRESHOLD) counts.beige += 1;
     else counts[s.label] = (counts[s.label] ?? 0) + 1;
   }
   return counts;
 }
 
-/** P0 sandwich: splash top and bottom with beige band through the middle. */
-function hasStripe(samples) {
-  const ys = [...new Set(samples.map((s) => s.y))].sort((a, b) => a - b);
-  if (ys.length < 3) return false;
-  const rowKind = (y) => {
-    const row = samples.filter((s) => s.y === y);
-    const beige = row.filter((s) => s.dBeige < 28).length;
-    return beige > row.length / 2 ? "beige" : "splash";
-  };
-  const top = rowKind(ys[0]);
-  const mid = rowKind(ys[Math.floor(ys.length / 2)]);
-  const bot = rowKind(ys[ys.length - 1]);
-  return top === "splash" && mid === "beige" && bot === "splash";
+/** Any horizontal band that is mostly beige while top/bottom are splash (sandwich). */
+function hasStripeFromRows(rowSamples) {
+  if (rowSamples.length < 3) return false;
+  const splashRows = rowSamples.filter((r) => r.dominant !== "beige");
+  const beigeRows = rowSamples.filter((r) => r.dominant === "beige");
+  if (beigeRows.length === 0 || splashRows.length === 0) return false;
+  const firstBeige = beigeRows[0].y;
+  const lastBeige = beigeRows[beigeRows.length - 1].y;
+  const hasSplashAbove = rowSamples.some(
+    (r) => r.y < firstBeige && r.dominant !== "beige",
+  );
+  const hasSplashBelow = rowSamples.some(
+    (r) => r.y > lastBeige && r.dominant !== "beige",
+  );
+  return hasSplashAbove && hasSplashBelow;
+}
+
+/** On hover: any row that is mostly beige is a forbidden stripe band. */
+function hasBeigeBandOnHover(rowSamples) {
+  return rowSamples.some((r) => r.dominant === "beige" && r.beigeFraction > 0.55);
+}
+
+async function auditTailOpaqueBackgrounds(page) {
+  return page.evaluate(() => {
+    const tail = document.querySelector(".home-closing-tail");
+    if (!tail) return { ok: false, offenders: [{ reason: "no tail" }] };
+
+    const parseBg = (css) => {
+      const t = css.trim();
+      if (!t || t === "transparent" || t === "none") return null;
+      const m = t.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (!m) return { raw: t, opaque: true };
+      const a = m[4] !== undefined ? Number(m[4]) : 1;
+      if (a <= 0.02) return null;
+      return {
+        rgb: [Number(m[1]), Number(m[2]), Number(m[3])],
+        alpha: a,
+        opaque: a > 0.02,
+      };
+    };
+
+    const isAllowedOpaque = (el) => {
+      if (!(el instanceof Element)) return false;
+      if (el.classList.contains("home-splash-overlay")) return true;
+      if (el.id === "home-splash-portal") return true;
+      if (el.closest(".home-drifting-cursor")) return true;
+      return false;
+    };
+
+    const isBeigeFill = (bg) => {
+      if (!bg?.rgb) return false;
+      const [r, g, b] = bg.rgb;
+      return (
+        Math.abs(r - 231) < 12 &&
+        Math.abs(g - 221) < 12 &&
+        Math.abs(b - 204) < 12
+      );
+    };
+
+    const offenders = [];
+    const walk = (el) => {
+      if (el === tail) {
+        for (const child of el.children) walk(child);
+        return;
+      }
+      if (!isAllowedOpaque(el)) {
+        const cs = getComputedStyle(el);
+        for (const pseudo of ["", "::before", "::after"]) {
+          const bg = parseBg(
+            pseudo
+              ? getComputedStyle(el, pseudo).backgroundColor
+              : cs.backgroundColor,
+          );
+          if (bg?.opaque && isBeigeFill(bg)) {
+            const id =
+              el.id ||
+              [...(el.classList || [])].slice(0, 3).join(".") ||
+              el.tagName.toLowerCase();
+            offenders.push({
+              selector: `${id}${pseudo}`,
+              backgroundColor: bg.raw || `rgb(${bg.rgb.join(",")})`,
+              alpha: bg.alpha,
+            });
+          }
+        }
+      }
+      for (const child of el.children) walk(child);
+    };
+    walk(tail);
+    return { ok: offenders.length === 0, offenders };
+  });
 }
 
 async function measureInkContrast(page, word, bgRgb) {
@@ -197,6 +302,33 @@ async function measureInkContrast(page, word, bgRgb) {
   );
 }
 
+async function checkNavLogoVisible(page) {
+  return page.evaluate(() => {
+    const logo = document.querySelector(".home-navbar .home-logo");
+    if (!logo) return { ok: false, reason: "missing .home-logo" };
+    const svg = logo.querySelector("svg, .home-logo__svg");
+    const cs = getComputedStyle(logo);
+    const opacity = Number(cs.opacity);
+    const display = cs.display;
+    const visibility = cs.visibility;
+    const rect = logo.getBoundingClientRect();
+    return {
+      ok:
+        opacity > 0.1 &&
+        display !== "none" &&
+        visibility !== "hidden" &&
+        rect.width > 8 &&
+        rect.height > 8,
+      opacity,
+      display,
+      visibility,
+      width: rect.width,
+      height: rect.height,
+      hasSvg: Boolean(svg),
+    };
+  });
+}
+
 async function hoverPrimary(page, word) {
   const link = page.locator(`a.home-closing-link--primary`, { hasText: word });
   await link.first().scrollIntoViewIfNeeded();
@@ -211,6 +343,13 @@ async function hoverPrimary(page, word) {
   await page.waitForTimeout(700);
 }
 
+async function screenshotViewport(page, filePath) {
+  const buf = await page.screenshot({ type: "png", fullPage: false });
+  const meta = await sharp(buf).metadata();
+  await writeFile(filePath, buf);
+  return { width: meta.width, height: meta.height };
+}
+
 await mkdir(OUT, { recursive: true });
 
 const browser = await chromium.launch();
@@ -221,22 +360,29 @@ for (const viewport of VIEWPORTS) {
   const isMobile = viewport.width < 768;
   const viewportLabel = `${viewport.width}x${viewport.height}`;
 
-  const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
+  const context = await browser.newContext({
+    viewport,
+    deviceScaleFactor: 1,
+  });
+  const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
+  await assertViewport(page, viewport);
   await scrollToClosing(page);
   const rect = await tailRect(page, isMobile);
   const tailRectDesktop = isMobile ? null : await tailRect(page, false);
   if (!rect) {
     failed = true;
     results.push({ viewport: viewportLabel, state: "rest", ok: false });
-    await page.close();
+    await context.close();
     continue;
   }
 
-  const restSamples = await sampleTailPixels(page, rect);
+  const { allSamples: restSamples, rowSamples: restRows } =
+    await sampleTailPixelsDense(page, rect);
   const restCounts = classifySamples(restSamples);
   const restShot = path.join(OUT, `${viewportLabel}-rest.png`);
-  await page.screenshot({ path: restShot, fullPage: false });
+  const restShotMeta = await screenshotViewport(page, restShot);
+  const navLogoRest = await checkNavLogoVisible(page);
   const restContrastRows = isMobile
     ? []
     : await measureInkContrast(page, "building", BEIGE);
@@ -253,7 +399,9 @@ for (const viewport of VIEWPORTS) {
     const emailRow = await page.evaluate(() => {
       const email = document.querySelector(".home-footer__email");
       if (!email) return null;
-      const m = getComputedStyle(email).color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      const m = getComputedStyle(email).color.match(
+        /rgba?\((\d+),\s*(\d+),\s*(\d+)/,
+      );
       const fg = m
         ? [Number(m[1]), Number(m[2]), Number(m[3])]
         : [20, 26, 43];
@@ -268,14 +416,16 @@ for (const viewport of VIEWPORTS) {
       });
     }
   }
+  const restStripe = hasStripeFromRows(restRows);
   const restOk =
     !isMobile &&
-    restCounts.beige >= restSamples.length - 2 &&
-    !hasStripe(restSamples) &&
-    restContrasts.every((c) => c.ok);
+    restCounts.beige >= restSamples.length * 0.85 &&
+    !restStripe &&
+    restContrasts.every((c) => c.ok) &&
+    navLogoRest.ok;
   const mobileRestOk =
     isMobile &&
-    restCounts.beige === restSamples.length &&
+    restCounts.beige >= restSamples.length * 0.85 &&
     restContrasts.every((c) => c.ok);
   const okRest = isMobile ? mobileRestOk : restOk;
   if (!okRest) failed = true;
@@ -284,9 +434,11 @@ for (const viewport of VIEWPORTS) {
     state: "rest",
     ok: okRest,
     pixelCounts: restCounts,
-    stripe: hasStripe(restSamples),
+    stripe: restStripe,
     contrasts: restContrasts,
+    navLogo: navLogoRest,
     screenshot: restShot,
+    screenshotPixels: restShotMeta,
   });
 
   if (!isMobile && tailRectDesktop) {
@@ -296,10 +448,12 @@ for (const viewport of VIEWPORTS) {
       });
       await page.waitForTimeout(150);
       await hoverPrimary(page, word);
-      const hoverSamples = await sampleTailPixels(page, tailRectDesktop);
+      const { allSamples: hoverSamples, rowSamples: hoverRows } =
+        await sampleTailPixelsDense(page, tailRectDesktop);
       const hoverCounts = classifySamples(hoverSamples);
       const hoverShot = path.join(OUT, `${viewportLabel}-${word}.png`);
-      await page.screenshot({ path: hoverShot, fullPage: false });
+      const hoverShotMeta = await screenshotViewport(page, hoverShot);
+      const bgAudit = await auditTailOpaqueBackgrounds(page);
       const splashRgb = SPLASH[word];
       const hoverContrastRows = await measureInkContrast(page, word, splashRgb);
       const hoverContrasts = hoverContrastRows.map((row) => {
@@ -312,28 +466,36 @@ for (const viewport of VIEWPORTS) {
           ok: ratio >= MIN_CONTRAST,
         };
       });
-      const splashFilled =
-        hoverCounts[word] >= hoverSamples.length - 2 &&
-        hoverCounts.beige <= 1;
+      const beigeBand = hasBeigeBandOnHover(hoverRows);
+      const splashFilled = hoverCounts[word] >= hoverSamples.length * 0.85;
       const hoverOk =
-        splashFilled && !hasStripe(hoverSamples) && hoverContrasts.every((c) => c.ok);
+        splashFilled &&
+        !beigeBand &&
+        !hasStripeFromRows(hoverRows) &&
+        bgAudit.ok &&
+        hoverContrasts.every((c) => c.ok) &&
+        hoverShotMeta.width === viewport.width;
       if (!hoverOk) failed = true;
       results.push({
         viewport: viewportLabel,
         state: `hover-${word}`,
         ok: hoverOk,
         pixelCounts: hoverCounts,
-        stripe: hasStripe(hoverSamples),
+        stripe: beigeBand || hasStripeFromRows(hoverRows),
+        beigeBandRows: hoverRows.filter((r) => r.dominant === "beige").length,
+        opaqueBgOffenders: bgAudit.offenders,
         contrasts: hoverContrasts,
         screenshot: hoverShot,
+        screenshotPixels: hoverShotMeta,
       });
 
       await page.mouse.move(8, viewport.height - 8);
       await page.waitForTimeout(400);
-      const exitSamples = await sampleTailPixels(page, tailRectDesktop);
+      const { allSamples: exitSamples, rowSamples: exitRows } =
+        await sampleTailPixelsDense(page, tailRectDesktop);
       const exitShot = path.join(OUT, `${viewportLabel}-${word}-exitfade.png`);
-      await page.screenshot({ path: exitShot, fullPage: false });
-      const exitStripe = hasStripe(exitSamples);
+      await screenshotViewport(page, exitShot);
+      const exitStripe = hasStripeFromRows(exitRows);
       const exitOk = !exitStripe;
       if (!exitOk) failed = true;
       results.push({
@@ -347,7 +509,7 @@ for (const viewport of VIEWPORTS) {
     }
   }
 
-  await page.close();
+  await context.close();
 }
 
 await browser.close();
