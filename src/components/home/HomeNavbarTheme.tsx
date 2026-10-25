@@ -61,6 +61,11 @@ function pageAccentFromDom(): PageAccent | null {
 
 export default function HomeNavbarTheme() {
   useEffect(() => {
+    if (document.documentElement.dataset.creatingPage === "true") {
+      setPageAccent("creator");
+      return;
+    }
+
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>(SECTION_SELECTOR),
     );
