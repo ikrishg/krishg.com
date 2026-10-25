@@ -24,6 +24,8 @@ const SPLASH = {
   educating: [216, 161, 42],
 };
 const MIN_CONTRAST = 4.5;
+const MIN_PILL_VIEWPORT_INSET_PX = 16;
+const MIN_PILL_GAP_PX = 8;
 const ROW_STEP_PX = 8;
 const BEIGE_DIST_THRESHOLD = 28;
 
@@ -122,6 +124,7 @@ function resultsTable(results) {
     ok: x.ok,
     stripe: x.stripe ?? "-",
     hit: x.hitTest?.ok ?? "-",
+    pills: x.pillLayout?.ok ?? "-",
     beigeBand: x.beigeBandRows ?? "-",
   }));
 }
@@ -453,6 +456,116 @@ async function auditTailOpaqueBackgrounds(page) {
   });
 }
 
+async function assertPillContactLayout(page) {
+  return page.evaluate(
+    ({ minInset, minGap }) => {
+      const vw = window.innerWidth;
+      const email = document.querySelector(".home-footer__email");
+      const pills = [
+        ...document.querySelectorAll(".home-footer__social-pill"),
+      ];
+      const emailRect = email?.getBoundingClientRect() ?? null;
+      const pillRects = pills.map((el, index) => {
+        const r = el.getBoundingClientRect();
+        return {
+          index,
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          bottom: r.bottom,
+          insetLeft: r.left,
+          insetRight: vw - r.right,
+        };
+      });
+
+      const failures = [];
+      for (const r of pillRects) {
+        if (r.insetLeft < minInset - 0.5) {
+          failures.push({ type: "viewport-inset-left", ...r });
+        }
+        if (r.insetRight < minInset - 0.5) {
+          failures.push({ type: "viewport-inset-right", ...r });
+        }
+      }
+
+      const sorted = [...pillRects].sort((a, b) => a.top - b.top);
+      for (let i = 0; i < sorted.length; i += 1) {
+        for (let j = i + 1; j < sorted.length; j += 1) {
+          const a = sorted[i];
+          const b = sorted[j];
+          const overlap =
+            a.left < b.right - 0.5 &&
+            a.right > b.left + 0.5 &&
+            a.top < b.bottom - 0.5 &&
+            a.bottom > b.top + 0.5;
+          if (overlap) {
+            failures.push({ type: "pill-overlap", a: a.index, b: b.index });
+            continue;
+          }
+          const hGap = Math.max(
+            0,
+            Math.max(b.left - a.right, a.left - b.right),
+          );
+          const vGap = Math.max(
+            0,
+            Math.max(b.top - a.bottom, a.top - b.bottom),
+          );
+          const gap = Math.min(
+            hGap > 0 ? hGap : Number.POSITIVE_INFINITY,
+            vGap > 0 ? vGap : Number.POSITIVE_INFINITY,
+          );
+          if (Number.isFinite(gap) && gap < minGap - 0.5) {
+            failures.push({
+              type: "pill-gap",
+              a: a.index,
+              b: b.index,
+              gap: Math.round(gap),
+            });
+          }
+        }
+      }
+
+      if (emailRect && pillRects.length > 0) {
+        const topPill = Math.min(...pillRects.map((r) => r.top));
+        const emailBottom = emailRect.bottom;
+        if (topPill < emailBottom - 0.5) {
+          failures.push({
+            type: "email-overlap",
+            emailBottom,
+            pillTop: topPill,
+          });
+        } else {
+          const emailGap = topPill - emailBottom;
+          if (emailGap < minGap - 0.5) {
+            failures.push({
+              type: "email-gap",
+              gap: Math.round(emailGap),
+            });
+          }
+        }
+      }
+
+      return {
+        ok: failures.length === 0,
+        vw,
+        pillRects,
+        emailRect: emailRect
+          ? {
+              insetLeft: emailRect.left,
+              insetRight: vw - emailRect.right,
+              bottom: emailRect.bottom,
+            }
+          : null,
+        failures,
+      };
+    },
+    {
+      minInset: MIN_PILL_VIEWPORT_INSET_PX,
+      minGap: MIN_PILL_GAP_PX,
+    },
+  );
+}
+
 async function checkNavLogoVisible(page) {
   return page.evaluate(() => {
     const logo = document.querySelector(".home-navbar .home-logo");
@@ -642,12 +755,14 @@ async function runProvePass(browser, baseUrl, runLabel) {
       : await measureContrastsFromViewportShot(page, "building", restViewportBuf);
 
     const restStripe = hasStripeFromRows(restRows);
+    const pillLayoutRest = await assertPillContactLayout(page);
     const restOk = isMobile
-      ? restCounts.beige >= restSamples.length * 0.85
+      ? restCounts.beige >= restSamples.length * 0.85 && pillLayoutRest.ok
       : restCounts.beige >= restSamples.length * 0.85 &&
         !restStripe &&
         restContrasts.every((c) => c.ok) &&
-        navLogoRest.ok;
+        navLogoRest.ok &&
+        pillLayoutRest.ok;
     if (!restOk) failed = true;
     results.push({
       viewport: viewportLabel,
@@ -657,8 +772,28 @@ async function runProvePass(browser, baseUrl, runLabel) {
       stripe: restStripe,
       contrasts: restContrasts,
       navLogo: navLogoRest,
+      pillLayout: pillLayoutRest,
       screenshotPixels: { width: restShotMeta.width, height: restShotMeta.height },
     });
+
+    if (isMobile) {
+      const mobileEducating = page.locator("a.home-closing-link--mobile", {
+        hasText: "educating",
+      });
+      if ((await mobileEducating.count()) > 0) {
+        await mobileEducating.first().hover({ force: true });
+        await page.waitForTimeout(300);
+        const pillLayoutHover = await assertPillContactLayout(page);
+        const hoverMobileOk = pillLayoutHover.ok;
+        if (!hoverMobileOk) failed = true;
+        results.push({
+          viewport: viewportLabel,
+          state: "hover-educating-mobile",
+          ok: hoverMobileOk,
+          pillLayout: pillLayoutHover,
+        });
+      }
+    }
 
     if (!isMobile && tailRectDesktop) {
       for (const word of WORDS) {
@@ -691,6 +826,7 @@ async function runProvePass(browser, baseUrl, runLabel) {
           (centerSamples.length === 0 ||
             centerSamples.filter((s) => s.label === word).length >=
               centerSamples.length * 0.7);
+        const pillLayoutHover = await assertPillContactLayout(page);
         const hoverOk =
           splashFilled &&
           hitTest.ok &&
@@ -699,6 +835,7 @@ async function runProvePass(browser, baseUrl, runLabel) {
           !hasStripeFromRows(hoverRows) &&
           bgAudit.ok &&
           hoverContrasts.every((c) => c.ok) &&
+          pillLayoutHover.ok &&
           hoverShotMeta.width === viewport.width;
         if (!hoverOk) failed = true;
         results.push({
@@ -710,6 +847,7 @@ async function runProvePass(browser, baseUrl, runLabel) {
           beigeBandRows: hoverRows.filter((r) => r.dominant === "beige").length,
           hitTest,
           zOrder,
+          pillLayout: pillLayoutHover,
           opaqueBgOffenders: bgAudit.offenders,
           contrasts: hoverContrasts,
           screenshotPixels: hoverShotMeta,
