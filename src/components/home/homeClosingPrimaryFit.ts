@@ -13,7 +13,7 @@ const PRIMARY_FIT_OPTS = {
   maxSize: 160,
 };
 
-const PRIMARY_LINE_HEIGHT = 1.08;
+const PRIMARY_LINE_HEIGHT = 1;
 
 function readGapPx(element: HTMLElement | null) {
   if (!element) return 0;

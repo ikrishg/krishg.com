@@ -4,6 +4,7 @@
  */
 import { chromium } from "playwright";
 import { mkdir, writeFile } from "node:fs/promises";
+import { measureDesktopVisibleGaps } from "./measure-closing-visible-gaps.mjs";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const OUT = "/opt/cursor/artifacts/pr40-v6";
@@ -209,8 +210,12 @@ for (const { w, h, mobile, shots } of [
   const page = await ctx.newPage();
   await page.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
   await scrollToClosing(page);
-  const ink = await measureInkGaps(page, mobile);
-  metrics.textGapsByWidth[`${w}x${h}`] = ink.gaps.map((g) => Math.round(g));
+  const ink = mobile
+    ? await measureInkGaps(page, mobile)
+    : await measureDesktopVisibleGaps(page);
+  metrics.textGapsByWidth[`${w}x${h}`] = (ink.gaps ?? []).map((g) =>
+    Math.round(g),
+  );
   if (!mobile) {
     const visible = await countSettledCursors(page);
     metrics.cursorCountsByWidth[`${w}x${h}`] = {

@@ -1,5 +1,6 @@
 import { FitText } from "@darkroomengineering/fitbox/react";
 import type { PointerEvent } from "react";
+import { useEffect, useState } from "react";
 import { useClampFontSizePx } from "./useClampFontSizePx";
 import type { ClosingLink } from "./home-closing";
 import {
@@ -53,12 +54,25 @@ const navClass =
 const mobileBlockClass =
   "home-closing-link home-closing-link--mobile box-border flex min-h-[calc((100svh-var(--home-nav-height))/6)] min-h-[calc((100lvh-var(--home-nav-height))/6)] w-full flex-1 items-center justify-center px-[var(--gutter)] py-4 text-center font-[family-name:var(--font-inter-tight),system-ui,sans-serif] text-[clamp(1.5rem,7.2vw,2rem)] font-medium lowercase tracking-[-0.02em] underline decoration-[0.07em] underline-offset-[0.2em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]";
 
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return reduced;
+}
+
 export default function HomeClosingLink({
   link,
   variant,
   sharedPrimaryPx = null,
 }: Props) {
   const mobileClampMinPx = useClampFontSizePx(mobileFitClass, 24);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const className =
     variant === "primary"
@@ -87,15 +101,19 @@ export default function HomeClosingLink({
         data-splash-key={link.key}
         data-home-nav-theme={closingMobileNavAccent[link.key]}
       >
-        <FitText
-          as="span"
-          className={mobileFitClass}
-          maxLines={1}
-          minSize={mobileClampMinPx}
-          maxSize={48}
-        >
-          {link.label}
-        </FitText>
+        {prefersReducedMotion ? (
+          <span className={mobileFitClass}>{link.label}</span>
+        ) : (
+          <FitText
+            as="span"
+            className={mobileFitClass}
+            maxLines={1}
+            minSize={mobileClampMinPx}
+            maxSize={mobileClampMinPx}
+          >
+            {link.label}
+          </FitText>
+        )}
       </a>
     );
   }

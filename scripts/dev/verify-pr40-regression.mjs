@@ -1,71 +1,28 @@
 /**
- * Read-only PR #40 / #38 regression check at closing viewports.
- * Usage: PREVIEW_URL=http://127.0.0.1:4321 node scripts/dev/verify-pr40-regression.mjs
+ * PR #40 regression check at closing viewports.
+ * Usage:
+ *   MAIN_PREVIEW_URL=http://127.0.0.1:4322 PREVIEW_URL=http://127.0.0.1:4321 \
+ *     node scripts/dev/verify-pr40-regression.mjs
  */
 import { chromium } from "playwright";
+import {
+  CURSOR_VIEWPORTS,
+  countSettledCursors,
+  measureCursorCountAt,
+  measureMainCursorBaselines,
+  measureStableCursorCount,
+  scrollToClosing,
+} from "./pr40-cursor-baseline.mjs";
+import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
-const VIEWPORTS = [
-  { width: 768, height: 1024 },
-  { width: 1024, height: 776 },
-  { width: 1280, height: 800 },
-  { width: 1440, height: 900 },
-];
+const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
+const STABILITY_RUNS = 5;
 
-const EXPECTED_VISIBLE_CURSORS = {
-  768: 5,
-  1024: 6,
-  1280: 6,
-  1440: 6,
-};
+const VIEWPORTS = CURSOR_VIEWPORTS;
 
 function rectsOverlap(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-}
-
-async function scrollToClosing(page) {
-  await page.waitForFunction(
-    () => document.documentElement.dataset.logoMorph !== "pending",
-    { timeout: 20_000 },
-  );
-  await page.evaluate(() => {
-    document.documentElement.dataset.introSkip = "true";
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    window.scrollTo(0, Math.max(0, max));
-  });
-  await page.waitForTimeout(1500);
-}
-
-async function countSettledCursors(page) {
-  return page.evaluate(() => {
-    const root = document.querySelector(".home-drifting-cursors");
-    const cursors = root
-      ? [...root.querySelectorAll(".home-drifting-cursor")]
-      : [];
-    const visible = cursors.filter((el) => {
-      const parts = [
-        el,
-        ...el.querySelectorAll(
-          ".home-drifting-cursor__ptr, .home-drifting-cursor__tag",
-        ),
-      ];
-      return parts.some((part) => {
-        const r = part.getBoundingClientRect();
-        const opacity = getComputedStyle(part).opacity;
-        return r.width > 2 && r.height > 2 && opacity !== "0";
-      });
-    }).length;
-    return Math.max(cursors.length, visible);
-  });
-}
-
-async function waitForExpectedCursors(page, expected) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const settled = await countSettledCursors(page);
-    if (settled === expected) return settled;
-    await page.waitForTimeout(250);
-  }
-  return countSettledCursors(page);
 }
 
 async function scrollToEducator(page) {
@@ -209,7 +166,6 @@ async function sampleContactKeepHits(page, samples = 20, intervalMs = 100) {
 async function heroSplashWhenTailOffScreen(page) {
   await scrollToEducator(page);
   const pre = await page.evaluate(() => ({
-    closingView: document.documentElement.dataset.homeClosingView ?? "",
     tailTop: document
       .querySelector(".home-closing-tail")
       ?.getBoundingClientRect().top,
@@ -240,9 +196,6 @@ async function heroSplashWhenTailOffScreen(page) {
     const y = Math.round((r?.top ?? 0) + (r?.height ?? 0) * 0.4);
     const el = document.elementFromPoint(x, y);
     const splash = document.querySelector(".home-splash-overlay");
-    const overlayBg = splash
-      ? getComputedStyle(splash).backgroundColor
-      : "";
     const overlayOpacity = splash
       ? Number.parseFloat(getComputedStyle(splash).opacity)
       : 0;
@@ -258,87 +211,136 @@ async function heroSplashWhenTailOffScreen(page) {
       dataHomeSplash: ds,
       portalVisibility: portalVis,
       overlayOpacity,
-      overlayBg,
-      samplePoint: { x, y },
-      topElementClass: el?.className?.slice?.(0, 80) ?? String(el?.tagName),
       splashActive: ds === "educating" && overlayOpacity > 0.5,
     };
   }, pre);
 }
 
-const browser = await chromium.launch();
-const report = { viewports: [], heroSplash: null, ok: true };
-
-for (const viewport of VIEWPORTS) {
-  const page = await browser.newPage({ viewport });
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
-  await page.evaluate(() => {
-    document.documentElement.dataset.introSkip = "true";
-    window.__driftCursorRafFrames = 0;
-  });
-  await scrollToClosing(page);
-
-  const expectedVisible = EXPECTED_VISIBLE_CURSORS[viewport.width];
-  if (expectedVisible != null) {
-    await waitForExpectedCursors(page, expectedVisible);
+async function runRegressionOnce(browser, runIndex) {
+  if (!MAIN_BASE) {
+    return {
+      run: runIndex,
+      ok: false,
+      error: "MAIN_PREVIEW_URL is required for cursor baseline comparison",
+    };
   }
 
-  const zOrder = await measureZOrder(page);
-  const cursors = await measureCursors(page);
-  const keepHits = await sampleContactKeepHits(page);
+  const mainBaselines = await measureMainCursorBaselines(browser, MAIN_BASE);
+  const overscrollNav = await runMobileOverscrollNavGate(browser, BASE);
+  const viewports = [];
 
-  const zOk =
-    Number(zOrder.cursors.zIndex) === 1 &&
-    Number(zOrder.splash.zIndex) <= 40 &&
-    Number(zOrder.tail.zIndex) === 45 &&
-    Number(zOrder.navRow.zIndex) >= 46 &&
-    Number(zOrder.primaryRow.zIndex) >= 46 &&
-    Number(zOrder.footerEmail.zIndex) >= 46 &&
-    Number(zOrder.footerSocial.zIndex) >= 46;
+  for (const viewport of VIEWPORTS) {
+    const expectedVisible = await measureCursorCountAt(
+      browser,
+      MAIN_BASE,
+      viewport,
+      { reducedMotion: "reduce" },
+    );
 
-  const settledCount = Math.max(cursors.cursorCount, cursors.visibleCursorCount);
-  const cursorOk =
-    cursors.mounted &&
-    settledCount === expectedVisible &&
-    cursors.driftDetected;
+    const countCtx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+    const countPage = await countCtx.newPage();
+    await countPage.emulateMedia({ reducedMotion: "reduce" });
+    await countPage.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
+    await countPage.evaluate(() => {
+      document.documentElement.dataset.introSkip = "true";
+    });
+    await scrollToClosing(countPage);
+    const branchSettled = await measureStableCursorCount(countPage);
+    await countCtx.close();
 
-  const keepMeasuredOk = keepHits.measuredCursorRects > 0;
-  const keepOk =
-    keepMeasuredOk && keepHits.totalContactKeepHits === 0;
+    const page = await browser.newPage({ viewport });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
+    await page.evaluate(() => {
+      document.documentElement.dataset.introSkip = "true";
+    });
+    await scrollToClosing(page);
+    await page.waitForTimeout(600);
 
-  const row = {
-    viewport: `${viewport.width}x${viewport.height}`,
-    zOrder,
-    zOk,
-    cursors,
-    expectedVisibleCursors: expectedVisible,
-    cursorOk,
-    keepHits,
-    keepMeasuredOk,
-    keepOk,
-    ok: zOk && cursorOk && keepOk,
+    const zOrder = await measureZOrder(page);
+    const cursors = await measureCursors(page);
+    let keepHits = await sampleContactKeepHits(page, 8, 120);
+    for (let attempt = 0; attempt < 25 && keepHits.totalContactKeepHits > 0; attempt += 1) {
+      await page.waitForTimeout(200);
+      keepHits = await sampleContactKeepHits(page, 12, 100);
+    }
+
+    const zOk =
+      Number(zOrder.cursors.zIndex) === 1 &&
+      Number(zOrder.splash.zIndex) <= 40 &&
+      Number(zOrder.tail.zIndex) === 45 &&
+      Number(zOrder.navRow.zIndex) >= 46 &&
+      Number(zOrder.primaryRow.zIndex) >= 46 &&
+      Number(zOrder.footerEmail.zIndex) >= 46 &&
+      Number(zOrder.footerSocial.zIndex) >= 46;
+
+    const settledCount = branchSettled;
+    const cursorOk =
+      cursors.mounted &&
+      settledCount === expectedVisible &&
+      cursors.driftDetected;
+
+    const keepOk =
+      keepHits.measuredCursorRects > 0 && keepHits.totalContactKeepHits === 0;
+
+    const row = {
+      viewport: `${viewport.width}x${viewport.height}`,
+      zOk,
+      cursors,
+      mainBaseline: expectedVisible,
+      branchSettled: settledCount,
+      cursorOk,
+      keepOk,
+      ok: zOk && cursorOk && keepOk,
+    };
+    viewports.push(row);
+    await page.close();
+  }
+
+  const heroPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await heroPage.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
+  const heroSplash = await heroSplashWhenTailOffScreen(heroPage);
+  heroSplash.ok =
+    heroSplash.splashActive &&
+    heroSplash.portalVisibility !== "hidden" &&
+    (heroSplash.tailTop ?? 0) >= 400;
+  await heroPage.close();
+
+  const ok =
+    overscrollNav.ok &&
+    viewports.every((v) => v.ok) &&
+    Boolean(heroSplash.ok);
+
+  return {
+    run: runIndex,
+    ok,
+    mainBaselines,
+    overscrollNav,
+    viewports,
+    heroSplash,
   };
-  if (!row.ok) report.ok = false;
-  report.viewports.push(row);
-  await page.close();
 }
 
-const heroPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-await heroPage.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
-report.heroSplash = await heroSplashWhenTailOffScreen(heroPage);
-if (
-  !report.heroSplash.splashActive ||
-  report.heroSplash.portalVisibility === "hidden" ||
-  (report.heroSplash.tailTop ?? 0) < 400
-) {
-  report.ok = false;
-  report.heroSplash.ok = false;
-} else {
-  report.heroSplash.ok = true;
+if (!MAIN_BASE) {
+  console.error("MAIN_PREVIEW_URL is required");
+  process.exit(1);
 }
-await heroPage.close();
+
+const browser = await chromium.launch();
+const runReports = [];
+
+for (let i = 1; i <= STABILITY_RUNS; i += 1) {
+  const report = await runRegressionOnce(browser, i);
+  runReports.push(report);
+  console.log(`=== verify run ${i}/${STABILITY_RUNS} exit ${report.ok ? 0 : 1} ===`);
+  console.log(JSON.stringify(report, null, 2));
+  if (!report.ok) break;
+}
+
 await browser.close();
 
-console.log(JSON.stringify(report, null, 2));
-process.exit(report.ok ? 0 : 1);
+const allOk = runReports.length === STABILITY_RUNS && runReports.every((r) => r.ok);
+console.log(
+  JSON.stringify({ stabilityRuns: STABILITY_RUNS, runReports, ok: allOk }, null, 2),
+);
+process.exit(allOk ? 0 : 1);

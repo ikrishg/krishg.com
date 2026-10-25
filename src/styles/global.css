@@ -283,10 +283,6 @@ html[data-overscroll-reveal="true"] body.site-body {
     display: contents;
   }
 
-  .home-closing-tail .home-footer__cursor-measure {
-    display: none;
-  }
-
   .home-closing-tail .home-footer__email,
   .home-closing-tail .home-footer__social {
     position: relative;
@@ -321,81 +317,38 @@ html[data-overscroll-reveal="true"] body.site-body {
   }
 }
 
-@media (width >= 768px) and (width < 1024px) {
-  .home-closing-index__nav {
-    margin-top: 10px;
-  }
-
-  .home-closing-index__primary {
-    margin-top: 18px;
-  }
-
-  .home-closing-tail .home-footer__email {
-    margin-bottom: 2px;
-  }
-
-  .home-closing-tail .home-footer__social {
-    margin-top: -18px;
-    margin-bottom: 6px;
-  }
-}
-
-@media (width >= 1024px) and (width < 1280px) {
-  .home-closing-index__primary {
-    margin-top: 10px;
-  }
-
-  .home-closing-tail .home-footer__social {
-    margin-top: -6px;
-  }
-}
-
-@media (width >= 1280px) and (width < 1440px) {
-  .home-closing-index__nav {
-    margin-top: 6px;
-  }
-
-  .home-closing-index__primary {
-    margin-top: 12px;
-  }
-
-  .home-closing-tail .home-footer__email {
-    margin-bottom: 4px;
-  }
-
-  .home-closing-tail .home-footer__social {
-    margin-top: -4px;
-    margin-bottom: 8px;
-  }
-}
-
-@media (width >= 1440px) {
-  .home-closing-index__nav {
-    margin-top: 10px;
-  }
-
-  .home-closing-index__primary {
-    margin-top: 16px;
-  }
-
-  .home-closing-tail .home-footer__email {
-    margin-bottom: 6px;
-  }
-
-  .home-closing-tail .home-footer__social {
-    margin-top: -2px;
-    margin-bottom: 12px;
-  }
-}
-
 .home-splash-overlay {
   z-index: 40;
 }
 
-@media (width >= 768px) and (width < 1024px) {
+@media (width >= 768px) {
+  .home-closing-nav-row {
+    line-height: 1;
+  }
+
+  .home-closing-link--nav {
+    line-height: 1;
+    min-height: 0;
+    padding-block: 0;
+  }
+
   .home-closing-link--primary {
-    padding-block: 0.25rem;
-    line-height: 1.05;
+    line-height: 1;
+    min-height: 0;
+    padding-block: 0;
+  }
+
+  .home-closing-link--primary > span {
+    display: block;
+    line-height: 1;
+  }
+
+  @supports (text-box-trim: trim-both) {
+    .home-closing-nav-row,
+    .home-closing-link--primary > span {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+    }
   }
 }
 
@@ -823,9 +776,10 @@ html[data-overscroll-reveal="true"] body.site-body {
 
   .home-closing-tail .home-footer__social-pill {
     margin: 0;
-    width: auto;
-    max-width: calc(100vw - 32px);
+    width: 100%;
+    max-width: min(22rem, calc(100vw - 32px));
     box-sizing: border-box;
+    justify-content: center;
   }
 
   .home-footer__email-text {

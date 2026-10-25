@@ -4,7 +4,7 @@ let lenisInstance: Lenis | null = null;
 
 export function setLenisInstance(instance: Lenis | null) {
   lenisInstance = instance;
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
     const win = window as Window & { __siteScrollTo?: (y: number) => void };
     if (instance) {
       win.__siteScrollTo = (y) => {

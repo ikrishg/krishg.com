@@ -9,6 +9,19 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import {
+  measureDesktopVisibleGaps,
+  evaluateVisibleGapBar,
+} from "./measure-closing-visible-gaps.mjs";
+import {
+  measureCursorCountAt,
+  measureMainCursorBaselines,
+  measureStableCursorCount,
+} from "./pr40-cursor-baseline.mjs";
+import { resolvePr40MetricsFile, PR40_ARTIFACTS_V7 } from "./pr40-metrics-path.mjs";
+import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
+
+const STABILITY_RUNS = 5;
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
@@ -37,6 +50,17 @@ const VIEWPORTS = [
   { width: 390, height: 844 },
 ];
 
+const DESKTOP_VISIBLE_GAP_VIEWPORTS = [
+  { width: 768, height: 1024 },
+  { width: 800, height: 1024 },
+  { width: 900, height: 768 },
+  { width: 900, height: 900 },
+  { width: 1023, height: 768 },
+  { width: 1024, height: 776 },
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+];
+
 const GAP_MAX_RATIO = 1.25;
 const GAP_MEAN_TOLERANCE = 0.1;
 const MOBILE_STACK_GAP_TARGET = 52;
@@ -53,17 +77,10 @@ const WORDS = ["building", "creating", "educating"];
 const NAV_ROW_INK_RGB = [20, 26, 43];
 const CLOSING_NAV_RGB = BEIGE;
 const MOBILE_GAP_BEIGE_MIN_FRACTION = 0.94;
-const D1CFE80_CURSOR_BASELINE = {
-  768: 5,
-  1024: 6,
-  1280: 6,
-  1440: 6,
-};
 const DESKTOP_PILL_GAP_TARGET = 44;
 const DESKTOP_PILL_GAP_TOLERANCE = 8;
 const METRICS_OUT =
-  process.env.PR40_METRICS_DIR ||
-  "/opt/cursor/artifacts/pr40-v6/layout-metrics.json";
+  process.env.PR40_METRICS_FILE || resolvePr40MetricsFile();
 
 function dist(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -286,26 +303,31 @@ async function countVisibleCursors(page) {
   });
 }
 
-async function waitForExpectedCursorSettle(page, viewportWidth) {
-  const expected = D1CFE80_CURSOR_BASELINE[viewportWidth];
-  if (expected == null) return;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const counts = await countVisibleCursors(page);
-    if (counts.settled === expected) return;
-    await page.waitForTimeout(250);
-  }
-}
-
-async function assertSettledCursorCounts(page, viewportWidth) {
-  const expected = D1CFE80_CURSOR_BASELINE[viewportWidth];
-  if (expected == null) return { ok: true, skipped: true };
-  await waitForExpectedCursorSettle(page, viewportWidth);
-  const counts = await countVisibleCursors(page);
+async function assertSettledCursorCounts(browser, baseUrl, viewport) {
+  if (!MAIN_BASE) return { ok: true, skipped: true };
+  const expected = await measureCursorCountAt(browser, MAIN_BASE, viewport, {
+    reducedMotion: "reduce",
+  });
+  const ctx = await browser.newContext({
+    viewport,
+    deviceScaleFactor: 1,
+  });
+  const countPage = await ctx.newPage();
+  await countPage.emulateMedia({ reducedMotion: "reduce" });
+  await countPage.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+  await countPage.evaluate(() => {
+    document.documentElement.dataset.introSkip = "true";
+  });
+  await scrollToClosing(countPage);
+  const settled = await measureStableCursorCount(countPage);
+  await ctx.close();
   return {
-    ok: counts.settled === expected,
+    ok: settled === expected,
     expected,
-    d1cfe80Baseline: expected,
-    ...counts,
+    mainBaseline: expected,
+    settled,
+    visible: settled,
+    total: settled,
   };
 }
 
@@ -446,6 +468,13 @@ function evaluateMobileStackGaps(gaps, pillGap) {
 }
 
 async function assertClosingVerticalGaps(page, isMobile) {
+  if (!isMobile) {
+    const visible = await measureDesktopVisibleGaps(page);
+    if (!visible.ok && visible.reason) {
+      return visible;
+    }
+    return { ...visible, mobile: false };
+  }
   return page.evaluate(
     ({ mobile }) => {
       const inkVerticalBounds = (el) => {
@@ -540,9 +569,127 @@ async function assertClosingVerticalGaps(page, isMobile) {
       const mobileBar = evaluateMobileStackGaps(raw.gaps, raw.pillGap);
       return { ...mobileBar, mobile: true };
     }
-    const bar = evaluateGapBar(raw.gaps);
+    const bar = evaluateVisibleGapBar(raw.gaps);
     return { ...bar, mobile: false, ok: bar.ok };
   });
+}
+
+async function runDesktopVisibleGapGate(browser, baseUrl) {
+  const rows = [];
+  let ok = true;
+  for (const viewport of DESKTOP_VISIBLE_GAP_VIEWPORTS) {
+    const context = await browser.newContext({
+      viewport,
+      deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+    await scrollToClosing(page);
+    await waitLayoutSettle(page);
+    const result = await measureDesktopVisibleGaps(page);
+    const label = `${viewport.width}x${viewport.height}`;
+    rows.push({ viewport: label, ...result });
+    if (!result.ok) {
+      ok = false;
+      console.error(
+        `VISIBLE GAP FAIL ${label}:`,
+        JSON.stringify(result, null, 2),
+      );
+    }
+    await context.close();
+  }
+  return { ok, rows };
+}
+
+async function sampleContactKeepHits(page, samples = 40, intervalMs = 100) {
+  let totalHits = 0;
+  let measuredRectsTotal = 0;
+  for (let i = 0; i < samples; i += 1) {
+    const hits = await page.evaluate(() => {
+      const rectsOverlap = (a, b) =>
+        a.left < b.right &&
+        a.right > b.left &&
+        a.top < b.bottom &&
+        a.bottom > b.top;
+      const email = document.querySelector(".home-footer__email");
+      const pills = [...document.querySelectorAll(".home-footer__social-pill")];
+      const sitemap = document.querySelector(
+        'a.home-closing-link--primary[data-splash-key="sitemap"]',
+      );
+      const contact = [email, sitemap, ...pills].filter(Boolean);
+      const contactRects = contact.map((el) => {
+        const r = el.getBoundingClientRect();
+        const pad = 6;
+        return {
+          left: r.left - pad,
+          top: r.top - pad,
+          right: r.right + pad,
+          bottom: r.bottom + pad,
+        };
+      });
+      const cursorParts = [
+        ...document.querySelectorAll(
+          ".home-drifting-cursor__ptr, .home-drifting-cursor__tag",
+        ),
+      ].filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 2 && r.height > 2;
+      });
+      let n = 0;
+      for (const part of cursorParts) {
+        const r = part.getBoundingClientRect();
+        const box = {
+          left: r.left - 3,
+          top: r.top - 3,
+          right: r.right + 3,
+          bottom: r.bottom + 3,
+        };
+        for (const c of contactRects) {
+          if (rectsOverlap(box, c)) n += 1;
+        }
+      }
+      return { hits: n, measuredRects: cursorParts.length };
+    });
+    totalHits += hits.hits;
+    measuredRectsTotal += hits.measuredRects;
+    await page.waitForTimeout(intervalMs);
+  }
+  return { samples, totalContactKeepHits: totalHits, measuredCursorRects: measuredRectsTotal };
+}
+
+async function runCursorKeepOutGate(browser, baseUrl, runs = 16) {
+  const widthRuns = [];
+  let ok = true;
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 768, height: 1024 },
+  ]) {
+    const runHits = [];
+    for (let run = 0; run < runs; run += 1) {
+      const context = await browser.newContext({
+        viewport,
+        deviceScaleFactor: 1,
+      });
+      const page = await context.newPage();
+      await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+      await scrollToClosing(page);
+      await waitLayoutSettle(page);
+      let hits = await sampleContactKeepHits(page, 40, 100);
+      for (let attempt = 0; attempt < 20 && hits.totalContactKeepHits > 0; attempt += 1) {
+        await page.waitForTimeout(200);
+        hits = await sampleContactKeepHits(page, 40, 100);
+      }
+      runHits.push(hits.totalContactKeepHits);
+      if (hits.totalContactKeepHits > 0) ok = false;
+      await context.close();
+    }
+    widthRuns.push({
+      viewport: `${viewport.width}x${viewport.height}`,
+      runs: runHits,
+      brushingRuns: runHits.filter((h) => h > 0).length,
+    });
+  }
+  return { ok, widthRuns };
 }
 
 async function sampleMobileNavUnderBand(page) {
@@ -1311,7 +1458,7 @@ function assert390NavMatchesMain(mainSamples, branchSamples) {
   return navProfilesMatch(mainSamples, branchSamples);
 }
 
-async function runProvePass(browser, baseUrl, runLabel) {
+async function runProvePass(browser, baseUrl, runLabel, mainBaselines) {
   const results = [];
   let failed = false;
 
@@ -1328,9 +1475,6 @@ async function runProvePass(browser, baseUrl, runLabel) {
     await assertViewport(page, viewport);
     await scrollToClosing(page);
     await waitLayoutSettle(page);
-    if (!isMobile) {
-      await waitForExpectedCursorSettle(page, viewport.width);
-    }
     const closingGaps = await assertClosingVerticalGaps(page, isMobile);
     const rect = await tailRect(page, isMobile);
     const tailRectDesktop = isMobile ? null : await tailRect(page, false);
@@ -1362,7 +1506,7 @@ async function runProvePass(browser, baseUrl, runLabel) {
       ? await assertDesktopNavBeigeAtTailRest(page, viewport)
       : null;
     const cursorCounts = !isMobile
-      ? await assertSettledCursorCounts(page, viewport.width)
+      ? await assertSettledCursorCounts(browser, baseUrl, viewport)
       : null;
     const emailHitArea = !isMobile ? await assertDesktopEmailHitArea(page) : null;
     const desktopPillGap = !isMobile ? await assertDesktopPillGap(page) : null;
@@ -1582,106 +1726,152 @@ async function runNegativeSelfTests(browser, baseUrl) {
 
 await mkdir(OUT, { recursive: true });
 
-const browser = await chromium.launch();
+if (!MAIN_BASE) {
+  console.error("MAIN_PREVIEW_URL is required for cursor baseline comparison");
+  process.exit(1);
+}
 
-let mobileNavCompare = {
-  ok: false,
-  skipped: true,
-  reason: "MAIN_PREVIEW_URL not set",
-};
-if (MAIN_BASE) {
+const browser = await chromium.launch();
+const stabilityReports = [];
+
+for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
+  const mainBaselines = await measureMainCursorBaselines(browser, MAIN_BASE);
+
   const mainProfile = await collect390NavProfile(browser, MAIN_BASE, "main");
   const branchProfile = await collect390NavProfile(browser, BASE, "branch");
   const { ok: match, mismatches } = navProfilesMatch(
     mainProfile.samples,
     branchProfile.samples,
   );
-  mobileNavCompare = {
+  const mobileNavCompare = {
     ok: match,
     skipped: false,
     main: mainProfile,
     branch: branchProfile,
     mismatches,
   };
-}
 
-const mobileClosingNavBands = await assertMobileClosingNavMatchesBands(
-  browser,
-  BASE,
-);
-const run1 = await runProvePass(browser, BASE, "run1");
-const run2 = await runProvePass(browser, BASE, "run2");
-const negatives = await runNegativeSelfTests(browser, BASE);
+  const mobileClosingNavBands = await assertMobileClosingNavMatchesBands(
+    browser,
+    BASE,
+  );
+  const mobileOverscrollNav = await runMobileOverscrollNavGate(browser, BASE);
+  const desktopVisibleGaps = await runDesktopVisibleGapGate(browser, BASE);
+  const cursorKeepOut = await runCursorKeepOutGate(browser, BASE, 16);
+  const run1 = await runProvePass(
+    browser,
+    BASE,
+    `s${stability}-run1`,
+    mainBaselines,
+  );
+  const run2 = await runProvePass(
+    browser,
+    BASE,
+    `s${stability}-run2`,
+    mainBaselines,
+  );
+  const negatives = await runNegativeSelfTests(browser, BASE);
 
-const layoutMetrics = {
-  textGapsByWidth: {},
-  cursorCountsByWidth: {},
-  d1cfe80CursorBaseline: D1CFE80_CURSOR_BASELINE,
-  emailLinkWidth: {},
-  desktopPillGap: {},
-  zStackNote: "rows 46, tail 45, splash 40, cursors 1",
-};
-for (const row of run1.results) {
-  if (!row.viewport || row.state !== "rest") continue;
-  const w = Number.parseInt(row.viewport.split("x")[0], 10);
-  if (row.closingGaps?.gaps) {
-    layoutMetrics.textGapsByWidth[row.viewport] = row.closingGaps.gaps;
+  const layoutMetrics = {
+    textGapsByWidth: {},
+    cursorCountsByWidth: {},
+    mainCursorBaselines: mainBaselines,
+    emailLinkWidth: {},
+    desktopPillGap: {},
+    zStackNote: "rows 46, tail 45, splash 40, cursors 1",
+    metricsFileDefault: METRICS_OUT,
+    artifactsV7: PR40_ARTIFACTS_V7,
+  };
+  for (const row of desktopVisibleGaps.rows) {
+    if (row.gaps) {
+      layoutMetrics.textGapsByWidth[row.viewport] = row.gaps;
+    }
   }
-  if (row.cursorCounts) {
-    const settled =
-      row.cursorCounts.settled ??
-      row.cursorCounts.visible ??
-      row.cursorCounts.total ??
-      0;
-    layoutMetrics.cursorCountsByWidth[row.viewport] = {
-      visible: settled,
-      expected: row.cursorCounts.expected,
-      d1cfe80: row.cursorCounts.d1cfe80Baseline,
-    };
+  for (const row of run1.results) {
+    if (!row.viewport || row.state !== "rest") continue;
+    if (row.closingGaps?.gaps && !layoutMetrics.textGapsByWidth[row.viewport]) {
+      layoutMetrics.textGapsByWidth[row.viewport] = row.closingGaps.gaps;
+    }
+    if (row.cursorCounts) {
+      const settled =
+        row.cursorCounts.settled ??
+        row.cursorCounts.visible ??
+        row.cursorCounts.total ??
+        0;
+      layoutMetrics.cursorCountsByWidth[row.viewport] = {
+        visible: settled,
+        expected: row.cursorCounts.expected,
+        main: row.cursorCounts.mainBaseline,
+      };
+    }
+    if (row.emailHitArea?.linkWidth != null) {
+      layoutMetrics.emailLinkWidth[row.viewport] = row.emailHitArea;
+    }
+    if (row.desktopPillGap?.gap != null) {
+      layoutMetrics.desktopPillGap[row.viewport] = row.desktopPillGap;
+    }
   }
-  if (row.emailHitArea?.linkWidth != null) {
-    layoutMetrics.emailLinkWidth[row.viewport] = row.emailHitArea;
-  }
-  if (row.desktopPillGap?.gap != null) {
-    layoutMetrics.desktopPillGap[row.viewport] = row.desktopPillGap;
+  await mkdir(path.dirname(METRICS_OUT), { recursive: true });
+  await writeFile(METRICS_OUT, JSON.stringify(layoutMetrics, null, 2));
+
+  const failed =
+    !desktopVisibleGaps.ok ||
+    !cursorKeepOut.ok ||
+    !mobileOverscrollNav.ok ||
+    run1.failed ||
+    run2.failed ||
+    !negatives.ok ||
+    !mobileClosingNavBands.ok ||
+    !mobileNavCompare.ok;
+
+  const report = {
+    stabilityRun: stability,
+    mobileNavCompare,
+    mobileClosingNavBands,
+    mobileOverscrollNav,
+    desktopVisibleGaps,
+    cursorKeepOut,
+    negatives,
+    mainBaselines,
+    run1: {
+      failed: run1.failed,
+      exitCode: run1.failed ? 1 : 0,
+      table: run1.table,
+    },
+    run2: {
+      failed: run2.failed,
+      exitCode: run2.failed ? 1 : 0,
+      table: run2.table,
+    },
+    ok: !failed,
+  };
+  stabilityReports.push(report);
+
+  console.log(`=== prove stability run ${stability}/${STABILITY_RUNS} ===`);
+  console.log("=== mobile overscroll nav ===");
+  console.log(JSON.stringify(mobileOverscrollNav, null, 2));
+  console.log("=== desktop visible ink gaps (8 viewports) ===");
+  console.log(JSON.stringify(desktopVisibleGaps, null, 2));
+  console.log("=== prove run 1 (exit", run1.failed ? 1 : 0, ") ===");
+  console.table(run1.table);
+  console.log("=== prove run 2 (exit", run2.failed ? 1 : 0, ") ===");
+  console.table(run2.table);
+
+  if (failed) {
+    await browser.close();
+    const reportPath = path.join(OUT, "pixel-results.json");
+    await writeFile(
+      reportPath,
+      JSON.stringify({ stabilityReports, failedAt: stability }, null, 2),
+    );
+    console.error("prove-closing-tail-splash-fill: FAILED");
+    process.exit(1);
   }
 }
-await mkdir(path.dirname(METRICS_OUT), { recursive: true });
-await writeFile(METRICS_OUT, JSON.stringify(layoutMetrics, null, 2));
 
 await browser.close();
 
-const report = {
-  mobileNavCompare,
-  mobileClosingNavBands,
-  negatives,
-  run1: { failed: run1.failed, exitCode: run1.failed ? 1 : 0, table: run1.table },
-  run2: { failed: run2.failed, exitCode: run2.failed ? 1 : 0, table: run2.table },
-};
-
 const reportPath = path.join(OUT, "pixel-results.json");
-await writeFile(reportPath, JSON.stringify(report, null, 2));
+await writeFile(reportPath, JSON.stringify({ stabilityReports }, null, 2));
 
-console.log("=== mobile 390 nav vs main ===");
-console.log(JSON.stringify(mobileNavCompare, null, 2));
-console.log("=== mobile closing nav vs bands ===");
-console.log(JSON.stringify(mobileClosingNavBands, null, 2));
-console.log("=== negative self-tests ===");
-console.log(JSON.stringify(negatives, null, 2));
-console.log("=== prove run 1 (exit", run1.failed ? 1 : 0, ") ===");
-console.table(run1.table);
-console.log("=== prove run 2 (exit", run2.failed ? 1 : 0, ") ===");
-console.table(run2.table);
-
-const failed =
-  run1.failed ||
-  run2.failed ||
-  !negatives.ok ||
-  !mobileClosingNavBands.ok ||
-  (!mobileNavCompare.skipped && !mobileNavCompare.ok);
-
-if (failed) {
-  console.error("prove-closing-tail-splash-fill: FAILED");
-  process.exit(1);
-}
 console.log("prove-closing-tail-splash-fill: OK");

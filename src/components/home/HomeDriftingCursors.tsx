@@ -219,10 +219,10 @@ function buildNarrowStaticKeepOuts(layout: LandscapeLayout, w: number, h: number
     { x: w - layout.gutter, y: 0, w: layout.gutter, h },
   ];
   if (layout.emailRect) {
-    keep.push(padRect(layout.emailRect, 64, 56));
+    keep.push(padRect(layout.emailRect, 96, 80));
   }
   for (const pr of layout.pillRects) {
-    keep.push(padRect(pr, 64, 56));
+    keep.push(padRect(pr, 96, 80));
   }
   return keep;
 }
@@ -425,11 +425,6 @@ function padRect(r: Rect, padX: number, padY: number): Rect {
 
 /** Footer uses `display: contents` on desktop; union email + social when the box is 0×0. */
 function footerMeasureRect(footer: HTMLElement): DOMRect {
-  const measure = footer.querySelector<HTMLElement>(".home-footer__cursor-measure");
-  if (measure) {
-    const mr = measure.getBoundingClientRect();
-    if (mr.width > 2 && mr.height > 2) return mr;
-  }
   const fr = footer.getBoundingClientRect();
   if (fr.width > 2 && fr.height > 2) return fr;
   const parts = [
@@ -803,9 +798,9 @@ function motionContentPads(layout: LandscapeLayout, w: number) {
     return { emailX: 22, emailY: 18, pillX: 16, pillY: 14 };
   }
   if (tight) {
-    return { emailX: 36, emailY: 24, pillX: 22, pillY: 18 };
+    return { emailX: 56, emailY: 44, pillX: 40, pillY: 36 };
   }
-  return { emailX: 72, emailY: 48, pillX: 40, pillY: 36 };
+  return { emailX: 104, emailY: 72, pillX: 56, pillY: 48 };
 }
 
 function isStructuralKeepOut(k: Rect, layout: LandscapeLayout, w: number) {
@@ -916,8 +911,8 @@ function buildKeepOuts(
     (el) => {
       const box = padRect(
         toContainerLocal(el.getBoundingClientRect(), tr),
-        52,
-        44,
+        88,
+        72,
       );
       keep.push(box);
       closing.push(box);
@@ -1518,16 +1513,6 @@ export default function HomeDriftingCursors({ className }: Props) {
         lastSampleLeadY: p.y,
       };
     });
-    if (layout.w === 768) {
-      for (let i = statesRef.current.length - 1; i >= 0; i -= 1) {
-        const visibleCount = statesRef.current.filter((s) => !s.hidden).length;
-        if (visibleCount <= 5) break;
-        const state = statesRef.current[i];
-        if (!state || state.hidden) continue;
-        state.hidden = true;
-        hiddenIdx.add(i);
-      }
-    }
     if (!animate && narrow) {
       setNarrowStaticHidden(hiddenIdx);
     }
