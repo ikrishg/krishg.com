@@ -85,11 +85,11 @@ function DesktopIndex() {
   return (
     <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center">
       <div className="home-closing-index__stack flex w-full flex-col items-center">
-        <div className="home-closing-index__primary flex w-full flex-col items-center justify-center">
-          <PrimaryRow />
-        </div>
         <div className="home-closing-index__nav w-full shrink-0">
           <NavRow />
+        </div>
+        <div className="home-closing-index__primary flex w-full flex-col items-center justify-center">
+          <PrimaryRow />
         </div>
       </div>
     </div>

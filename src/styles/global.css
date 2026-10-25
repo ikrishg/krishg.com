@@ -248,39 +248,75 @@ html[data-overscroll-reveal="true"] body.site-body {
 
 @media (width >= 768px) {
   .home-closing-tail {
-    justify-content: center;
-    /* No flex gap — splash (z-40) must not show between opaque index/footer bands. */
+    justify-content: space-evenly;
+    align-items: stretch;
     gap: 0;
   }
 
   .home-closing-index {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     position: relative;
     z-index: 46;
     isolation: isolate;
-    /* Replaces former tail gap; stays inside opaque index background. */
-    padding-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+    padding-block: 0;
   }
 
   .home-closing-desktop {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    min-height: 0;
+    width: 100%;
   }
 
   .home-closing-index__stack {
-    gap: 20px;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    gap: 0;
+    min-height: min(42vh, 22rem);
   }
 
   .home-closing-tail .home-footer {
     position: relative;
     z-index: 46;
+    flex: 0 1 auto;
   }
 
-  /* Nav→email spacing comes from tail gap only (no extra footer top pad). */
   .home-closing-tail .home-footer__layout {
     padding-top: 0;
-    padding-bottom: 16px;
+    padding-bottom: clamp(12px, 2.5vh, 24px);
   }
 
+  .home-closing-tail .home-footer__contact {
+    gap: clamp(16px, 3.5vh, 36px);
+    padding-block: clamp(8px, 1.5vh, 16px);
+  }
+
+  .home-closing-tail .home-footer__email {
+    margin: clamp(12px, 2vh, 20px);
+  }
+
+  .home-closing-tail .home-footer__social {
+    margin: clamp(8px, 1.5vh, 16px);
+    width: calc(100% - 2 * clamp(8px, 1.5vh, 16px));
+    max-width: min(36rem, 100%);
+  }
+
+  .home-closing-tail .home-footer__social-list {
+    gap: clamp(12px, 2vh, 20px);
+    padding: clamp(8px, 1.5vh, 14px);
+  }
+
+  .home-closing-tail .home-footer__social-pill {
+    margin: clamp(10px, 1.75vh, 16px);
+  }
 }
 
 .home-splash-overlay {
@@ -635,6 +671,29 @@ html[data-overscroll-reveal="true"] body.site-body {
 }
 
 @media (width < 768px) {
+  .home-closing-tail .home-footer__contact {
+    gap: 20px;
+    padding: 16px var(--gutter);
+  }
+
+  .home-closing-tail .home-footer__email {
+    margin: 16px;
+  }
+
+  .home-closing-tail .home-footer__social {
+    margin: 12px 16px;
+    width: calc(100% - 32px);
+  }
+
+  .home-closing-tail .home-footer__social-list {
+    gap: 16px;
+    padding: 12px 8px;
+  }
+
+  .home-closing-tail .home-footer__social-pill {
+    margin: 12px;
+  }
+
   .home-footer__email-text {
     max-width: 100%;
     padding-inline: 0.25rem;

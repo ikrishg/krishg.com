@@ -493,20 +493,20 @@ async function screenshotViewport(page, filePath) {
   return { width: meta.width, height: meta.height, buffer: buf };
 }
 
-async function mobileNavScrollPositions(page) {
+async function mobileNavSemanticProbes(page) {
   return page.evaluate(() => {
     const max = Math.max(
       0,
       document.documentElement.scrollHeight - window.innerHeight,
     );
-    const out = new Set([0, Math.round(max * 0.33), Math.round(max * 0.66), max]);
+    const probes = [{ id: "top", y: 0 }];
     for (const id of ["builder", "creator", "educator"]) {
       const band = document.getElementById(id);
       if (band) {
         const y = Math.round(
           band.getBoundingClientRect().top + window.scrollY - 48,
         );
-        out.add(Math.max(0, Math.min(max, y)));
+        probes.push({ id, y: Math.max(0, Math.min(max, y)) });
       }
     }
     const buildingRow = document.querySelector(
@@ -516,9 +516,13 @@ async function mobileNavScrollPositions(page) {
       const y = Math.round(
         buildingRow.getBoundingClientRect().top + window.scrollY - 56,
       );
-      out.add(Math.max(0, Math.min(max, y)));
+      probes.push({
+        id: "closing-building-row",
+        y: Math.max(0, Math.min(max, y)),
+      });
     }
-    return [...out].sort((a, b) => a - b);
+    probes.push({ id: "bottom", y: max });
+    return probes;
   });
 }
 
@@ -538,6 +542,11 @@ async function sampleMobileNavAt(page, scrollY) {
   }, scrollY);
 }
 
+async function sampleMobileNavProbe(page, probe) {
+  const sample = await sampleMobileNavAt(page, probe.y);
+  return { probeId: probe.id, ...sample };
+}
+
 async function collect390NavProfile(browser, baseUrl, label) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -546,13 +555,14 @@ async function collect390NavProfile(browser, baseUrl, label) {
   const page = await context.newPage();
   await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
   await waitForUiSettled(page);
-  const positions = await mobileNavScrollPositions(page);
+  const probes = await mobileNavSemanticProbes(page);
   const samples = [];
-  for (const y of positions) {
-    samples.push(await sampleMobileNavAt(page, y));
+  for (const probe of probes) {
+    samples.push(await sampleMobileNavProbe(page, probe));
   }
-  const buildingY = positions.find((y) => y > 0) ?? 0;
-  await sampleMobileNavAt(page, buildingY);
+  const buildingProbe =
+    probes.find((p) => p.id === "builder") ?? probes.find((p) => p.id === "top");
+  await sampleMobileNavAt(page, buildingProbe?.y ?? 0);
   const navShotPath = path.join(OUT, `390-nav-${label}-building-row.png`);
   await screenshotViewport(page, navShotPath);
   await context.close();
@@ -567,7 +577,7 @@ function navBgClose(aCss, bCss) {
 }
 
 function navSampleMatchesMain(main, branch) {
-  if (main.scrollY !== branch.scrollY) return false;
+  if (main.probeId !== branch.probeId) return false;
   if (main.pageAccent !== branch.pageAccent) return false;
   if (normalizeCssColor(main.themeColor) !== normalizeCssColor(branch.themeColor))
     return false;
@@ -575,15 +585,17 @@ function navSampleMatchesMain(main, branch) {
 }
 
 function navProfilesMatch(mainSamples, branchSamples) {
-  if (mainSamples.length !== branchSamples.length) return false;
+  const branchByProbe = new Map(branchSamples.map((s) => [s.probeId, s]));
   const mismatches = [];
-  for (let i = 0; i < mainSamples.length; i += 1) {
-    if (!navSampleMatchesMain(mainSamples[i], branchSamples[i])) {
-      mismatches.push({
-        scrollY: mainSamples[i].scrollY,
-        main: mainSamples[i],
-        branch: branchSamples[i],
-      });
+  for (const main of mainSamples) {
+    const branch = branchByProbe.get(main.probeId);
+    if (!branch || !navSampleMatchesMain(main, branch)) {
+      mismatches.push({ probeId: main.probeId, main, branch });
+    }
+  }
+  for (const branch of branchSamples) {
+    if (!mainSamples.some((m) => m.probeId === branch.probeId)) {
+      mismatches.push({ probeId: branch.probeId, main: null, branch });
     }
   }
   return { ok: mismatches.length === 0, mismatches };
