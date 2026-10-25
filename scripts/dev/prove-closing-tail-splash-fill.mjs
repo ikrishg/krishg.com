@@ -38,7 +38,9 @@ const VIEWPORTS = [
 ];
 
 const GAP_MAX_RATIO = 1.25;
-const GAP_MEAN_TOLERANCE = 0.115;
+const GAP_MEAN_TOLERANCE = 0.1;
+const MOBILE_STACK_GAP_TARGET = 52;
+const MOBILE_PILL_GAP_TARGET = 16;
 const LAYOUT_SETTLE_MS = 1500;
 const MOBILE_CLOSING_NAV_WIDTHS = [
   { width: 375, height: 844 },
@@ -61,7 +63,7 @@ const DESKTOP_PILL_GAP_TARGET = 44;
 const DESKTOP_PILL_GAP_TOLERANCE = 8;
 const METRICS_OUT =
   process.env.PR40_METRICS_DIR ||
-  "/opt/cursor/artifacts/pr40-v5/layout-metrics.json";
+  "/opt/cursor/artifacts/pr40-v6/layout-metrics.json";
 
 function dist(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -284,9 +286,20 @@ async function countVisibleCursors(page) {
   });
 }
 
+async function waitForExpectedCursorSettle(page, viewportWidth) {
+  const expected = D1CFE80_CURSOR_BASELINE[viewportWidth];
+  if (expected == null) return;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const counts = await countVisibleCursors(page);
+    if (counts.settled === expected) return;
+    await page.waitForTimeout(250);
+  }
+}
+
 async function assertSettledCursorCounts(page, viewportWidth) {
   const expected = D1CFE80_CURSOR_BASELINE[viewportWidth];
   if (expected == null) return { ok: true, skipped: true };
+  await waitForExpectedCursorSettle(page, viewportWidth);
   const counts = await countVisibleCursors(page);
   return {
     ok: counts.settled === expected,
@@ -411,7 +424,25 @@ function evaluateGapBar(gaps) {
     min > 4 &&
     ratio <= GAP_MAX_RATIO + 0.001 &&
     withinTolerance;
-  return { ok, gaps: rounded, min, max, mean: Math.round(mean), ratio };
+  return { ok, gaps: rounded, min, max, mean: Math.round(mean * 10) / 10, ratio };
+}
+
+function evaluateMobileStackGaps(gaps, pillGap) {
+  const rounded = gaps.map((g) => Math.round(g * 10) / 10);
+  const gapTol = MOBILE_STACK_GAP_TARGET * GAP_MEAN_TOLERANCE + 0.5;
+  const pillTol = MOBILE_PILL_GAP_TARGET * GAP_MEAN_TOLERANCE + 0.5;
+  const gapsOk = rounded.every(
+    (g) => Math.abs(g - MOBILE_STACK_GAP_TARGET) <= gapTol,
+  );
+  const pillGapOk =
+    Math.abs(pillGap - MOBILE_PILL_GAP_TARGET) <= pillTol;
+  return {
+    ok: gapsOk && pillGapOk,
+    gaps: rounded,
+    pillGap: Math.round(pillGap),
+    targetGap: MOBILE_STACK_GAP_TARGET,
+    targetPillGap: MOBILE_PILL_GAP_TARGET,
+  };
 }
 
 async function assertClosingVerticalGaps(page, isMobile) {
@@ -453,29 +484,23 @@ async function assertClosingVerticalGaps(page, isMobile) {
           ...document.querySelectorAll(".home-closing-link--mobile"),
         ];
         const lastBlock = blocks[blocks.length - 1];
-        const emailText = document.querySelector(".home-footer__email-text");
+        const email = document.querySelector(".home-footer__email");
         const pills = [
           ...document.querySelectorAll(".home-footer__social-pill"),
         ];
-        if (!lastBlock || !emailText || pills.length < 2) {
+        if (!lastBlock || !email || pills.length < 2) {
           return { ok: false, reason: "missing-mobile-nodes" };
         }
-        const lastInk = inkVerticalBounds(lastBlock);
-        const emailInk = inkVerticalBounds(emailText);
+        const lastRect = lastBlock.getBoundingClientRect();
+        const emailRect = email.getBoundingClientRect();
         const pillRects = pills.map((p) => p.getBoundingClientRect());
         const pillGap = pillRects[1].top - pillRects[0].bottom;
-        const pillInks = pills.map((p) =>
-          inkVerticalBounds(
-            p.querySelector(".home-footer__social-pill-label") ?? p,
-          ),
-        );
         const gaps = [
-          emailInk.top - lastInk.bottom,
-          pillInks[0].top - emailInk.bottom,
-          vh - pillInks[pillInks.length - 1].bottom,
+          emailRect.top - lastRect.bottom,
+          pillRects[0].top - emailRect.bottom,
+          vh - pillRects[pillRects.length - 1].bottom,
         ];
-        const pillGapOk = pillGap >= 14.5 && pillGap <= 18.5;
-        return { gaps, pillGap: Math.round(pillGap), pillGapOk, mobile: true };
+        return { gaps, pillGap, mobile: true };
       }
 
       const navRow = document.querySelector(".home-closing-nav-row");
@@ -511,15 +536,12 @@ async function assertClosingVerticalGaps(page, isMobile) {
     if (raw.ok === false && raw.reason) {
       return { ok: false, reason: raw.reason };
     }
+    if (raw.mobile) {
+      const mobileBar = evaluateMobileStackGaps(raw.gaps, raw.pillGap);
+      return { ...mobileBar, mobile: true };
+    }
     const bar = evaluateGapBar(raw.gaps);
-    const pillGapOk = raw.mobile ? raw.pillGapOk : true;
-    return {
-      ...bar,
-      pillGap: raw.pillGap,
-      pillGapOk,
-      mobile: raw.mobile,
-      ok: bar.ok && pillGapOk,
-    };
+    return { ...bar, mobile: false, ok: bar.ok };
   });
 }
 
@@ -1306,6 +1328,9 @@ async function runProvePass(browser, baseUrl, runLabel) {
     await assertViewport(page, viewport);
     await scrollToClosing(page);
     await waitLayoutSettle(page);
+    if (!isMobile) {
+      await waitForExpectedCursorSettle(page, viewport.width);
+    }
     const closingGaps = await assertClosingVerticalGaps(page, isMobile);
     const rect = await tailRect(page, isMobile);
     const tailRectDesktop = isMobile ? null : await tailRect(page, false);
@@ -1603,8 +1628,13 @@ for (const row of run1.results) {
     layoutMetrics.textGapsByWidth[row.viewport] = row.closingGaps.gaps;
   }
   if (row.cursorCounts) {
+    const settled =
+      row.cursorCounts.settled ??
+      row.cursorCounts.visible ??
+      row.cursorCounts.total ??
+      0;
     layoutMetrics.cursorCountsByWidth[row.viewport] = {
-      visible: row.cursorCounts.visible,
+      visible: settled,
       expected: row.cursorCounts.expected,
       d1cfe80: row.cursorCounts.d1cfe80Baseline,
     };

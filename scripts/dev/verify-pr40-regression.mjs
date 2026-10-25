@@ -24,12 +24,48 @@ function rectsOverlap(a, b) {
 }
 
 async function scrollToClosing(page) {
+  await page.waitForFunction(
+    () => document.documentElement.dataset.logoMorph !== "pending",
+    { timeout: 20_000 },
+  );
   await page.evaluate(() => {
     document.documentElement.dataset.introSkip = "true";
     const max = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, max));
   });
   await page.waitForTimeout(1500);
+}
+
+async function countSettledCursors(page) {
+  return page.evaluate(() => {
+    const root = document.querySelector(".home-drifting-cursors");
+    const cursors = root
+      ? [...root.querySelectorAll(".home-drifting-cursor")]
+      : [];
+    const visible = cursors.filter((el) => {
+      const parts = [
+        el,
+        ...el.querySelectorAll(
+          ".home-drifting-cursor__ptr, .home-drifting-cursor__tag",
+        ),
+      ];
+      return parts.some((part) => {
+        const r = part.getBoundingClientRect();
+        const opacity = getComputedStyle(part).opacity;
+        return r.width > 2 && r.height > 2 && opacity !== "0";
+      });
+    }).length;
+    return Math.max(cursors.length, visible);
+  });
+}
+
+async function waitForExpectedCursors(page, expected) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const settled = await countSettledCursors(page);
+    if (settled === expected) return settled;
+    await page.waitForTimeout(250);
+  }
+  return countSettledCursors(page);
 }
 
 async function scrollToEducator(page) {
@@ -243,6 +279,11 @@ for (const viewport of VIEWPORTS) {
   });
   await scrollToClosing(page);
 
+  const expectedVisible = EXPECTED_VISIBLE_CURSORS[viewport.width];
+  if (expectedVisible != null) {
+    await waitForExpectedCursors(page, expectedVisible);
+  }
+
   const zOrder = await measureZOrder(page);
   const cursors = await measureCursors(page);
   const keepHits = await sampleContactKeepHits(page);
@@ -256,7 +297,6 @@ for (const viewport of VIEWPORTS) {
     Number(zOrder.footerEmail.zIndex) >= 46 &&
     Number(zOrder.footerSocial.zIndex) >= 46;
 
-  const expectedVisible = EXPECTED_VISIBLE_CURSORS[viewport.width];
   const settledCount = Math.max(cursors.cursorCount, cursors.visibleCursorCount);
   const cursorOk =
     cursors.mounted &&

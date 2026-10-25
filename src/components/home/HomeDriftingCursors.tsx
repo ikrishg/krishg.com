@@ -1522,8 +1522,9 @@ export default function HomeDriftingCursors({ className }: Props) {
       for (let i = statesRef.current.length - 1; i >= 0; i -= 1) {
         const visibleCount = statesRef.current.filter((s) => !s.hidden).length;
         if (visibleCount <= 5) break;
-        if (statesRef.current[i]?.hidden) continue;
-        statesRef.current[i].hidden = true;
+        const state = statesRef.current[i];
+        if (!state || state.hidden) continue;
+        state.hidden = true;
         hiddenIdx.add(i);
       }
     }
