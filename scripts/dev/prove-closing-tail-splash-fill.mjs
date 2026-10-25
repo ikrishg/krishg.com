@@ -1,5 +1,5 @@
 /**
- * State A: splash under tail (body portal); tail stays beige; ink contrast holds.
+ * B2 closing splash proof: beige at rest, full splash on hover, clean exit fade.
  * Usage: PREVIEW_URL=http://127.0.0.1:4321 node scripts/dev/prove-closing-tail-splash-fill.mjs
  */
 import { chromium } from "playwright";
@@ -14,13 +14,17 @@ const OUT =
   process.env.SCREENSHOT_DIR ||
   path.join(DEV_ROOT, "out", "closing-tail-splash-proof");
 
-const CLOSING_BG = [231, 221, 204];
-const CLOSING_FG = [20, 26, 43];
-const SPLASH_RGB = [
-  [57, 143, 208],
-  [185, 74, 63],
-  [216, 161, 42],
-];
+const BEIGE = [231, 221, 204];
+const SPLASH = {
+  building: [57, 143, 208],
+  creating: [185, 74, 63],
+  educating: [216, 161, 42],
+};
+const INK = {
+  building: [20, 26, 43],
+  creating: [255, 249, 236],
+  educating: [20, 26, 43],
+};
 const MIN_CONTRAST = 4.5;
 
 const VIEWPORTS = [
@@ -36,13 +40,18 @@ function dist(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
-function isSplashHue(rgb) {
-  const dBeige = dist(rgb, CLOSING_BG);
-  for (const splash of SPLASH_RGB) {
-    const dSplash = dist(rgb, splash);
-    if (dSplash < 42 && dSplash < dBeige - 8) return true;
+function nearestClass(rgb) {
+  const dBeige = dist(rgb, BEIGE);
+  let best = "beige";
+  let bestD = dBeige;
+  for (const [name, color] of Object.entries(SPLASH)) {
+    const d = dist(rgb, color);
+    if (d < bestD) {
+      bestD = d;
+      best = name;
+    }
   }
-  return false;
+  return { label: best, dBeige, confidence: bestD < 38 };
 }
 
 function srgbToLinear(c) {
@@ -63,12 +72,6 @@ function contrastRatio(fg, bg) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-function parseRgb(css) {
-  const m = css.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
 async function scrollToClosing(page) {
   await page.evaluate(() => {
     document.documentElement.dataset.introSkip = "true";
@@ -78,18 +81,20 @@ async function scrollToClosing(page) {
   await page.waitForTimeout(500);
 }
 
-async function tailRect(page) {
-  return page.evaluate(() => {
-    const tail = document.querySelector(".home-closing-tail");
-    if (!tail) return null;
-    const r = tail.getBoundingClientRect();
+async function tailRect(page, mobileFooterOnly = false) {
+  return page.evaluate((footerOnly) => {
+    const el = footerOnly
+      ? document.querySelector(".home-footer")
+      : document.querySelector(".home-closing-tail");
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
     return {
       x: Math.round(r.x),
       y: Math.round(r.y),
       width: Math.round(r.width),
       height: Math.round(r.height),
     };
-  });
+  }, mobileFooterOnly);
 }
 
 async function sampleTailPixels(page, rect) {
@@ -107,7 +112,6 @@ async function sampleTailPixels(page, rect) {
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const samples = [];
   const w = info.width;
   const h = info.height;
   const channels = info.channels;
@@ -120,7 +124,7 @@ async function sampleTailPixels(page, rect) {
     Math.max(inset, w - inset - 1),
   ];
   const ys = [inset, Math.floor(h / 2), Math.max(inset, h - inset - 1)];
-
+  const samples = [];
   for (const y of ys) {
     for (const x of xs) {
       const i = (y * w + x) * channels;
@@ -128,73 +132,83 @@ async function sampleTailPixels(page, rect) {
         x,
         y,
         rgb: [data[i], data[i + 1], data[i + 2]],
+        ...nearestClass([data[i], data[i + 1], data[i + 2]]),
       });
     }
   }
   return samples;
 }
 
-async function measureContrast(page, isMobile) {
-  return page.evaluate((mobile) => {
-    const bg = getComputedStyle(document.documentElement).getPropertyValue(
-      "--home-closing-bg",
-    );
-    const parse = (css) => {
-      const el = document.createElement("div");
-      el.style.color = css.trim() || "#e7ddcc";
-      document.body.appendChild(el);
-      const rgb = getComputedStyle(el).color;
-      el.remove();
-      const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [231, 221, 204];
-    };
-    const bgRgb = parse(bg || "#e7ddcc");
+function classifySamples(samples) {
+  const counts = { beige: 0, building: 0, creating: 0, educating: 0 };
+  for (const s of samples) {
+    if (s.label === "beige" || s.dBeige < 28) counts.beige += 1;
+    else counts[s.label] = (counts[s.label] ?? 0) + 1;
+  }
+  return counts;
+}
 
-    const selectors = mobile
-      ? [
-          ["mobile-educating", "a.home-closing-link--mobile", "educating"],
-          ["email", ".home-footer__email", null],
-          ["pill-x", ".home-footer__social-pill", null],
-          ["navbar", ".home-navbar", null],
-        ]
-      : [
-          ["primary-building", "a.home-closing-link--primary", "building"],
-          ["primary-creating", "a.home-closing-link--primary", "creating"],
-          ["primary-educating", "a.home-closing-link--primary", "educating"],
-          ["nav-about", "a.home-closing-link--nav", "about"],
-          ["email", ".home-footer__email", null],
-          ["pill-x", ".home-footer__social-pill", null],
-          ["navbar", ".home-navbar", null],
-        ];
+/** P0 sandwich: splash top and bottom with beige band through the middle. */
+function hasStripe(samples) {
+  const ys = [...new Set(samples.map((s) => s.y))].sort((a, b) => a - b);
+  if (ys.length < 3) return false;
+  const rowKind = (y) => {
+    const row = samples.filter((s) => s.y === y);
+    const beige = row.filter((s) => s.dBeige < 28).length;
+    return beige > row.length / 2 ? "beige" : "splash";
+  };
+  const top = rowKind(ys[0]);
+  const mid = rowKind(ys[Math.floor(ys.length / 2)]);
+  const bot = rowKind(ys[ys.length - 1]);
+  return top === "splash" && mid === "beige" && bot === "splash";
+}
 
-    const rows = [];
-    for (const [id, sel, text] of selectors) {
-      const nodes = [...document.querySelectorAll(sel)];
-      const el = text
-        ? nodes.find((n) => n.textContent?.trim().toLowerCase() === text)
-        : nodes[0];
-      if (!el) {
-        rows.push({ id, ok: false, reason: "missing" });
-        continue;
+async function measureInkContrast(page, word, bgRgb) {
+  return page.evaluate(
+    ({ wordKey, bg }) => {
+      const parse = (css) => {
+        const m = css.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        return m
+          ? [Number(m[1]), Number(m[2]), Number(m[3])]
+          : [20, 26, 43];
+      };
+      const primary = [
+        ...document.querySelectorAll("a.home-closing-link--primary"),
+      ].find((n) => n.textContent?.trim().toLowerCase() === wordKey);
+      const nav = document.querySelector(".home-navbar");
+      const email = document.querySelector(".home-footer__email");
+      const pill = document.querySelector(".home-footer__social-pill");
+      const rows = [];
+      for (const [id, el] of [
+        ["primary", primary],
+        ["navbar", nav],
+        ["email", email],
+        ["pill", pill],
+      ]) {
+        if (!el) {
+          rows.push({ id, ok: false, reason: "missing" });
+          continue;
+        }
+        rows.push({ id, fgRgb: parse(getComputedStyle(el).color), bgRgb: bg });
       }
-      const fgCss = getComputedStyle(el).color;
-      const m = fgCss.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      const fgRgb = m
-        ? [Number(m[1]), Number(m[2]), Number(m[3])]
-        : [20, 26, 43];
-      rows.push({ id, fgRgb, bgRgb });
-    }
-    return rows;
-  }, isMobile);
+      return rows;
+    },
+    { wordKey: word, bg: bgRgb },
+  );
 }
 
 async function hoverPrimary(page, word) {
-  const link = page.locator(`a.home-closing-link--primary`, {
-    hasText: word,
-  });
+  const link = page.locator(`a.home-closing-link--primary`, { hasText: word });
   await link.first().scrollIntoViewIfNeeded();
   await link.first().hover({ force: true });
-  await page.waitForTimeout(750);
+  await page
+    .waitForFunction(
+      (w) => document.documentElement.dataset.homeSplash === w,
+      word,
+      { timeout: 5000 },
+    )
+    .catch(() => {});
+  await page.waitForTimeout(700);
 }
 
 await mkdir(OUT, { recursive: true });
@@ -204,77 +218,142 @@ const results = [];
 let failed = false;
 
 for (const viewport of VIEWPORTS) {
-  for (const word of WORDS) {
-    const page = await browser.newPage({
-      viewport,
-      deviceScaleFactor: 1,
-    });
-    await page.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
-    await scrollToClosing(page);
+  const isMobile = viewport.width < 768;
+  const viewportLabel = `${viewport.width}x${viewport.height}`;
 
-    const rect = await tailRect(page);
-    if (!rect || rect.width < 10 || rect.height < 10) {
-      failed = true;
-      results.push({
-        viewport: `${viewport.width}x${viewport.height}`,
-        word,
-        ok: false,
-        reason: "missing tail rect",
-      });
-      await page.close();
-      continue;
-    }
-
-    if (viewport.width >= 768) {
-      await hoverPrimary(page, word);
-      await page
-        .waitForFunction(
-          (w) => document.documentElement.dataset.homeSplash === w,
-          word,
-          { timeout: 5000 },
-        )
-        .catch(() => {});
-      await page.waitForTimeout(400);
-    }
-
-    const label = `${viewport.width}x${viewport.height}-${word}`;
-    const shotPath = path.join(OUT, `${label}.png`);
-    await page.screenshot({ path: shotPath, fullPage: false });
-
-    const samples = await sampleTailPixels(page, rect);
-    const splashHits = samples.filter((s) => isSplashHue(s.rgb));
-
-    const contrastRows = await measureContrast(page, viewport.width < 768);
-    const contrasts = contrastRows.map((row) => {
-      if (row.reason) return { ...row, ratio: 0, ok: false };
-      const ratio = contrastRatio(row.fgRgb, row.bgRgb);
-      const ok = ratio >= MIN_CONTRAST;
-      return { id: row.id, ratio: Math.round(ratio * 100) / 100, ok };
-    });
-    const contrastFail = contrasts.some((c) => !c.ok);
-
-    const ok = splashHits.length === 0 && !contrastFail;
-    if (!ok) failed = true;
-
-    results.push({
-      viewport: `${viewport.width}x${viewport.height}`,
-      word,
-      ok,
-      splashHits,
-      sampleCount: samples.length,
-      contrasts,
-      screenshot: shotPath,
-    });
-
+  const page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
+  await page.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
+  await scrollToClosing(page);
+  const rect = await tailRect(page, isMobile);
+  const tailRectDesktop = isMobile ? null : await tailRect(page, false);
+  if (!rect) {
+    failed = true;
+    results.push({ viewport: viewportLabel, state: "rest", ok: false });
     await page.close();
+    continue;
   }
+
+  const restSamples = await sampleTailPixels(page, rect);
+  const restCounts = classifySamples(restSamples);
+  const restShot = path.join(OUT, `${viewportLabel}-rest.png`);
+  await page.screenshot({ path: restShot, fullPage: false });
+  const restContrastRows = isMobile
+    ? []
+    : await measureInkContrast(page, "building", BEIGE);
+  const restContrasts = restContrastRows.map((row) => {
+    if (row.reason) return { id: row.id, ok: false, ratio: 0 };
+    const ratio = contrastRatio(row.fgRgb, BEIGE);
+    return {
+      id: row.id,
+      ratio: Math.round(ratio * 100) / 100,
+      ok: ratio >= MIN_CONTRAST,
+    };
+  });
+  if (isMobile) {
+    const emailRow = await page.evaluate(() => {
+      const email = document.querySelector(".home-footer__email");
+      if (!email) return null;
+      const m = getComputedStyle(email).color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      const fg = m
+        ? [Number(m[1]), Number(m[2]), Number(m[3])]
+        : [20, 26, 43];
+      return { fgRgb: fg };
+    });
+    if (emailRow) {
+      const ratio = contrastRatio(emailRow.fgRgb, BEIGE);
+      restContrasts.push({
+        id: "email",
+        ratio: Math.round(ratio * 100) / 100,
+        ok: ratio >= MIN_CONTRAST,
+      });
+    }
+  }
+  const restOk =
+    !isMobile &&
+    restCounts.beige >= restSamples.length - 2 &&
+    !hasStripe(restSamples) &&
+    restContrasts.every((c) => c.ok);
+  const mobileRestOk =
+    isMobile &&
+    restCounts.beige === restSamples.length &&
+    restContrasts.every((c) => c.ok);
+  const okRest = isMobile ? mobileRestOk : restOk;
+  if (!okRest) failed = true;
+  results.push({
+    viewport: viewportLabel,
+    state: "rest",
+    ok: okRest,
+    pixelCounts: restCounts,
+    stripe: hasStripe(restSamples),
+    contrasts: restContrasts,
+    screenshot: restShot,
+  });
+
+  if (!isMobile && tailRectDesktop) {
+    for (const word of WORDS) {
+      await page.evaluate(() => {
+        delete document.documentElement.dataset.homeSplash;
+      });
+      await page.waitForTimeout(150);
+      await hoverPrimary(page, word);
+      const hoverSamples = await sampleTailPixels(page, tailRectDesktop);
+      const hoverCounts = classifySamples(hoverSamples);
+      const hoverShot = path.join(OUT, `${viewportLabel}-${word}.png`);
+      await page.screenshot({ path: hoverShot, fullPage: false });
+      const splashRgb = SPLASH[word];
+      const hoverContrastRows = await measureInkContrast(page, word, splashRgb);
+      const hoverContrasts = hoverContrastRows.map((row) => {
+        if (row.reason) return { id: row.id, ok: false, ratio: 0 };
+        const ink = INK[word];
+        const ratio = contrastRatio(ink, splashRgb);
+        return {
+          id: row.id,
+          ratio: Math.round(ratio * 100) / 100,
+          ok: ratio >= MIN_CONTRAST,
+        };
+      });
+      const splashFilled =
+        hoverCounts[word] >= hoverSamples.length - 2 &&
+        hoverCounts.beige <= 1;
+      const hoverOk =
+        splashFilled && !hasStripe(hoverSamples) && hoverContrasts.every((c) => c.ok);
+      if (!hoverOk) failed = true;
+      results.push({
+        viewport: viewportLabel,
+        state: `hover-${word}`,
+        ok: hoverOk,
+        pixelCounts: hoverCounts,
+        stripe: hasStripe(hoverSamples),
+        contrasts: hoverContrasts,
+        screenshot: hoverShot,
+      });
+
+      await page.mouse.move(8, viewport.height - 8);
+      await page.waitForTimeout(400);
+      const exitSamples = await sampleTailPixels(page, tailRectDesktop);
+      const exitShot = path.join(OUT, `${viewportLabel}-${word}-exitfade.png`);
+      await page.screenshot({ path: exitShot, fullPage: false });
+      const exitStripe = hasStripe(exitSamples);
+      const exitOk = !exitStripe;
+      if (!exitOk) failed = true;
+      results.push({
+        viewport: viewportLabel,
+        state: `exitfade-${word}`,
+        ok: exitOk,
+        stripe: exitStripe,
+        pixelCounts: classifySamples(exitSamples),
+        screenshot: exitShot,
+      });
+    }
+  }
+
+  await page.close();
 }
 
 await browser.close();
 
 const reportPath = path.join(OUT, "pixel-results.json");
 await writeFile(reportPath, JSON.stringify(results, null, 2));
-
 console.log(JSON.stringify(results, null, 2));
 if (failed) {
   console.error("prove-closing-tail-splash-fill: FAILED");

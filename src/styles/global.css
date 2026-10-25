@@ -280,15 +280,20 @@ html[data-overscroll-reveal="true"] body.site-body {
     padding-top: 0;
     padding-bottom: 16px;
   }
+
+  /* B2: transparent chrome so splash fills the shared closing viewport on hover. */
+  .home-closing-index,
+  .home-closing-desktop,
+  .home-closing-tail .home-footer,
+  .home-closing-tail .home-footer__layout,
+  .home-closing-tail .home-footer__email,
+  .home-closing-tail .home-footer__social-pill {
+    background-color: transparent;
+  }
 }
 
 .home-splash-overlay {
   z-index: 40;
-}
-
-/* State A: closing viewport stays beige; splash may run but must not paint over tail or nav. */
-html[data-home-closing-view] #home-splash-portal {
-  visibility: hidden;
 }
 
 @media (width >= 768px) and (width < 1024px) {
@@ -398,8 +403,8 @@ html[data-home-closing-view] #home-splash-portal {
   }
 
   .home-footer__social-pill:hover {
-    color: color-mix(in srgb, var(--home-closing-fg) 82%, transparent);
-    border-color: color-mix(in srgb, var(--home-closing-fg) 72%, transparent);
+    background-color: var(--home-closing-fg);
+    color: var(--home-closing-bg);
   }
 }
 
@@ -649,23 +654,49 @@ html[data-home-closing-view] #home-splash-portal {
   }
 }
 
+html[data-home-splash="building"] .home-navbar,
+html[data-home-splash="building"] .home-navbar .home-logo,
+html[data-home-splash="building"] .home-navbar-search__trigger {
+  color: #141a2b;
+}
+
+html[data-home-splash="educating"] .home-navbar,
+html[data-home-splash="educating"] .home-navbar .home-logo,
+html[data-home-splash="educating"] .home-navbar-search__trigger {
+  color: #141a2b;
+}
+
+html[data-home-splash="creating"] .home-navbar,
+html[data-home-splash="creating"] .home-navbar .home-logo,
+html[data-home-splash="creating"] .home-navbar-search__trigger,
+html[data-home-splash="about"] .home-navbar,
+html[data-home-splash="about"] .home-navbar .home-logo,
+html[data-home-splash="about"] .home-navbar-search__trigger,
+html[data-home-splash="now"] .home-navbar,
+html[data-home-splash="now"] .home-navbar .home-logo,
+html[data-home-splash="now"] .home-navbar-search__trigger,
+html[data-home-splash="sitemap"] .home-navbar,
+html[data-home-splash="sitemap"] .home-navbar .home-logo,
+html[data-home-splash="sitemap"] .home-navbar-search__trigger {
+  color: #fff9ec;
+}
+
 .home-closing-link,
 .home-closing-star,
 .home-footer a {
-  color: var(--home-closing-fg);
-  outline-color: var(--home-closing-fg);
   transition:
     color 0.28s var(--ease-out),
-    outline-color 0.28s var(--ease-out),
-    opacity 0.28s var(--ease-out),
-    text-decoration-thickness 0.2s var(--ease-out);
+    outline-color 0.28s var(--ease-out);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .home-closing-link--nav:hover,
-  .home-closing-link--nav:focus-visible {
-    opacity: 0.82;
-  }
+html[data-home-splash] .home-closing-link,
+html[data-home-splash] .home-closing-star,
+html[data-home-splash] .home-footer a {
+  color: var(--home-closing-ink, var(--home-closing-fg));
+  outline-color: var(--home-closing-ink, var(--home-closing-fg));
+  transition:
+    color 0.12s var(--ease-out),
+    outline-color 0.12s var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {

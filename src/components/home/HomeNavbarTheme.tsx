@@ -72,23 +72,6 @@ export default function HomeNavbarTheme() {
       return;
     }
 
-    const syncClosingView = () => {
-      const root = document.documentElement;
-      const tail = document.querySelector<HTMLElement>(TAIL_SELECTOR);
-      if (!tail) {
-        delete root.dataset.homeClosingView;
-        return false;
-      }
-      const rect = tail.getBoundingClientRect();
-      const inClosingView = rect.top <= PROBE_Y + 0.5;
-      if (inClosingView) {
-        root.dataset.homeClosingView = "true";
-      } else {
-        delete root.dataset.homeClosingView;
-      }
-      return inClosingView;
-    };
-
     const pickActive = () => {
       const root = document.documentElement;
       if (
@@ -96,13 +79,16 @@ export default function HomeNavbarTheme() {
         root.dataset.overscrollPulling === "true"
       ) {
         setPageAccent("closing");
-        syncClosingView();
         return;
       }
 
-      if (syncClosingView()) {
-        setPageAccent("closing");
-        return;
+      const tail = document.querySelector<HTMLElement>(TAIL_SELECTOR);
+      if (tail) {
+        const rect = tail.getBoundingClientRect();
+        if (rect.top <= PROBE_Y + 0.5) {
+          setPageAccent("closing");
+          return;
+        }
       }
 
       const topmost = document

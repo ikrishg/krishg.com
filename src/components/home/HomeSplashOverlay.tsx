@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { closingSplashHex, type ClosingSplashKey } from "./home-closing";
+import {
+  closingSplashHex,
+  closingSplashInkHex,
+  type ClosingSplashKey,
+} from "./home-closing";
 import { HOME_SPLASH_PATH, splashBlobDiameter } from "./home-splash-mask";
 import { isSplashScrollBlocked } from "~motion/homeSplashScrollGate";
 import { canUseClosingHoverSplash } from "./closingHoverSplash";
@@ -57,8 +61,13 @@ export default function HomeSplashOverlay() {
     }
   }, []);
 
-  const setInk = useCallback((_key: ClosingSplashKey | null) => {
-    document.documentElement.style.removeProperty("--home-closing-ink");
+  const setInk = useCallback((key: ClosingSplashKey | null) => {
+    const root = document.documentElement;
+    if (!key) {
+      root.style.removeProperty("--home-closing-ink");
+      return;
+    }
+    root.style.setProperty("--home-closing-ink", closingSplashInkHex[key]);
   }, []);
 
   const cancelMotion = useCallback(() => {
@@ -420,9 +429,13 @@ export default function HomeSplashOverlay() {
   ]);
 
   useEffect(() => {
+    const host =
+      document.querySelector<HTMLElement>(".home-closing-tail") ??
+      document.body;
     const node = document.createElement("div");
     node.id = "home-splash-portal";
-    document.body.appendChild(node);
+    node.className = "home-splash-portal-host";
+    host.appendChild(node);
     setPortal(node);
     return () => {
       node.remove();
