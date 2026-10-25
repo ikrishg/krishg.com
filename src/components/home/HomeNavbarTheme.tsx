@@ -128,12 +128,15 @@ export default function HomeNavbarTheme() {
     pickActive();
     const offScroll = subscribeScroll(pickActive);
     const onMqChange = () => pickActive();
+    const onWindowScroll = () => pickActive();
     window.addEventListener("resize", pickActive);
+    window.addEventListener("scroll", onWindowScroll, { passive: true });
     desktopClosingMq.addEventListener("change", onMqChange);
 
     return () => {
       offScroll();
       window.removeEventListener("resize", pickActive);
+      window.removeEventListener("scroll", onWindowScroll);
       desktopClosingMq.removeEventListener("change", onMqChange);
     };
   }, []);

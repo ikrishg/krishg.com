@@ -31,9 +31,20 @@ const BEIGE_DIST_THRESHOLD = 28;
 
 const VIEWPORTS = [
   { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
   { width: 1024, height: 776 },
   { width: 768, height: 1024 },
   { width: 390, height: 844 },
+];
+
+const GAP_MAX_RATIO = 1.25;
+const GAP_MEAN_TOLERANCE = 0.1;
+const LAYOUT_SETTLE_MS = 1500;
+const MOBILE_CLOSING_NAV_WIDTHS = [
+  { width: 375, height: 844 },
+  { width: 390, height: 844 },
+  { width: 430, height: 844 },
+  { width: 767, height: 1024 },
 ];
 
 const WORDS = ["building", "creating", "educating"];
@@ -125,8 +136,210 @@ function resultsTable(results) {
     stripe: x.stripe ?? "-",
     hit: x.hitTest?.ok ?? "-",
     pills: x.pillLayout?.ok ?? "-",
+    gaps: x.closingGaps?.ok ?? "-",
     beigeBand: x.beigeBandRows ?? "-",
   }));
+}
+
+async function waitLayoutSettle(page) {
+  await page.waitForTimeout(LAYOUT_SETTLE_MS);
+}
+
+function evaluateGapBar(gaps) {
+  const rounded = gaps.map((g) => Math.round(g * 10) / 10);
+  const min = Math.min(...rounded);
+  const max = Math.max(...rounded);
+  const mean = rounded.reduce((sum, g) => sum + g, 0) / rounded.length;
+  const ratio = min > 0 ? max / min : Number.POSITIVE_INFINITY;
+  const withinTolerance = rounded.every(
+    (g) => Math.abs(g - mean) <= mean * GAP_MEAN_TOLERANCE + 0.5,
+  );
+  const ok =
+    rounded.length >= 3 &&
+    min > 4 &&
+    ratio <= GAP_MAX_RATIO + 0.001 &&
+    withinTolerance;
+  return { ok, gaps: rounded, min, max, mean: Math.round(mean), ratio };
+}
+
+async function assertClosingVerticalGaps(page, isMobile) {
+  return page.evaluate(
+    ({ mobile }) => {
+      const navEl = document.querySelector(".home-navbar");
+      const navBottom = navEl?.getBoundingClientRect().bottom ?? 64;
+      const vh = window.innerHeight;
+
+      if (mobile) {
+        const blocks = [
+          ...document.querySelectorAll(".home-closing-link--mobile"),
+        ];
+        const lastBlock = blocks[blocks.length - 1];
+        const email = document.querySelector(".home-footer__email");
+        const pills = [
+          ...document.querySelectorAll(".home-footer__social-pill"),
+        ];
+        if (!lastBlock || !email || pills.length < 2) {
+          return { ok: false, reason: "missing-mobile-nodes" };
+        }
+        const lastRect = lastBlock.getBoundingClientRect();
+        const emailRect = email.getBoundingClientRect();
+        const pillRects = pills.map((p) => p.getBoundingClientRect());
+        const pillGap = pillRects[1].top - pillRects[0].bottom;
+        const gaps = [
+          emailRect.top - lastRect.bottom,
+          pillRects[0].top - emailRect.bottom,
+          vh - pillRects[pillRects.length - 1].bottom,
+        ];
+        const pillGapOk = pillGap >= 14.5 && pillGap <= 18.5;
+        return { gaps, pillGap: Math.round(pillGap), pillGapOk, mobile: true };
+      }
+
+      const navRow = document.querySelector(".home-closing-nav-row");
+      const primary = document.querySelector(".home-closing-primary-row");
+      const email = document.querySelector(".home-footer__email");
+      const social = document.querySelector(".home-footer__social");
+      const pills = [
+        ...document.querySelectorAll(".home-footer__social-pill"),
+      ];
+      if (!navRow || !primary || !email || !social) {
+        return { ok: false, reason: "missing-desktop-nodes" };
+      }
+      const navRowRect = navRow.getBoundingClientRect();
+      const primaryRect = primary.getBoundingClientRect();
+      const emailRect = email.getBoundingClientRect();
+      const socialRect = social.getBoundingClientRect();
+      const tailRect = document
+        .querySelector(".home-closing-tail")
+        ?.getBoundingClientRect();
+      const tailBottom = tailRect?.bottom ?? vh;
+      const gaps = [
+        navRowRect.top - navBottom,
+        primaryRect.top - navRowRect.bottom,
+        emailRect.top - primaryRect.bottom,
+        socialRect.top - emailRect.bottom,
+        tailBottom - socialRect.bottom,
+      ];
+      return { gaps, mobile: false };
+    },
+    { mobile: isMobile },
+  ).then((raw) => {
+    if (raw.ok === false && raw.reason) {
+      return { ok: false, reason: raw.reason };
+    }
+    const bar = evaluateGapBar(raw.gaps);
+    const pillGapOk = raw.mobile ? raw.pillGapOk : true;
+    return {
+      ...bar,
+      pillGap: raw.pillGap,
+      pillGapOk,
+      mobile: raw.mobile,
+      ok: bar.ok && pillGapOk,
+    };
+  });
+}
+
+async function assertMobileClosingNavMatchesBands(browser, baseUrl) {
+  const probes = [];
+  let ok = true;
+
+  for (const viewport of MOBILE_CLOSING_NAV_WIDTHS) {
+    const context = await browser.newContext({
+      viewport,
+      deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+    await waitForUiSettled(page);
+
+    const blockKeys = await page.$$eval(".home-closing-link--mobile", (links) =>
+      links.map((a) => a.getAttribute("data-splash-key") ?? a.textContent?.trim()),
+    );
+
+    for (const key of blockKeys) {
+      await page.evaluate((bandKey) => {
+        const link = document.querySelector(
+          `.home-closing-link--mobile[data-splash-key="${bandKey}"]`,
+        );
+        if (!link) return;
+        const rect = link.getBoundingClientRect();
+        const targetY =
+          window.scrollY + rect.top + rect.height / 2 - 64 - 8;
+        window.scrollTo(0, Math.max(0, targetY));
+        window.dispatchEvent(new Event("scroll"));
+      }, key);
+      await waitLayoutSettle(page);
+      const sample = await page.evaluate(() => {
+        const nav = document.querySelector(".home-navbar");
+        const navBg = nav ? getComputedStyle(nav).backgroundColor : "";
+        const probeY = 65;
+        const hit = document
+          .elementsFromPoint(window.innerWidth / 2, probeY)
+          .map((el) =>
+            el.closest(".home-closing-link--mobile, .home-footer"),
+          )
+          .find(Boolean);
+        let bandBg = "";
+        if (hit?.classList.contains("home-closing-link--mobile")) {
+          bandBg = getComputedStyle(hit).backgroundColor;
+        } else if (hit?.closest(".home-footer")) {
+          bandBg = getComputedStyle(document.documentElement).getPropertyValue(
+            "--home-closing-bg",
+          );
+          if (!bandBg.trim()) bandBg = "rgb(231, 221, 204)";
+        }
+        return { navBg, bandBg, key: hit?.getAttribute("data-splash-key") };
+      });
+      const match = navBgClose(sample.navBg, sample.bandBg);
+      if (!match) ok = false;
+      probes.push({
+        viewport: `${viewport.width}x${viewport.height}`,
+        band: key,
+        match,
+        navBg: sample.navBg,
+        bandBg: sample.bandBg,
+      });
+    }
+
+    const footerReachable = await page.evaluate(() => {
+      const email = document.querySelector(".home-footer__email");
+      if (!email) return false;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const want = email.getBoundingClientRect().top + window.scrollY - 72;
+      return want <= max + 1;
+    });
+    if (footerReachable) {
+      await page.evaluate(() => {
+        const email = document.querySelector(".home-footer__email");
+        const top = email.getBoundingClientRect().top + window.scrollY - 72;
+        window.scrollTo(0, Math.max(0, top));
+        window.dispatchEvent(new Event("scroll"));
+      });
+      await waitLayoutSettle(page);
+      const footerSample = await page.evaluate(() => {
+        const navBg = getComputedStyle(
+          document.querySelector(".home-navbar"),
+        ).backgroundColor;
+        const bandBg = "rgb(231, 221, 204)";
+        return { navBg, bandBg };
+      });
+      const footerMatch = navBgClose(
+        footerSample.navBg,
+        footerSample.bandBg,
+      );
+      if (!footerMatch) ok = false;
+      probes.push({
+        viewport: `${viewport.width}x${viewport.height}`,
+        band: "closing-footer",
+        match: footerMatch,
+        navBg: footerSample.navBg,
+        bandBg: footerSample.bandBg,
+      });
+    }
+
+    await context.close();
+  }
+
+  return { ok, probes };
 }
 
 async function waitForUiSettled(page) {
@@ -322,17 +535,18 @@ async function measureContrastsFromViewportShot(page, word, pngBuffer) {
 async function assertSplashBelowChrome(page) {
   return page.evaluate(() => {
     const splash = document.querySelector(".home-splash-overlay");
-    const index = document.querySelector("#home-closing-index");
-    const footerLayout = document.querySelector(
-      ".home-closing-tail .home-footer__layout",
-    );
-    if (!splash || !index || !footerLayout) {
+    const chrome = [
+      ...document.querySelectorAll(
+        ".home-closing-index__nav, .home-closing-index__primary, .home-closing-tail .home-footer__email, .home-closing-tail .home-footer__social",
+      ),
+    ];
+    if (!splash || chrome.length < 2) {
       return { ok: false, reason: "missing layer" };
     }
     const sz = Number(getComputedStyle(splash).zIndex);
-    const iz = Number(getComputedStyle(index).zIndex);
-    const fz = Number(getComputedStyle(footerLayout).zIndex);
-    return { ok: sz < iz && sz < fz, sz, iz, fz };
+    const chromeZ = chrome.map((el) => Number(getComputedStyle(el).zIndex));
+    const minChromeZ = Math.min(...chromeZ);
+    return { ok: sz < minChromeZ, sz, chromeZ, minChromeZ };
   });
 }
 
@@ -634,14 +848,25 @@ async function mobileNavSemanticProbes(page) {
         y: Math.max(0, Math.min(max, y)),
       });
     }
-    probes.push({ id: "bottom", y: max });
+    const email = document.querySelector(".home-footer__email");
+    if (email) {
+      const footerY = Math.round(
+        email.getBoundingClientRect().top + window.scrollY - 72,
+      );
+      if (footerY < max - 4) {
+        probes.push({
+          id: "closing-footer",
+          y: Math.max(0, footerY),
+        });
+      }
+    }
     return probes;
   });
 }
 
 async function sampleMobileNavAt(page, scrollY) {
   await page.evaluate((y) => window.scrollTo(0, y), scrollY);
-  await page.waitForTimeout(280);
+  await page.waitForTimeout(400);
   return page.evaluate((y) => {
     const nav = document.querySelector(".home-navbar");
     const meta = document.querySelector('meta[name="theme-color"]');
@@ -734,6 +959,8 @@ async function runProvePass(browser, baseUrl, runLabel) {
     await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
     await assertViewport(page, viewport);
     await scrollToClosing(page);
+    await waitLayoutSettle(page);
+    const closingGaps = await assertClosingVerticalGaps(page, isMobile);
     const rect = await tailRect(page, isMobile);
     const tailRectDesktop = isMobile ? null : await tailRect(page, false);
     if (!rect) {
@@ -757,12 +984,15 @@ async function runProvePass(browser, baseUrl, runLabel) {
     const restStripe = hasStripeFromRows(restRows);
     const pillLayoutRest = await assertPillContactLayout(page);
     const restOk = isMobile
-      ? restCounts.beige >= restSamples.length * 0.85 && pillLayoutRest.ok
+      ? restCounts.beige >= restSamples.length * 0.85 &&
+        pillLayoutRest.ok &&
+        closingGaps.ok
       : restCounts.beige >= restSamples.length * 0.85 &&
         !restStripe &&
         restContrasts.every((c) => c.ok) &&
         navLogoRest.ok &&
-        pillLayoutRest.ok;
+        pillLayoutRest.ok &&
+        closingGaps.ok;
     if (!restOk) failed = true;
     results.push({
       viewport: viewportLabel,
@@ -773,6 +1003,7 @@ async function runProvePass(browser, baseUrl, runLabel) {
       contrasts: restContrasts,
       navLogo: navLogoRest,
       pillLayout: pillLayoutRest,
+      closingGaps,
       screenshotPixels: { width: restShotMeta.width, height: restShotMeta.height },
     });
 
@@ -967,6 +1198,10 @@ if (MAIN_BASE) {
   };
 }
 
+const mobileClosingNavBands = await assertMobileClosingNavMatchesBands(
+  browser,
+  BASE,
+);
 const run1 = await runProvePass(browser, BASE, "run1");
 const run2 = await runProvePass(browser, BASE, "run2");
 const negatives = await runNegativeSelfTests(browser, BASE);
@@ -975,6 +1210,7 @@ await browser.close();
 
 const report = {
   mobileNavCompare,
+  mobileClosingNavBands,
   negatives,
   run1: { failed: run1.failed, exitCode: run1.failed ? 1 : 0, table: run1.table },
   run2: { failed: run2.failed, exitCode: run2.failed ? 1 : 0, table: run2.table },
@@ -985,6 +1221,8 @@ await writeFile(reportPath, JSON.stringify(report, null, 2));
 
 console.log("=== mobile 390 nav vs main ===");
 console.log(JSON.stringify(mobileNavCompare, null, 2));
+console.log("=== mobile closing nav vs bands ===");
+console.log(JSON.stringify(mobileClosingNavBands, null, 2));
 console.log("=== negative self-tests ===");
 console.log(JSON.stringify(negatives, null, 2));
 console.log("=== prove run 1 (exit", run1.failed ? 1 : 0, ") ===");
@@ -996,6 +1234,7 @@ const failed =
   run1.failed ||
   run2.failed ||
   !negatives.ok ||
+  !mobileClosingNavBands.ok ||
   (!mobileNavCompare.skipped && !mobileNavCompare.ok);
 
 if (failed) {

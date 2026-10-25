@@ -4,6 +4,7 @@ import { useClampFontSizePx } from "./useClampFontSizePx";
 import type { ClosingLink } from "./home-closing";
 import {
   closingMobileInkHex,
+  closingMobileNavAccent,
   closingSplashHex,
 } from "./home-closing";
 import {
@@ -84,6 +85,7 @@ export default function HomeClosingLink({
         }}
         href={link.href}
         data-splash-key={link.key}
+        data-home-nav-theme={closingMobileNavAccent[link.key]}
       >
         <FitText
           as="span"
