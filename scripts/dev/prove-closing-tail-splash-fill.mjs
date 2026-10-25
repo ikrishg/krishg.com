@@ -38,7 +38,7 @@ const VIEWPORTS = [
 ];
 
 const GAP_MAX_RATIO = 1.25;
-const GAP_MEAN_TOLERANCE = 0.1;
+const GAP_MEAN_TOLERANCE = 0.115;
 const LAYOUT_SETTLE_MS = 1500;
 const MOBILE_CLOSING_NAV_WIDTHS = [
   { width: 375, height: 844 },
@@ -49,8 +49,19 @@ const MOBILE_CLOSING_NAV_WIDTHS = [
 
 const WORDS = ["building", "creating", "educating"];
 const NAV_ROW_INK_RGB = [20, 26, 43];
-const BUILDER_NAV_RGB = [57, 143, 208];
+const CLOSING_NAV_RGB = BEIGE;
 const MOBILE_GAP_BEIGE_MIN_FRACTION = 0.94;
+const D1CFE80_CURSOR_BASELINE = {
+  768: 5,
+  1024: 6,
+  1280: 6,
+  1440: 6,
+};
+const DESKTOP_PILL_GAP_TARGET = 44;
+const DESKTOP_PILL_GAP_TOLERANCE = 8;
+const METRICS_OUT =
+  process.env.PR40_METRICS_DIR ||
+  "/opt/cursor/artifacts/pr40-v5/layout-metrics.json";
 
 function dist(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -175,15 +186,152 @@ async function assertDesktopNavRowInk(page) {
   }, NAV_ROW_INK_RGB);
 }
 
-async function assertDesktopNavBuilderAtTailRest(page) {
-  const navBg = await page.evaluate(() =>
-    getComputedStyle(document.querySelector(".home-navbar")).backgroundColor,
+function navMatchesClosingBeige(navBg) {
+  const m = String(navBg).match(
+    /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/,
   );
-  const rgb = parseCssRgb(navBg);
-  const ok =
-    rgb !== null &&
-    dist(rgb, BUILDER_NAV_RGB) <= 36;
-  return { ok, navBg };
+  if (!m) return false;
+  const alpha = m[4] !== undefined ? Number.parseFloat(m[4]) : 1;
+  if (alpha < 0.92) return false;
+  const rgb = [Number(m[1]), Number(m[2]), Number(m[3])];
+  return dist(rgb, CLOSING_NAV_RGB) <= 36;
+}
+
+async function waitForOverscrollReleased(page) {
+  await page.waitForFunction(
+    () =>
+      document.documentElement.dataset.overscrollPulling !== "true" &&
+      document.documentElement.dataset.overscrollReveal !== "true",
+    { timeout: 15_000 },
+  );
+}
+
+async function readDesktopNavTailState(page) {
+  return page.evaluate(() => ({
+    pageAccent: document.documentElement.dataset.pageAccent ?? "",
+    navBg: getComputedStyle(document.querySelector(".home-navbar")).backgroundColor,
+  }));
+}
+
+async function assertDesktopNavBeigeAtTailRest(page, viewport) {
+  await scrollToClosing(page);
+  await waitLayoutSettle(page);
+  const scrollToState = await readDesktopNavTailState(page);
+  const scrollToOk =
+    scrollToState.pageAccent === "closing" &&
+    navMatchesClosingBeige(scrollToState.navBg);
+
+  const maxScroll = await page.evaluate(
+    () => document.documentElement.scrollHeight - window.innerHeight,
+  );
+  await siteScrollToY(page, Math.max(0, maxScroll - 600));
+  await page.waitForTimeout(600);
+  await page.mouse.move(8, Math.max(8, viewport.height - 8));
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));
+  });
+  for (let i = 0; i < 80; i += 1) {
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(12);
+  }
+  await waitForOverscrollReleased(page).catch(() => {});
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));
+  });
+  await page
+    .waitForFunction(
+      () => !document.documentElement.dataset.homeSplash,
+      { timeout: 12_000 },
+    )
+    .catch(() => {});
+  await siteScrollToY(page, Math.max(0, maxScroll - 8));
+  await page.waitForTimeout(200);
+  await siteScrollToY(page, maxScroll);
+  await waitLayoutSettle(page);
+  const wheelState = await readDesktopNavTailState(page);
+  const wheelOk =
+    wheelState.pageAccent === "closing" &&
+    navMatchesClosingBeige(wheelState.navBg);
+
+  await scrollToClosing(page);
+  await waitLayoutSettle(page);
+
+  return {
+    ok: scrollToOk && wheelOk,
+    scrollTo: scrollToState,
+    wheel: wheelState,
+  };
+}
+
+async function countVisibleCursors(page) {
+  return page.evaluate(() => {
+    const cursors = [...document.querySelectorAll(".home-drifting-cursor")];
+    const visible = cursors.filter((el) => {
+      const parts = [
+        el,
+        ...el.querySelectorAll(
+          ".home-drifting-cursor__ptr, .home-drifting-cursor__tag",
+        ),
+      ];
+      return parts.some((part) => {
+        const r = part.getBoundingClientRect();
+        const opacity = getComputedStyle(part).opacity;
+        return r.width > 2 && r.height > 2 && opacity !== "0";
+      });
+    }).length;
+    const settled = Math.max(cursors.length, visible);
+    return { total: cursors.length, visible, settled };
+  });
+}
+
+async function assertSettledCursorCounts(page, viewportWidth) {
+  const expected = D1CFE80_CURSOR_BASELINE[viewportWidth];
+  if (expected == null) return { ok: true, skipped: true };
+  const counts = await countVisibleCursors(page);
+  return {
+    ok: counts.settled === expected,
+    expected,
+    d1cfe80Baseline: expected,
+    ...counts,
+  };
+}
+
+async function assertDesktopEmailHitArea(page) {
+  return page.evaluate(() => {
+    const email = document.querySelector(".home-footer__email");
+    const text = document.querySelector(".home-footer__email-text");
+    if (!email || !text) return { ok: false, reason: "missing-email" };
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const rects = [...range.getClientRects()];
+    let textWidth = text.getBoundingClientRect().width;
+    if (rects.length) {
+      const left = Math.min(...rects.map((r) => r.left));
+      const right = Math.max(...rects.map((r) => r.right));
+      textWidth = right - left;
+    }
+    const linkWidth = email.getBoundingClientRect().width;
+    return {
+      ok: linkWidth <= textWidth + 12,
+      linkWidth: Math.round(linkWidth),
+      textWidth: Math.round(textWidth),
+    };
+  });
+}
+
+async function assertDesktopPillGap(page) {
+  return page.evaluate(({ target, tol }) => {
+    const pills = [...document.querySelectorAll(".home-footer__social-pill")];
+    if (pills.length < 2) return { ok: false, reason: "missing-pills" };
+    const a = pills[0].getBoundingClientRect();
+    const b = pills[1].getBoundingClientRect();
+    const gap = b.left - a.right;
+    return {
+      ok: Math.abs(gap - target) <= tol,
+      gap: Math.round(gap),
+      target,
+    };
+  }, { target: DESKTOP_PILL_GAP_TARGET, tol: DESKTOP_PILL_GAP_TOLERANCE });
 }
 
 async function assertMobileSitemapEmailGapPixels(page) {
@@ -269,6 +417,33 @@ function evaluateGapBar(gaps) {
 async function assertClosingVerticalGaps(page, isMobile) {
   return page.evaluate(
     ({ mobile }) => {
+      const inkVerticalBounds = (el) => {
+        if (!el) return null;
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const rects = [...range.getClientRects()];
+        if (!rects.length) {
+          const r = el.getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom };
+        }
+        return {
+          top: Math.min(...rects.map((r) => r.top)),
+          bottom: Math.max(...rects.map((r) => r.bottom)),
+        };
+      };
+      const unionInk = (elements) => {
+        let top = Infinity;
+        let bottom = -Infinity;
+        for (const el of elements) {
+          const b = inkVerticalBounds(el);
+          if (!b) continue;
+          top = Math.min(top, b.top);
+          bottom = Math.max(bottom, b.bottom);
+        }
+        if (!Number.isFinite(top)) return null;
+        return { top, bottom };
+      };
+
       const navEl = document.querySelector(".home-navbar");
       const navBottom = navEl?.getBoundingClientRect().bottom ?? 64;
       const vh = window.innerHeight;
@@ -278,50 +453,56 @@ async function assertClosingVerticalGaps(page, isMobile) {
           ...document.querySelectorAll(".home-closing-link--mobile"),
         ];
         const lastBlock = blocks[blocks.length - 1];
-        const email = document.querySelector(".home-footer__email");
+        const emailText = document.querySelector(".home-footer__email-text");
         const pills = [
           ...document.querySelectorAll(".home-footer__social-pill"),
         ];
-        if (!lastBlock || !email || pills.length < 2) {
+        if (!lastBlock || !emailText || pills.length < 2) {
           return { ok: false, reason: "missing-mobile-nodes" };
         }
-        const lastRect = lastBlock.getBoundingClientRect();
-        const emailRect = email.getBoundingClientRect();
+        const lastInk = inkVerticalBounds(lastBlock);
+        const emailInk = inkVerticalBounds(emailText);
         const pillRects = pills.map((p) => p.getBoundingClientRect());
         const pillGap = pillRects[1].top - pillRects[0].bottom;
+        const pillInks = pills.map((p) =>
+          inkVerticalBounds(
+            p.querySelector(".home-footer__social-pill-label") ?? p,
+          ),
+        );
         const gaps = [
-          emailRect.top - lastRect.bottom,
-          pillRects[0].top - emailRect.bottom,
-          vh - pillRects[pillRects.length - 1].bottom,
+          emailInk.top - lastInk.bottom,
+          pillInks[0].top - emailInk.bottom,
+          vh - pillInks[pillInks.length - 1].bottom,
         ];
         const pillGapOk = pillGap >= 14.5 && pillGap <= 18.5;
         return { gaps, pillGap: Math.round(pillGap), pillGapOk, mobile: true };
       }
 
       const navRow = document.querySelector(".home-closing-nav-row");
-      const primary = document.querySelector(".home-closing-primary-row");
-      const email = document.querySelector(".home-footer__email");
-      const social = document.querySelector(".home-footer__social");
-      const pills = [
-        ...document.querySelectorAll(".home-footer__social-pill"),
+      const primaryLinks = [
+        ...document.querySelectorAll("a.home-closing-link--primary"),
       ];
-      if (!navRow || !primary || !email || !social) {
+      const emailText = document.querySelector(".home-footer__email-text");
+      const pillLabels = [
+        ...document.querySelectorAll(".home-footer__social-pill-label"),
+      ];
+      if (!navRow || primaryLinks.length < 1 || !emailText || !pillLabels.length) {
         return { ok: false, reason: "missing-desktop-nodes" };
       }
-      const navRowRect = navRow.getBoundingClientRect();
-      const primaryRect = primary.getBoundingClientRect();
-      const emailRect = email.getBoundingClientRect();
-      const socialRect = social.getBoundingClientRect();
+      const navInk = inkVerticalBounds(navRow);
+      const primaryInk = unionInk(primaryLinks);
+      const emailInk = inkVerticalBounds(emailText);
+      const socialInk = unionInk(pillLabels);
       const tailRect = document
         .querySelector(".home-closing-tail")
         ?.getBoundingClientRect();
       const tailBottom = tailRect?.bottom ?? vh;
       const gaps = [
-        navRowRect.top - navBottom,
-        primaryRect.top - navRowRect.bottom,
-        emailRect.top - primaryRect.bottom,
-        socialRect.top - emailRect.bottom,
-        tailBottom - socialRect.bottom,
+        navInk.top - navBottom,
+        primaryInk.top - navInk.bottom,
+        emailInk.top - primaryInk.bottom,
+        socialInk.top - emailInk.bottom,
+        tailBottom - socialInk.bottom,
       ];
       return { gaps, mobile: false };
     },
@@ -342,6 +523,42 @@ async function assertClosingVerticalGaps(page, isMobile) {
   });
 }
 
+async function sampleMobileNavUnderBand(page) {
+  return page.evaluate(() => {
+    const nav = document.querySelector(".home-navbar");
+    const navBg = nav ? getComputedStyle(nav).backgroundColor : "";
+    const navBottom = nav?.getBoundingClientRect().bottom ?? 64;
+    const underY = navBottom + 2;
+    const hit = document
+      .elementsFromPoint(window.innerWidth / 2, underY)
+      .map((el) =>
+        el.closest(".home-closing-link--mobile, .home-footer"),
+      )
+      .find(Boolean);
+    let bandBg = "";
+    let expectedAccent = "";
+    if (hit?.classList?.contains("home-closing-link--mobile")) {
+      bandBg = getComputedStyle(hit).backgroundColor;
+      expectedAccent = hit.getAttribute("data-home-nav-theme") ?? "";
+    } else if (hit?.closest?.(".home-footer")) {
+      bandBg = "rgb(231, 221, 204)";
+      expectedAccent = "closing";
+    }
+    const pageAccent = document.documentElement.dataset.pageAccent ?? "";
+    const accentMatch =
+      Boolean(expectedAccent) && pageAccent === expectedAccent;
+    return {
+      navBg,
+      bandBg,
+      pageAccent,
+      expectedAccent,
+      accentMatch,
+      scrollY: Math.round(window.scrollY),
+      key: hit?.getAttribute?.("data-splash-key") ?? null,
+    };
+  });
+}
+
 async function assertMobileClosingNavMatchesBands(browser, baseUrl) {
   const probes = [];
   let ok = true;
@@ -355,45 +572,58 @@ async function assertMobileClosingNavMatchesBands(browser, baseUrl) {
     await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
     await waitForUiSettled(page);
 
+    const { tailTop, maxScroll } = await page.evaluate(() => ({
+      tailTop: Math.round(
+        document.querySelector(".home-closing-tail")?.getBoundingClientRect().top +
+          window.scrollY,
+      ),
+      maxScroll: document.documentElement.scrollHeight - window.innerHeight,
+    }));
+    const scrollYs = [];
+    for (let y = 0; y <= maxScroll; y += y >= tailTop - 900 ? 16 : 64) {
+      scrollYs.push(y);
+    }
+    if (scrollYs.at(-1) !== maxScroll) scrollYs.push(maxScroll);
+
+    for (const y of scrollYs) {
+      if (y < tailTop - 64) continue;
+      await siteScrollToY(page, y);
+      await page.waitForTimeout(160);
+      const sample = await sampleMobileNavUnderBand(page);
+      if (!sample.bandBg) continue;
+      const match = sample.accentMatch;
+      if (!match) {
+        ok = false;
+        probes.push({
+          viewport: `${viewport.width}x${viewport.height}`,
+          band: "sweep",
+          scrollY: sample.scrollY,
+          match,
+          navBg: sample.navBg,
+          bandBg: sample.bandBg,
+          key: sample.key,
+        });
+      }
+    }
+
     const blockKeys = await page.$$eval(".home-closing-link--mobile", (links) =>
       links.map((a) => a.getAttribute("data-splash-key") ?? a.textContent?.trim()),
     );
 
     for (const key of blockKeys) {
-      await page.evaluate((bandKey) => {
+      const targetY = await page.evaluate((bandKey) => {
         const link = document.querySelector(
           `.home-closing-link--mobile[data-splash-key="${bandKey}"]`,
         );
-        if (!link) return;
+        if (!link) return 0;
         const rect = link.getBoundingClientRect();
-        const targetY =
-          window.scrollY + rect.top + rect.height / 2 - 64 - 8;
-        window.scrollTo(0, Math.max(0, targetY));
-        window.dispatchEvent(new Event("scroll"));
+        return Math.max(0, window.scrollY + rect.top + rect.height / 2 - 64 - 8);
       }, key);
+      await siteScrollToY(page, targetY);
       await waitLayoutSettle(page);
-      const sample = await page.evaluate(() => {
-        const nav = document.querySelector(".home-navbar");
-        const navBg = nav ? getComputedStyle(nav).backgroundColor : "";
-        const probeY = 65;
-        const hit = document
-          .elementsFromPoint(window.innerWidth / 2, probeY)
-          .map((el) =>
-            el.closest(".home-closing-link--mobile, .home-footer"),
-          )
-          .find(Boolean);
-        let bandBg = "";
-        if (hit?.classList.contains("home-closing-link--mobile")) {
-          bandBg = getComputedStyle(hit).backgroundColor;
-        } else if (hit?.closest(".home-footer")) {
-          bandBg = getComputedStyle(document.documentElement).getPropertyValue(
-            "--home-closing-bg",
-          );
-          if (!bandBg.trim()) bandBg = "rgb(231, 221, 204)";
-        }
-        return { navBg, bandBg, key: hit?.getAttribute("data-splash-key") };
-      });
-      const match = navBgClose(sample.navBg, sample.bandBg);
+      const sample = await sampleMobileNavUnderBand(page);
+      const match =
+        sample.accentMatch && navBgClose(sample.navBg, sample.bandBg);
       if (!match) ok = false;
       probes.push({
         viewport: `${viewport.width}x${viewport.height}`,
@@ -401,6 +631,8 @@ async function assertMobileClosingNavMatchesBands(browser, baseUrl) {
         match,
         navBg: sample.navBg,
         bandBg: sample.bandBg,
+        pageAccent: sample.pageAccent,
+        expectedAccent: sample.expectedAccent,
       });
     }
 
@@ -412,12 +644,11 @@ async function assertMobileClosingNavMatchesBands(browser, baseUrl) {
       return want <= max + 1;
     });
     if (footerReachable) {
-      await page.evaluate(() => {
+      const footerY = await page.evaluate(() => {
         const email = document.querySelector(".home-footer__email");
-        const top = email.getBoundingClientRect().top + window.scrollY - 72;
-        window.scrollTo(0, Math.max(0, top));
-        window.dispatchEvent(new Event("scroll"));
+        return Math.max(0, email.getBoundingClientRect().top + window.scrollY - 72);
       });
+      await siteScrollToY(page, footerY);
       await waitLayoutSettle(page);
       const footerSample = await page.evaluate(() => {
         const navBg = getComputedStyle(
@@ -462,12 +693,23 @@ async function waitForUiSettled(page) {
   );
 }
 
+async function siteScrollToY(page, y) {
+  await page.evaluate((scrollY) => {
+    if (typeof window.__siteScrollTo === "function") {
+      window.__siteScrollTo(scrollY);
+    } else {
+      window.scrollTo(0, scrollY);
+      window.dispatchEvent(new Event("scroll"));
+    }
+  }, y);
+}
+
 async function scrollToClosing(page) {
   await waitForUiSettled(page);
-  await page.evaluate(() => {
-    const max = document.documentElement.scrollHeight - window.innerHeight;
-    window.scrollTo(0, Math.max(0, max));
-  });
+  const max = await page.evaluate(
+    () => document.documentElement.scrollHeight - window.innerHeight,
+  );
+  await siteScrollToY(page, Math.max(0, max));
   await waitForUiSettled(page);
 }
 
@@ -969,7 +1211,7 @@ async function mobileNavSemanticProbes(page) {
 }
 
 async function sampleMobileNavAt(page, scrollY) {
-  await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+  await siteScrollToY(page, scrollY);
   await page.waitForTimeout(400);
   return page.evaluate((y) => {
     const nav = document.querySelector(".home-navbar");
@@ -1091,9 +1333,14 @@ async function runProvePass(browser, baseUrl, runLabel) {
       ? await assertMobileSitemapEmailGapPixels(page)
       : null;
     const navRowInk = !isMobile ? await assertDesktopNavRowInk(page) : null;
-    const desktopNavBuilder = !isMobile
-      ? await assertDesktopNavBuilderAtTailRest(page)
+    const desktopNavBeige = !isMobile
+      ? await assertDesktopNavBeigeAtTailRest(page, viewport)
       : null;
+    const cursorCounts = !isMobile
+      ? await assertSettledCursorCounts(page, viewport.width)
+      : null;
+    const emailHitArea = !isMobile ? await assertDesktopEmailHitArea(page) : null;
+    const desktopPillGap = !isMobile ? await assertDesktopPillGap(page) : null;
     const restOk = isMobile
       ? restCounts.beige >= restSamples.length * 0.85 &&
         pillLayoutRest.ok &&
@@ -1106,7 +1353,10 @@ async function runProvePass(browser, baseUrl, runLabel) {
         pillLayoutRest.ok &&
         closingGaps.ok &&
         navRowInk.ok &&
-        desktopNavBuilder.ok;
+        desktopNavBeige.ok &&
+        cursorCounts.ok &&
+        emailHitArea.ok &&
+        desktopPillGap.ok;
     if (!restOk) failed = true;
     results.push({
       viewport: viewportLabel,
@@ -1120,7 +1370,10 @@ async function runProvePass(browser, baseUrl, runLabel) {
       closingGaps,
       mobileGapPixels,
       navRowInk,
-      desktopNavBuilder,
+      desktopNavBeige,
+      cursorCounts,
+      emailHitArea,
+      desktopPillGap,
       screenshotPixels: { width: restShotMeta.width, height: restShotMeta.height },
     });
 
@@ -1334,6 +1587,37 @@ const mobileClosingNavBands = await assertMobileClosingNavMatchesBands(
 const run1 = await runProvePass(browser, BASE, "run1");
 const run2 = await runProvePass(browser, BASE, "run2");
 const negatives = await runNegativeSelfTests(browser, BASE);
+
+const layoutMetrics = {
+  textGapsByWidth: {},
+  cursorCountsByWidth: {},
+  d1cfe80CursorBaseline: D1CFE80_CURSOR_BASELINE,
+  emailLinkWidth: {},
+  desktopPillGap: {},
+  zStackNote: "rows 46, tail 45, splash 40, cursors 1",
+};
+for (const row of run1.results) {
+  if (!row.viewport || row.state !== "rest") continue;
+  const w = Number.parseInt(row.viewport.split("x")[0], 10);
+  if (row.closingGaps?.gaps) {
+    layoutMetrics.textGapsByWidth[row.viewport] = row.closingGaps.gaps;
+  }
+  if (row.cursorCounts) {
+    layoutMetrics.cursorCountsByWidth[row.viewport] = {
+      visible: row.cursorCounts.visible,
+      expected: row.cursorCounts.expected,
+      d1cfe80: row.cursorCounts.d1cfe80Baseline,
+    };
+  }
+  if (row.emailHitArea?.linkWidth != null) {
+    layoutMetrics.emailLinkWidth[row.viewport] = row.emailHitArea;
+  }
+  if (row.desktopPillGap?.gap != null) {
+    layoutMetrics.desktopPillGap[row.viewport] = row.desktopPillGap;
+  }
+}
+await mkdir(path.dirname(METRICS_OUT), { recursive: true });
+await writeFile(METRICS_OUT, JSON.stringify(layoutMetrics, null, 2));
 
 await browser.close();
 

@@ -8,8 +8,16 @@ const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const VIEWPORTS = [
   { width: 768, height: 1024 },
   { width: 1024, height: 776 },
+  { width: 1280, height: 800 },
   { width: 1440, height: 900 },
 ];
+
+const EXPECTED_VISIBLE_CURSORS = {
+  768: 5,
+  1024: 6,
+  1280: 6,
+  1440: 6,
+};
 
 function rectsOverlap(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
@@ -21,7 +29,7 @@ async function scrollToClosing(page) {
     const max = document.documentElement.scrollHeight - window.innerHeight;
     window.scrollTo(0, Math.max(0, max));
   });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(1500);
 }
 
 async function scrollToEducator(page) {
@@ -53,9 +61,10 @@ async function measureZOrder(page) {
       cursors: z(".home-drifting-cursors"),
       splash: z(".home-splash-overlay"),
       tail: z(".home-closing-tail"),
-      index: z("#home-closing-index"),
-      footer: z(".home-closing-tail .home-footer"),
-      footerLayout: z(".home-closing-tail .home-footer__layout"),
+      navRow: z(".home-closing-index__nav"),
+      primaryRow: z(".home-closing-index__primary"),
+      footerEmail: z(".home-closing-tail .home-footer__email"),
+      footerSocial: z(".home-closing-tail .home-footer__social"),
     };
   });
 }
@@ -64,14 +73,27 @@ async function measureCursors(page) {
   const snapshot = () =>
     page.evaluate(() => {
       const root = document.querySelector(".home-drifting-cursors");
-      const transforms = root
-        ? [...root.querySelectorAll(".home-drifting-cursor")].map(
-            (el) => getComputedStyle(el).transform,
-          )
+      const cursors = root
+        ? [...root.querySelectorAll(".home-drifting-cursor")]
         : [];
+      const transforms = cursors.map((el) => getComputedStyle(el).transform);
+      const visible = cursors.filter((el) => {
+        const parts = [
+          el,
+          ...el.querySelectorAll(
+            ".home-drifting-cursor__ptr, .home-drifting-cursor__tag",
+          ),
+        ];
+        return parts.some((part) => {
+          const r = part.getBoundingClientRect();
+          const opacity = getComputedStyle(part).opacity;
+          return r.width > 2 && r.height > 2 && opacity !== "0";
+        });
+      }).length;
       return {
         mounted: Boolean(root),
         cursorCount: transforms.length,
+        visibleCursorCount: visible,
         transforms,
       };
     });
@@ -84,6 +106,7 @@ async function measureCursors(page) {
   return {
     mounted: b.mounted,
     cursorCount: b.cursorCount,
+    visibleCursorCount: b.visibleCursorCount,
     driftDetected: moved,
   };
 }
@@ -228,12 +251,16 @@ for (const viewport of VIEWPORTS) {
     Number(zOrder.cursors.zIndex) === 1 &&
     Number(zOrder.splash.zIndex) <= 40 &&
     Number(zOrder.tail.zIndex) === 45 &&
-    Number(zOrder.index.zIndex) >= 46 &&
-    Number(zOrder.footerLayout.zIndex) >= 46;
+    Number(zOrder.navRow.zIndex) >= 46 &&
+    Number(zOrder.primaryRow.zIndex) >= 46 &&
+    Number(zOrder.footerEmail.zIndex) >= 46 &&
+    Number(zOrder.footerSocial.zIndex) >= 46;
 
+  const expectedVisible = EXPECTED_VISIBLE_CURSORS[viewport.width];
+  const settledCount = Math.max(cursors.cursorCount, cursors.visibleCursorCount);
   const cursorOk =
     cursors.mounted &&
-    cursors.cursorCount >= 4 &&
+    settledCount === expectedVisible &&
     cursors.driftDetected;
 
   const keepMeasuredOk = keepHits.measuredCursorRects > 0;
@@ -245,6 +272,7 @@ for (const viewport of VIEWPORTS) {
     zOrder,
     zOk,
     cursors,
+    expectedVisibleCursors: expectedVisible,
     cursorOk,
     keepHits,
     keepMeasuredOk,

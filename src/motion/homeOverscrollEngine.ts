@@ -133,6 +133,7 @@ function applyPullVisual(value: number) {
   if (!overscrollAccentApplied) {
     overscrollAccentApplied = true;
     setPageAccent("closing");
+    window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));
   }
 
   if (value > SPLASH_CLEAR_PULL && !splashClearedForPull) {

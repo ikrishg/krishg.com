@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { subscribeScroll } from "~motion/lenisStore";
+import { closingMobileNavAccent } from "./home-closing";
 import {
   homeAccentCanvasHex,
   isPageAccent,
@@ -79,6 +80,18 @@ export default function HomeNavbarTheme() {
       const root = document.documentElement;
       const desktopClosingNav = desktopClosingMq.matches;
 
+      const splashKey = root.dataset.homeSplash;
+      if (
+        splashKey &&
+        splashKey in closingMobileNavAccent &&
+        isPageAccent(closingMobileNavAccent[splashKey as keyof typeof closingMobileNavAccent])
+      ) {
+        setPageAccent(
+          closingMobileNavAccent[splashKey as keyof typeof closingMobileNavAccent],
+        );
+        return;
+      }
+
       if (desktopClosingNav) {
         if (
           root.dataset.overscrollReveal === "true" ||
@@ -91,13 +104,33 @@ export default function HomeNavbarTheme() {
         const tail = document.querySelector<HTMLElement>(TAIL_SELECTOR);
         if (tail) {
           const rect = tail.getBoundingClientRect();
-          const atTailRest =
+          const tailAtRest =
             rect.top <= PROBE_Y + 0.5 &&
             rect.bottom >= window.innerHeight - 2;
-          if (atTailRest) {
-            setPageAccent("builder");
+          if (tailAtRest) {
+            setPageAccent("closing");
             return;
           }
+        }
+      }
+
+      if (!desktopClosingMq.matches) {
+        const navBottom =
+          document.querySelector<HTMLElement>(".home-navbar")?.getBoundingClientRect()
+            .bottom ?? PROBE_Y;
+        const underY = navBottom + 2;
+        const underBand = document
+          .elementsFromPoint(window.innerWidth / 2, underY)
+          .map((element) =>
+            element.closest<HTMLElement>(
+              ".home-closing-link--mobile, .home-footer",
+            ),
+          )
+          .find((section): section is HTMLElement => Boolean(section));
+        const underAccent = accentFromSection(underBand ?? null);
+        if (underAccent) {
+          setPageAccent(underAccent);
+          return;
         }
       }
 
@@ -134,14 +167,45 @@ export default function HomeNavbarTheme() {
     const onWindowScroll = () => {
       if (!desktopClosingMq.matches) pickActive();
     };
+    const onWheel = () => {
+      pickActive();
+    };
+    const onSplashActivate = (event: Event) => {
+      const key = (event as CustomEvent<{ key?: string }>).detail?.key;
+      if (
+        key &&
+        key in closingMobileNavAccent &&
+        isPageAccent(
+          closingMobileNavAccent[key as keyof typeof closingMobileNavAccent],
+        )
+      ) {
+        setPageAccent(
+          closingMobileNavAccent[key as keyof typeof closingMobileNavAccent],
+        );
+        return;
+      }
+      pickActive();
+    };
+    const onSplashTheme = () => {
+      pickActive();
+    };
+
     window.addEventListener("resize", pickActive);
     window.addEventListener("scroll", onWindowScroll, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("home-splash:activate", onSplashActivate);
+    window.addEventListener("home-splash:immediate-clear", onSplashTheme);
+    window.addEventListener("home-splash:schedule-clear", onSplashTheme);
     desktopClosingMq.addEventListener("change", onMqChange);
 
     return () => {
       offScroll();
       window.removeEventListener("resize", pickActive);
       window.removeEventListener("scroll", onWindowScroll);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("home-splash:activate", onSplashActivate);
+      window.removeEventListener("home-splash:immediate-clear", onSplashTheme);
+      window.removeEventListener("home-splash:schedule-clear", onSplashTheme);
       desktopClosingMq.removeEventListener("change", onMqChange);
     };
   }, []);

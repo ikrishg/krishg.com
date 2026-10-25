@@ -56,6 +56,15 @@ export const closingMobileLinks: ClosingLink[] = [
 ];
 
 /** Static ink on mobile colour blocks (no hover splash). */
+export const closingMobileInkHex: Record<ClosingSplashKey, string> = {
+  building: "#141a2b",
+  creating: "#fff9ec",
+  educating: "#141a2b",
+  about: "#fff9ec",
+  now: "#fff9ec",
+  sitemap: "#fff9ec",
+};
+
 /** Navbar / theme-color accent while a mobile closing band is under the nav. */
 export const closingMobileNavAccent: Record<ClosingSplashKey, PageAccent> = {
   building: "builder",
@@ -64,13 +73,4 @@ export const closingMobileNavAccent: Record<ClosingSplashKey, PageAccent> = {
   about: "about",
   now: "now",
   sitemap: "sitemap",
-};
-
-export const closingMobileInkHex: Record<ClosingSplashKey, string> = {
-  building: "#141a2b",
-  creating: "#fff9ec",
-  educating: "#141a2b",
-  about: "#fff9ec",
-  now: "#fff9ec",
-  sitemap: "#fff9ec",
 };

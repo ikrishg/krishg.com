@@ -4,6 +4,16 @@ let lenisInstance: Lenis | null = null;
 
 export function setLenisInstance(instance: Lenis | null) {
   lenisInstance = instance;
+  if (typeof window !== "undefined") {
+    const win = window as Window & { __siteScrollTo?: (y: number) => void };
+    if (instance) {
+      win.__siteScrollTo = (y) => {
+        siteScrollTo(y, { immediate: true });
+      };
+    } else {
+      delete win.__siteScrollTo;
+    }
+  }
 }
 
 export function getLenis(): Lenis | null {

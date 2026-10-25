@@ -423,12 +423,42 @@ function padRect(r: Rect, padX: number, padY: number): Rect {
   };
 }
 
+/** Footer uses `display: contents` on desktop; union email + social when the box is 0×0. */
+function footerMeasureRect(footer: HTMLElement): DOMRect {
+  const measure = footer.querySelector<HTMLElement>(".home-footer__cursor-measure");
+  if (measure) {
+    const mr = measure.getBoundingClientRect();
+    if (mr.width > 2 && mr.height > 2) return mr;
+  }
+  const fr = footer.getBoundingClientRect();
+  if (fr.width > 2 && fr.height > 2) return fr;
+  const parts = [
+    footer.querySelector<HTMLElement>(".home-footer__email"),
+    footer.querySelector<HTMLElement>(".home-footer__social"),
+  ].filter((el): el is HTMLElement => Boolean(el));
+  if (!parts.length) return fr;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const el of parts) {
+    const r = el.getBoundingClientRect();
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  }
+  if (!Number.isFinite(left)) return fr;
+  return new DOMRect(left, top, right - left, bottom - top);
+}
+
 function readFooterSliceLayout(
   footer: HTMLElement,
   w: number,
   footerH: number,
+  footerOrigin: DOMRect,
 ): FooterSliceLayout {
-  const fr = footer.getBoundingClientRect();
+  const fr = footerOrigin;
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   const pills = footer.querySelectorAll<HTMLElement>(".home-footer__social-pill");
 
@@ -493,12 +523,12 @@ function readClosingTailLandscape(
   footer: HTMLElement,
 ): LandscapeLayout {
   const tr = tail.getBoundingClientRect();
-  const fr = footer.getBoundingClientRect();
+  const fr = footerMeasureRect(footer);
   const w = Math.max(1, tr.width);
   const h = Math.max(1, tr.height);
   const footerTop = Math.max(0, fr.top - tr.top);
   const footerH = Math.max(1, fr.height);
-  const slice = readFooterSliceLayout(footer, w, footerH);
+  const slice = readFooterSliceLayout(footer, w, footerH, fr);
 
   const offsetY = (r: Rect) => ({ ...r, y: r.y + footerTop });
 
@@ -1488,6 +1518,15 @@ export default function HomeDriftingCursors({ className }: Props) {
         lastSampleLeadY: p.y,
       };
     });
+    if (layout.w === 768) {
+      for (let i = statesRef.current.length - 1; i >= 0; i -= 1) {
+        const visibleCount = statesRef.current.filter((s) => !s.hidden).length;
+        if (visibleCount <= 5) break;
+        if (statesRef.current[i]?.hidden) continue;
+        statesRef.current[i].hidden = true;
+        hiddenIdx.add(i);
+      }
+    }
     if (!animate && narrow) {
       setNarrowStaticHidden(hiddenIdx);
     }

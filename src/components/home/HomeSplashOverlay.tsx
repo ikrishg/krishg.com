@@ -274,6 +274,10 @@ export default function HomeSplashOverlay() {
   const beginFadeOut = useCallback(() => {
     const el = overlayRef.current;
     if (!el || stateRef.current === "idle" || stateRef.current === "hiding") {
+      if (document.documentElement.dataset.homeSplash) {
+        syncHtmlSplash(null);
+        setInk(null);
+      }
       return;
     }
 
