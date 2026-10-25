@@ -20,6 +20,7 @@ import {
 } from "./pr40-cursor-baseline.mjs";
 import { resolvePr40MetricsFile, PR40_ARTIFACTS_V7 } from "./pr40-metrics-path.mjs";
 import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
+import { runStackedPrimaryInkGate } from "./assert-stacked-primary-ink.mjs";
 
 const STABILITY_RUNS = 5;
 
@@ -1757,6 +1758,7 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
   );
   const mobileOverscrollNav = await runMobileOverscrollNavGate(browser, BASE);
   const desktopVisibleGaps = await runDesktopVisibleGapGate(browser, BASE);
+  const stackedPrimaryInk = await runStackedPrimaryInkGate(browser, BASE);
   const cursorKeepOut = await runCursorKeepOutGate(browser, BASE, 16);
   const run1 = await runProvePass(
     browser,
@@ -1816,6 +1818,7 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
 
   const failed =
     !desktopVisibleGaps.ok ||
+    !stackedPrimaryInk.ok ||
     !cursorKeepOut.ok ||
     !mobileOverscrollNav.ok ||
     run1.failed ||
@@ -1830,6 +1833,7 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
     mobileClosingNavBands,
     mobileOverscrollNav,
     desktopVisibleGaps,
+    stackedPrimaryInk,
     cursorKeepOut,
     negatives,
     mainBaselines,
@@ -1852,6 +1856,8 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
   console.log(JSON.stringify(mobileOverscrollNav, null, 2));
   console.log("=== desktop visible ink gaps (8 viewports) ===");
   console.log(JSON.stringify(desktopVisibleGaps, null, 2));
+  console.log("=== stacked primary ink separation ===");
+  console.log(JSON.stringify(stackedPrimaryInk, null, 2));
   console.log("=== prove run 1 (exit", run1.failed ? 1 : 0, ") ===");
   console.table(run1.table);
   console.log("=== prove run 2 (exit", run2.failed ? 1 : 0, ") ===");

@@ -332,6 +332,50 @@ html[data-overscroll-reveal="true"] body.site-body {
     padding-block: 0;
   }
 
+  @supports (text-box-trim: trim-both) {
+    .home-closing-nav-row {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+    }
+  }
+}
+
+/* Stacked big words (md–lg): trim only the outer ink box; keep internal leading. */
+@media (width >= 768px) and (width < 1024px) {
+  .home-closing-primary-row {
+    gap: max(0.75rem, 0.12em);
+  }
+
+  .home-closing-link--primary {
+    line-height: 1.18;
+    min-height: 0;
+    padding-block: 0.06em;
+  }
+
+  .home-closing-link--primary > span {
+    display: block;
+    line-height: 1.18;
+    text-box-trim: none;
+  }
+
+  @supports (text-box-trim: trim-start) {
+    .home-closing-primary-row
+      .home-closing-link--primary:first-child
+      > span {
+      text-box-trim: trim-start;
+      text-box-edge: cap alphabetic;
+    }
+
+    .home-closing-primary-row
+      .home-closing-link--primary:last-child
+      > span {
+      text-box-trim: trim-end;
+      text-box-edge: cap alphabetic;
+    }
+  }
+}
+
+@media (width >= 1024px) {
   .home-closing-link--primary {
     line-height: 1;
     min-height: 0;
@@ -344,7 +388,6 @@ html[data-overscroll-reveal="true"] body.site-body {
   }
 
   @supports (text-box-trim: trim-both) {
-    .home-closing-nav-row,
     .home-closing-link--primary > span {
       text-box-trim: trim-both;
       text-box-edge: cap alphabetic;
@@ -768,16 +811,16 @@ html[data-overscroll-reveal="true"] body.site-body {
   }
 
   .home-closing-tail .home-footer__social-item {
-    width: 100%;
-    max-width: min(22rem, calc(100vw - 32px));
+    width: auto;
     display: flex;
     justify-content: center;
   }
 
   .home-closing-tail .home-footer__social-pill {
     margin: 0;
-    width: 100%;
-    max-width: min(22rem, calc(100vw - 32px));
+    width: 11.125rem;
+    min-width: 11.125rem;
+    max-width: 11.125rem;
     box-sizing: border-box;
     justify-content: center;
   }

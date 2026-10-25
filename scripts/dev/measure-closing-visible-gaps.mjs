@@ -16,7 +16,7 @@ export function isBeigeRgb(rgb) {
   return colorDist(rgb, BEIGE) < BEIGE_DIST_THRESHOLD;
 }
 
-function isInkRgb(rgb) {
+export function isInkRgb(rgb) {
   if (isBeigeRgb(rgb)) return false;
   const lum = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
   if (lum > 248) return false;
