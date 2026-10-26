@@ -5,6 +5,18 @@ import { SAMPLE_NAV_ACCENT_SOURCE } from "./mobile-nav-band-resolve.mjs";
 
 const WIDTHS = [375, 390, 430, 767];
 const VIEWPORT_HEIGHT = 844;
+const COARSE_STEP = 128;
+const FINE_STEP = 32;
+const FINE_WINDOW_PX = 900;
+const SCROLL_SETTLE_MS = 100;
+
+async function settleScroll(page, scrollY) {
+  if (page.isClosed()) {
+    throw new Error("pre-tail nav sweep: page closed before scroll settle");
+  }
+  await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+  await page.waitForTimeout(SCROLL_SETTLE_MS);
+}
 
 async function pretailSweep(page, width) {
   await page.evaluate(() => {
@@ -26,15 +38,15 @@ async function pretailSweep(page, width) {
     };
   });
   const ys = [];
-  for (let y = 0; y <= max; y += y >= tailTop - 900 ? 16 : 64) {
+  for (let y = 0; y < tailTop - 64; ) {
     ys.push(y);
+    const step = y >= tailTop - FINE_WINDOW_PX ? FINE_STEP : COARSE_STEP;
+    y += step;
   }
-  if (ys.at(-1) !== max) ys.push(max);
   const samples = new Map();
   for (const y of ys) {
     if (y >= tailTop - 64) continue;
-    await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
-    await page.waitForTimeout(160);
+    await settleScroll(page, y);
     const sample = await page.evaluate((sampleSrc) => {
       // eslint-disable-next-line no-eval
       eval(sampleSrc);

@@ -15,8 +15,10 @@ import {
 } from "./measure-closing-visible-gaps.mjs";
 import {
   cursorVisibleMeetsMainBaseline,
-  measureCursorCountAt,
-  measureMainCursorBaselines,
+  formatCursorCountFailure,
+  measureMainMountedBaselines,
+  measureMountedCursorAt,
+  measureStableCursorCount,
 } from "./pr40-cursor-baseline.mjs";
 import {
   resolvePr40ArtifactsDir,
@@ -29,7 +31,8 @@ import { runMobileNavStepGate } from "./assert-mobile-nav-step.mjs";
 import { runMobilePretailNavSweepGate } from "./assert-mobile-pretail-nav-sweep.mjs";
 import { RESOLVE_BAND_UNDER_NAV_SOURCE } from "./mobile-nav-band-resolve.mjs";
 
-const STABILITY_RUNS = 5;
+const STABILITY_RUNS = Number(process.env.PR40_PROVE_STABILITY_RUNS || 5);
+const NAV_STEP_RUNS = Number(process.env.PR40_NAV_STEP_STABILITY_RUNS || 5);
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
@@ -313,10 +316,15 @@ async function countVisibleCursors(page) {
 
 async function assertSettledCursorCounts(browser, baseUrl, viewport) {
   if (!MAIN_BASE) return { ok: true, skipped: true };
-  const mainVisible = await measureCursorCountAt(browser, MAIN_BASE, viewport, {
-    reducedMotion: "no-preference",
-  });
-  const minVisible = Math.max(0, mainVisible - 1);
+  const mainSamples = [];
+  for (let i = 0; i < 3; i += 1) {
+    mainSamples.push(
+      await measureMountedCursorAt(browser, MAIN_BASE, viewport, {
+        reducedMotion: "no-preference",
+      }),
+    );
+  }
+  const mainVisible = Math.max(...mainSamples);
   const ctx = await browser.newContext({
     viewport,
     deviceScaleFactor: 1,
@@ -328,16 +336,29 @@ async function assertSettledCursorCounts(browser, baseUrl, viewport) {
     document.documentElement.dataset.introSkip = "true";
   });
   await scrollToClosing(page);
+  await measureStableCursorCount(page);
   const counts = await countVisibleCursors(page);
+  const mounted = await page.evaluate(
+    () => document.querySelectorAll(".home-drifting-cursor").length,
+  );
   await ctx.close();
-  const visible = counts.visible;
+  const visible = mounted;
+  const ok = cursorVisibleMeetsMainBaseline(visible, mainVisible);
+  const viewportLabel = `${viewport.width}x${viewport.height}`;
   return {
-    ok: cursorVisibleMeetsMainBaseline(visible, mainVisible),
+    ok,
     mainBaseline: mainVisible,
-    minVisible,
+    expected: mainVisible,
     settled: visible,
     visible,
     total: counts.total,
+    cursorCountFailure: ok
+      ? null
+        : formatCursorCountFailure({
+            viewport: viewportLabel,
+            branchMounted: visible,
+            mainCount: mainVisible,
+          }),
   };
 }
 
@@ -1524,7 +1545,12 @@ async function runProvePass(browser, baseUrl, runLabel, mainBaselines) {
         cursorCounts.ok &&
         emailHitArea.ok &&
         desktopPillGap.ok;
-    if (!restOk) failed = true;
+    if (!restOk) {
+      failed = true;
+      if (cursorCounts?.cursorCountFailure) {
+        console.error(cursorCounts.cursorCountFailure);
+      }
+    }
     results.push({
       viewport: viewportLabel,
       state: "rest",
@@ -1752,7 +1778,12 @@ const mobilePretailNav = await runMobilePretailNavSweepGate(
   MAIN_BASE,
   BASE,
 );
-const mobileNavStep = await runMobileNavStepGate(browser, BASE, MAIN_BASE);
+const mobileNavStep = await runMobileNavStepGate(
+  browser,
+  BASE,
+  MAIN_BASE,
+  NAV_STEP_RUNS,
+);
 await writeFile(
   path.join(ARTIFACTS_DIR, "nav-step-5runs.json"),
   JSON.stringify(mobileNavStep, null, 2),
@@ -1792,7 +1823,7 @@ if (!mobileGatesOk) {
 const stabilityReports = [];
 
 for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
-  const mainBaselines = await measureMainCursorBaselines(browser, MAIN_BASE);
+  const mainBaselines = await measureMainMountedBaselines(browser, MAIN_BASE);
 
   const desktopVisibleGaps = await runDesktopVisibleGapGate(browser, BASE);
   const stackedPrimaryInk = await runStackedPrimaryInkGate(browser, BASE);
@@ -1904,6 +1935,16 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
       reportPath,
       JSON.stringify({ stabilityReports, failedAt: stability }, null, 2),
     );
+    for (const row of run1.results ?? []) {
+      if (row.cursorCounts?.cursorCountFailure) {
+        console.error(row.cursorCounts.cursorCountFailure);
+      }
+    }
+    for (const row of run2.results ?? []) {
+      if (row.cursorCounts?.cursorCountFailure) {
+        console.error(row.cursorCounts.cursorCountFailure);
+      }
+    }
     console.error("prove-closing-tail-splash-fill: FAILED");
     process.exit(1);
   }

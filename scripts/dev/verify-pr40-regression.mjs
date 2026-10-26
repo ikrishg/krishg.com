@@ -8,8 +8,8 @@ import { chromium } from "playwright";
 import {
   CURSOR_VIEWPORTS,
   cursorVisibleMeetsMainBaseline,
-  measureCursorCountAt,
-  measureMainCursorBaselines,
+  formatCursorCountFailure,
+  measureMainMountedBaselines,
   scrollToClosing,
 } from "./pr40-cursor-baseline.mjs";
 import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
@@ -17,7 +17,8 @@ import { runMobileNavStepGate } from "./assert-mobile-nav-step.mjs";
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
-const STABILITY_RUNS = 5;
+const STABILITY_RUNS = Number(process.env.PR40_VERIFY_STABILITY_RUNS || 5);
+const NAV_STEP_RUNS = Number(process.env.PR40_NAV_STEP_STABILITY_RUNS || 1);
 
 const VIEWPORTS = CURSOR_VIEWPORTS;
 
@@ -225,19 +226,14 @@ async function runRegressionOnce(browser, runIndex) {
     };
   }
 
-  const mainBaselines = await measureMainCursorBaselines(browser, MAIN_BASE);
-  const mobileNavStep = await runMobileNavStepGate(browser, BASE, MAIN_BASE);
-  const overscrollNav = await runMobileOverscrollNavGate(browser, BASE);
+  const mainBaselines = await measureMainMountedBaselines(browser, MAIN_BASE, {
+    samplesPerViewport: 3,
+  });
   const viewports = [];
 
   for (const viewport of VIEWPORTS) {
-    const mainVisible = await measureCursorCountAt(
-      browser,
-      MAIN_BASE,
-      viewport,
-      { reducedMotion: "no-preference" },
-    );
-    const minVisible = Math.max(0, mainVisible - 1);
+    const mainVisible = mainBaselines[viewport.width];
+    const expectedVisible = mainVisible;
 
     const page = await browser.newPage({ viewport });
     await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -265,29 +261,46 @@ async function runRegressionOnce(browser, runIndex) {
       Number(zOrder.footerEmail.zIndex) >= 46 &&
       Number(zOrder.footerSocial.zIndex) >= 46;
 
-    const branchVisible = cursors.visibleCursorCount;
+    const branchMounted = cursors.cursorCount;
     const cursorOk =
       cursors.mounted &&
       cursors.driftDetected &&
-      cursorVisibleMeetsMainBaseline(branchVisible, mainVisible);
+      cursorVisibleMeetsMainBaseline(branchMounted, mainVisible);
 
     const keepOk =
       keepHits.measuredCursorRects > 0 && keepHits.totalContactKeepHits === 0;
 
+    const viewportLabel = `${viewport.width}x${viewport.height}`;
     const row = {
-      viewport: `${viewport.width}x${viewport.height}`,
+      viewport: viewportLabel,
       zOk,
       cursors,
       mainBaseline: mainVisible,
-      minVisible,
-      branchVisible,
+      expectedVisible,
+      branchVisible: cursors.visibleCursorCount,
+      branchMounted,
       cursorOk,
+      cursorCountFailure: cursorOk
+        ? null
+        : formatCursorCountFailure({
+            viewport: viewportLabel,
+            branchMounted,
+            mainCount: mainVisible,
+          }),
       keepOk,
       ok: zOk && cursorOk && keepOk,
     };
     viewports.push(row);
     await page.close();
   }
+
+  const mobileNavStep = await runMobileNavStepGate(
+    browser,
+    BASE,
+    MAIN_BASE,
+    NAV_STEP_RUNS,
+  );
+  const overscrollNav = await runMobileOverscrollNavGate(browser, BASE);
 
   const heroPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await heroPage.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
@@ -334,6 +347,15 @@ for (let i = 1; i <= STABILITY_RUNS; i += 1) {
 await browser.close();
 
 const allOk = runReports.length === STABILITY_RUNS && runReports.every((r) => r.ok);
+if (!allOk) {
+  for (const report of runReports) {
+    for (const row of report.viewports ?? []) {
+      if (!row.cursorOk && row.cursorCountFailure) {
+        console.error(row.cursorCountFailure);
+      }
+    }
+  }
+}
 console.log(
   JSON.stringify({ stabilityRuns: STABILITY_RUNS, runReports, ok: allOk }, null, 2),
 );

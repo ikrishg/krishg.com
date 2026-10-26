@@ -77,9 +77,63 @@ export async function measureStableCursorCount(page, {
   return last >= 0 ? last : await countSettledCursors(page);
 }
 
-export function cursorVisibleMeetsMainBaseline(branchVisible, mainCount) {
-  const minVisible = Math.max(0, mainCount - 1);
-  return branchVisible >= minVisible;
+/** Branch mounted cursor count must match main at each desktop closing viewport. */
+export function cursorVisibleMeetsMainBaseline(branchCount, mainCount) {
+  return branchCount === mainCount;
+}
+
+export function formatCursorCountFailure({
+  viewport = "unknown",
+  branchVisible,
+  mainCount,
+  branchMounted,
+} = {}) {
+  const branch = branchMounted ?? branchVisible;
+  return (
+    `cursor-count failure at ${viewport}: branch mounted=${branch}, ` +
+    `main baseline=${mainCount} (require exact match)`
+  );
+}
+
+export async function measureMountedCursorAt(
+  browser,
+  baseUrl,
+  viewport,
+  { reducedMotion = "no-preference" } = {},
+) {
+  const ctx = await browser.newContext({
+    viewport,
+    deviceScaleFactor: 1,
+  });
+  const page = await ctx.newPage();
+  await page.emulateMedia({ reducedMotion });
+  await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+  await page.evaluate(() => {
+    document.documentElement.dataset.introSkip = "true";
+  });
+  await scrollToClosing(page);
+  await measureStableCursorCount(page);
+  const mounted = await page.evaluate(
+    () => document.querySelectorAll(".home-drifting-cursor").length,
+  );
+  await ctx.close();
+  return mounted;
+}
+
+export async function measureMainMountedBaselines(browser, mainUrl, {
+  samplesPerViewport = 3,
+} = {}) {
+  const baselines = {};
+  for (const viewport of CURSOR_VIEWPORTS) {
+    const samples = [];
+    for (let i = 0; i < samplesPerViewport; i += 1) {
+      samples.push(
+        await measureMountedCursorAt(browser, mainUrl, viewport),
+      );
+    }
+    baselines[viewport.width] = Math.max(...samples);
+  }
+  return baselines;
 }
 
 export async function measureCursorCountAt(
@@ -135,7 +189,7 @@ export async function measureMainCursorBaselines(browser, mainUrl, {
       );
     }
     baselines[viewport.width] =
-      samplesPerViewport > 1 ? modeCount(samples) : samples[0];
+      samplesPerViewport > 1 ? Math.max(...samples) : samples[0];
   }
   return baselines;
 }
@@ -150,12 +204,20 @@ export async function measureBranchCursorCounts(browser, branchUrl, mainBaseline
     });
     const match = cursorVisibleMeetsMainBaseline(count, expected);
     if (!match) ok = false;
+    const viewportLabel = `${viewport.width}x${viewport.height}`;
     rows.push({
-      viewport: `${viewport.width}x${viewport.height}`,
+      viewport: viewportLabel,
       branch: count,
       main: expected,
-      minVisible: Math.max(0, expected - 1),
+      expected,
       ok: match,
+      failureMessage: match
+        ? null
+        : formatCursorCountFailure({
+            viewport: viewportLabel,
+            branchVisible: count,
+            mainCount: expected,
+          }),
     });
   }
   return { ok, rows };
