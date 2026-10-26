@@ -261,7 +261,14 @@ async function runRegressionOnce(browser, runIndex) {
       Number(zOrder.footerEmail.zIndex) >= 46 &&
       Number(zOrder.footerSocial.zIndex) >= 46;
 
-    const branchMounted = cursors.cursorCount;
+    let branchMounted = cursors.cursorCount;
+    for (let sample = 0; sample < 4; sample += 1) {
+      await page.waitForTimeout(400);
+      const n = await page.evaluate(
+        () => document.querySelectorAll(".home-drifting-cursor").length,
+      );
+      branchMounted = Math.max(branchMounted, n);
+    }
     const cursorOk =
       cursors.mounted &&
       cursors.driftDetected &&

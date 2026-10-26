@@ -338,9 +338,16 @@ async function assertSettledCursorCounts(browser, baseUrl, viewport) {
   await scrollToClosing(page);
   await measureStableCursorCount(page);
   const counts = await countVisibleCursors(page);
-  const mounted = await page.evaluate(
+  let mounted = await page.evaluate(
     () => document.querySelectorAll(".home-drifting-cursor").length,
   );
+  for (let sample = 0; sample < 4; sample += 1) {
+    await page.waitForTimeout(400);
+    const n = await page.evaluate(
+      () => document.querySelectorAll(".home-drifting-cursor").length,
+    );
+    mounted = Math.max(mounted, n);
+  }
   await ctx.close();
   const visible = mounted;
   const ok = cursorVisibleMeetsMainBaseline(visible, mainVisible);

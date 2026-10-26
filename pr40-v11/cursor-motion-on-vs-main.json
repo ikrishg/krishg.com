@@ -1,0 +1,36 @@
+{
+  "rows": [
+    {
+      "viewport": "768x1024",
+      "mainVisible": 6,
+      "mainMounted": 6,
+      "branchVisible": 5,
+      "branchMounted": 5,
+      "motion": "no-preference"
+    },
+    {
+      "viewport": "1024x776",
+      "mainVisible": 6,
+      "mainMounted": 6,
+      "branchVisible": 6,
+      "branchMounted": 6,
+      "motion": "no-preference"
+    },
+    {
+      "viewport": "1280x800",
+      "mainVisible": 6,
+      "mainMounted": 6,
+      "branchVisible": 6,
+      "branchMounted": 6,
+      "motion": "no-preference"
+    },
+    {
+      "viewport": "1440x900",
+      "mainVisible": 6,
+      "mainMounted": 6,
+      "branchVisible": 6,
+      "branchMounted": 6,
+      "motion": "no-preference"
+    }
+  ]
+}
