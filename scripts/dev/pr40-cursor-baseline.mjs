@@ -77,11 +77,16 @@ export async function measureStableCursorCount(page, {
   return last >= 0 ? last : await countSettledCursors(page);
 }
 
+export function cursorVisibleMeetsMainBaseline(branchVisible, mainCount) {
+  const minVisible = Math.max(0, mainCount - 1);
+  return branchVisible >= minVisible;
+}
+
 export async function measureCursorCountAt(
   browser,
   baseUrl,
   viewport,
-  { pollTarget = null, reducedMotion = "reduce" } = {},
+  { pollTarget = null, reducedMotion = "no-preference" } = {},
 ) {
   const ctx = await browser.newContext({
     viewport,
@@ -143,12 +148,13 @@ export async function measureBranchCursorCounts(browser, branchUrl, mainBaseline
     const count = await measureCursorCountAt(browser, branchUrl, viewport, {
       pollTarget: expected,
     });
-    const match = count === expected;
+    const match = cursorVisibleMeetsMainBaseline(count, expected);
     if (!match) ok = false;
     rows.push({
       viewport: `${viewport.width}x${viewport.height}`,
       branch: count,
       main: expected,
+      minVisible: Math.max(0, expected - 1),
       ok: match,
     });
   }

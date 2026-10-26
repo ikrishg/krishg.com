@@ -30,9 +30,12 @@ async function accentSweep(page, viewport) {
   const samples = new Map();
   const preTail = new Map();
   for (let y = 0; y <= maxScroll; y += STEP_PX) {
+    await page.evaluate((scrollY) => {
+      window.scrollTo(0, scrollY);
+    }, y);
+    await page.waitForTimeout(50);
     const row = await page.evaluate(
       ({ scrollY, sampleSrc }) => {
-        window.scrollTo(0, scrollY);
         const tailTop = Math.round(
           document.querySelector(".home-closing-tail").getBoundingClientRect()
             .top + window.scrollY,
@@ -46,7 +49,6 @@ async function accentSweep(page, viewport) {
       },
       { scrollY: y, sampleSrc: SAMPLE_NAV_ACCENT_SOURCE },
     );
-    await page.waitForTimeout(50);
     samples.set(y, row.sample);
     preTail.set(y, row.isPreTail);
   }

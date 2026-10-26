@@ -14,14 +14,14 @@ import {
   evaluateVisibleGapBar,
 } from "./measure-closing-visible-gaps.mjs";
 import {
+  cursorVisibleMeetsMainBaseline,
   measureCursorCountAt,
   measureMainCursorBaselines,
-  measureStableCursorCount,
 } from "./pr40-cursor-baseline.mjs";
 import {
+  resolvePr40ArtifactsDir,
   resolvePr40MetricsFile,
   PR40_ARTIFACTS_V7,
-  PR40_ARTIFACTS_V9,
 } from "./pr40-metrics-path.mjs";
 import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
 import { runStackedPrimaryInkGate } from "./assert-stacked-primary-ink.mjs";
@@ -37,6 +37,7 @@ const DEV_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const OUT =
   process.env.SCREENSHOT_DIR ||
   path.join(DEV_ROOT, "out", "closing-tail-splash-proof");
+const ARTIFACTS_DIR = resolvePr40ArtifactsDir();
 
 const BEIGE = [231, 221, 204];
 const SPLASH = {
@@ -311,7 +312,33 @@ async function countVisibleCursors(page) {
 }
 
 async function assertSettledCursorCounts(browser, baseUrl, viewport) {
-  return { ok: true, skipped: true, reason: "reduced-motion count gate disabled" };
+  if (!MAIN_BASE) return { ok: true, skipped: true };
+  const mainVisible = await measureCursorCountAt(browser, MAIN_BASE, viewport, {
+    reducedMotion: "no-preference",
+  });
+  const minVisible = Math.max(0, mainVisible - 1);
+  const ctx = await browser.newContext({
+    viewport,
+    deviceScaleFactor: 1,
+  });
+  const page = await ctx.newPage();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+  await page.evaluate(() => {
+    document.documentElement.dataset.introSkip = "true";
+  });
+  await scrollToClosing(page);
+  const counts = await countVisibleCursors(page);
+  await ctx.close();
+  const visible = counts.visible;
+  return {
+    ok: cursorVisibleMeetsMainBaseline(visible, mainVisible),
+    mainBaseline: mainVisible,
+    minVisible,
+    settled: visible,
+    visible,
+    total: counts.total,
+  };
 }
 
 async function assertDesktopEmailHitArea(page) {
@@ -1408,14 +1435,10 @@ function navSampleMatchesMain(main, branch) {
   return navBgClose(main.navBg, branch.navBg);
 }
 
-/** Main flips builder early over educator tail; branch keeps educator until band is under nav. */
-const NAV_PROFILE_MAIN_PARITY_SKIP = new Set(["closing-building-row"]);
-
 function navProfilesMatch(mainSamples, branchSamples) {
   const branchByProbe = new Map(branchSamples.map((s) => [s.probeId, s]));
   const mismatches = [];
   for (const main of mainSamples) {
-    if (NAV_PROFILE_MAIN_PARITY_SKIP.has(main.probeId)) continue;
     const branch = branchByProbe.get(main.probeId);
     if (!branch || !navSampleMatchesMain(main, branch)) {
       mismatches.push({ probeId: main.probeId, main, branch });
@@ -1700,6 +1723,7 @@ async function runNegativeSelfTests(browser, baseUrl) {
 }
 
 await mkdir(OUT, { recursive: true });
+await mkdir(ARTIFACTS_DIR, { recursive: true });
 
 if (!MAIN_BASE) {
   console.error("MAIN_PREVIEW_URL is required for cursor baseline comparison");
@@ -1730,7 +1754,7 @@ const mobilePretailNav = await runMobilePretailNavSweepGate(
 );
 const mobileNavStep = await runMobileNavStepGate(browser, BASE, MAIN_BASE);
 await writeFile(
-  path.join(PR40_ARTIFACTS_V9, "nav-step-5runs.json"),
+  path.join(ARTIFACTS_DIR, "nav-step-5runs.json"),
   JSON.stringify(mobileNavStep, null, 2),
 );
 const mobileOverscrollNav = await runMobileOverscrollNavGate(browser, BASE);

@@ -32,15 +32,17 @@ export async function sampleNavVsBand(page) {
     const a = parse(navBg);
     const b = parse(bandBg);
     const colorClose =
-      a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 56 : false;
+      a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 40 : false;
+    const accentMatch =
+      Boolean(expectedAccent) && pageAccent === expectedAccent;
     return {
       pageAccent,
       expectedAccent,
-      accentMatch: Boolean(expectedAccent) && pageAccent === expectedAccent,
+      accentMatch,
       navBg,
       bandBg,
       colorClose,
-      ok: Boolean(expectedAccent) && pageAccent === expectedAccent,
+      ok: accentMatch && colorClose,
       key: null,
     };
   }, RESOLVE_BAND_UNDER_NAV_SOURCE);

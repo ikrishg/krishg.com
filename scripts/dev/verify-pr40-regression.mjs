@@ -7,10 +7,9 @@
 import { chromium } from "playwright";
 import {
   CURSOR_VIEWPORTS,
-  countSettledCursors,
+  cursorVisibleMeetsMainBaseline,
   measureCursorCountAt,
   measureMainCursorBaselines,
-  measureStableCursorCount,
   scrollToClosing,
 } from "./pr40-cursor-baseline.mjs";
 import { runMobileOverscrollNavGate } from "./assert-mobile-overscroll-nav.mjs";
@@ -232,23 +231,13 @@ async function runRegressionOnce(browser, runIndex) {
   const viewports = [];
 
   for (const viewport of VIEWPORTS) {
-    const expectedVisible = await measureCursorCountAt(
+    const mainVisible = await measureCursorCountAt(
       browser,
       MAIN_BASE,
       viewport,
-      { reducedMotion: "reduce" },
+      { reducedMotion: "no-preference" },
     );
-
-    const countCtx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
-    const countPage = await countCtx.newPage();
-    await countPage.emulateMedia({ reducedMotion: "reduce" });
-    await countPage.goto(BASE, { waitUntil: "networkidle", timeout: 120_000 });
-    await countPage.evaluate(() => {
-      document.documentElement.dataset.introSkip = "true";
-    });
-    await scrollToClosing(countPage);
-    const branchSettled = await measureStableCursorCount(countPage);
-    await countCtx.close();
+    const minVisible = Math.max(0, mainVisible - 1);
 
     const page = await browser.newPage({ viewport });
     await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -276,8 +265,11 @@ async function runRegressionOnce(browser, runIndex) {
       Number(zOrder.footerEmail.zIndex) >= 46 &&
       Number(zOrder.footerSocial.zIndex) >= 46;
 
-    const settledCount = branchSettled;
-    const cursorOk = cursors.mounted && cursors.driftDetected;
+    const branchVisible = cursors.visibleCursorCount;
+    const cursorOk =
+      cursors.mounted &&
+      cursors.driftDetected &&
+      cursorVisibleMeetsMainBaseline(branchVisible, mainVisible);
 
     const keepOk =
       keepHits.measuredCursorRects > 0 && keepHits.totalContactKeepHits === 0;
@@ -286,8 +278,9 @@ async function runRegressionOnce(browser, runIndex) {
       viewport: `${viewport.width}x${viewport.height}`,
       zOk,
       cursors,
-      mainBaseline: expectedVisible,
-      branchSettled: settledCount,
+      mainBaseline: mainVisible,
+      minVisible,
+      branchVisible,
       cursorOk,
       keepOk,
       ok: zOk && cursorOk && keepOk,
