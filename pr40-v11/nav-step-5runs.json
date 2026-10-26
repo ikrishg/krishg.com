@@ -1,0 +1,40 @@
+{
+  "ok": true,
+  "stabilityRuns": 1,
+  "runReports": [
+    {
+      "run": 1,
+      "ok": true,
+      "byViewport": [
+        {
+          "viewport": "375x812",
+          "steps": 242,
+          "mismatchCount": 0,
+          "mismatches": [],
+          "ok": true
+        },
+        {
+          "viewport": "390x844",
+          "steps": 251,
+          "mismatchCount": 0,
+          "mismatches": [],
+          "ok": true
+        },
+        {
+          "viewport": "430x932",
+          "steps": 278,
+          "mismatchCount": 0,
+          "mismatches": [],
+          "ok": true
+        },
+        {
+          "viewport": "767x900",
+          "steps": 264,
+          "mismatchCount": 0,
+          "mismatches": [],
+          "ok": true
+        }
+      ]
+    }
+  ]
+}

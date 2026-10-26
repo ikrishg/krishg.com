@@ -81,24 +81,24 @@
       "viewport": "390x844",
       "mode": "wheel",
       "during": {
-        "pageAccent": "educator",
-        "expectedAccent": "educator",
+        "pageAccent": "creator",
+        "expectedAccent": "creator",
         "accentMatch": true,
-        "navBg": "rgb(183, 94, 67)",
-        "bandBg": "rgb(216, 161, 42)",
-        "colorClose": false,
-        "ok": false,
+        "navBg": "rgb(179, 91, 72)",
+        "bandBg": "rgb(185, 74, 63)",
+        "colorClose": true,
+        "ok": true,
         "key": null
       },
       "after": {
         "ok": true,
-        "settledMs": 127,
+        "settledMs": 2,
         "sample": {
-          "pageAccent": "educator",
-          "expectedAccent": "educator",
+          "pageAccent": "creator",
+          "expectedAccent": "creator",
           "accentMatch": true,
-          "navBg": "rgb(203, 134, 52)",
-          "bandBg": "rgb(216, 161, 42)",
+          "navBg": "rgb(179, 91, 72)",
+          "bandBg": "rgb(185, 74, 63)",
           "colorClose": true,
           "ok": true,
           "key": null
@@ -121,7 +121,7 @@
       },
       "after": {
         "ok": true,
-        "settledMs": 1,
+        "settledMs": 3,
         "sample": {
           "pageAccent": "educator",
           "expectedAccent": "educator",
@@ -150,7 +150,7 @@
       },
       "after": {
         "ok": true,
-        "settledMs": 1,
+        "settledMs": 2,
         "sample": {
           "pageAccent": "creator",
           "expectedAccent": "creator",
@@ -220,14 +220,14 @@
         "probeId": "creator",
         "scrollY": 796,
         "pageAccent": "creator",
-        "navBg": "rgb(184, 74, 64)",
+        "navBg": "rgb(183, 75, 65)",
         "themeColor": "#b94a3f"
       },
       {
         "probeId": "educator",
         "scrollY": 1576,
         "pageAccent": "educator",
-        "navBg": "rgb(216, 160, 42)",
+        "navBg": "rgb(216, 161, 42)",
         "themeColor": "#d8a12a"
       },
       {
@@ -261,14 +261,14 @@
         "probeId": "creator",
         "scrollY": 796,
         "pageAccent": "creator",
-        "navBg": "rgb(184, 74, 64)",
+        "navBg": "rgb(183, 75, 65)",
         "themeColor": "#b94a3f"
       },
       {
         "probeId": "educator",
         "scrollY": 1576,
         "pageAccent": "educator",
-        "navBg": "rgb(216, 160, 42)",
+        "navBg": "rgb(216, 161, 42)",
         "themeColor": "#d8a12a"
       },
       {
@@ -288,8 +288,8 @@
   "ok": true,
   "probeCount": 24
 }
-cursor-count failure at 768x1024: branch mounted=4, main baseline=5 (require exact match)
-cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exact match)
+cursor-count failure at 768x1024: branch mounted=4, main baseline=5 (768: min 5 and main−1; wider: exact match)
+cursor-count failure at 768x1024: branch mounted=4, main baseline=6 (768: min 5 and main−1; wider: exact match)
 === prove stability run 1/1 ===
 === desktop visible ink gaps (8 viewports) ===
 {
@@ -1073,7 +1073,7 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
 │ 28      │ '390x844'  │ 'rest'                   │ true  │ false  │ '-'  │ true  │ true │ '-'       │
 │ 29      │ '390x844'  │ 'hover-educating-mobile' │ true  │ '-'    │ '-'  │ true  │ '-'  │ '-'       │
 └─────────┴────────────┴──────────────────────────┴───────┴────────┴──────┴───────┴──────┴───────────┘
-cursor-count failure at 768x1024: branch mounted=4, main baseline=5 (require exact match)
-cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exact match)
+cursor-count failure at 768x1024: branch mounted=4, main baseline=5 (768: min 5 and main−1; wider: exact match)
+cursor-count failure at 768x1024: branch mounted=4, main baseline=6 (768: min 5 and main−1; wider: exact match)
 prove-closing-tail-splash-fill: FAILED
 exit:1

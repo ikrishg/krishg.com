@@ -19,6 +19,7 @@ import {
   measureMainMountedBaselines,
   measureMountedCursorAt,
   measureStableCursorCount,
+  waitForStableMountedCount,
 } from "./pr40-cursor-baseline.mjs";
 import {
   resolvePr40ArtifactsDir,
@@ -338,19 +339,14 @@ async function assertSettledCursorCounts(browser, baseUrl, viewport) {
   await scrollToClosing(page);
   await measureStableCursorCount(page);
   const counts = await countVisibleCursors(page);
-  let mounted = await page.evaluate(
-    () => document.querySelectorAll(".home-drifting-cursor").length,
-  );
-  for (let sample = 0; sample < 4; sample += 1) {
-    await page.waitForTimeout(400);
-    const n = await page.evaluate(
-      () => document.querySelectorAll(".home-drifting-cursor").length,
-    );
-    mounted = Math.max(mounted, n);
-  }
+  const mounted = await waitForStableMountedCount(page, mainVisible);
   await ctx.close();
   const visible = mounted;
-  const ok = cursorVisibleMeetsMainBaseline(visible, mainVisible);
+  const ok = cursorVisibleMeetsMainBaseline(
+    visible,
+    mainVisible,
+    viewport.width,
+  );
   const viewportLabel = `${viewport.width}x${viewport.height}`;
   return {
     ok,

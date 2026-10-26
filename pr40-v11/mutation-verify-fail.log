@@ -58,7 +58,7 @@
           "pageAccent": "educator",
           "expectedAccent": "educator",
           "accentMatch": true,
-          "navBg": "rgb(186, 92, 65)",
+          "navBg": "rgb(183, 94, 67)",
           "bandBg": "rgb(216, 161, 42)",
           "colorClose": false,
           "ok": false,
@@ -66,12 +66,12 @@
         },
         "after": {
           "ok": true,
-          "settledMs": 129,
+          "settledMs": 134,
           "sample": {
             "pageAccent": "educator",
             "expectedAccent": "educator",
             "accentMatch": true,
-            "navBg": "rgb(204, 133, 51)",
+            "navBg": "rgb(205, 138, 51)",
             "bandBg": "rgb(216, 161, 42)",
             "colorClose": true,
             "ok": true,
@@ -95,7 +95,7 @@
         },
         "after": {
           "ok": true,
-          "settledMs": 1,
+          "settledMs": 2,
           "sample": {
             "pageAccent": "educator",
             "expectedAccent": "educator",
@@ -116,7 +116,7 @@
           "pageAccent": "creator",
           "expectedAccent": "creator",
           "accentMatch": true,
-          "navBg": "rgb(176, 85, 74)",
+          "navBg": "rgb(178, 83, 72)",
           "bandBg": "rgb(185, 74, 63)",
           "colorClose": true,
           "ok": true,
@@ -124,12 +124,12 @@
         },
         "after": {
           "ok": true,
-          "settledMs": 4,
+          "settledMs": 2,
           "sample": {
             "pageAccent": "creator",
             "expectedAccent": "creator",
             "accentMatch": true,
-            "navBg": "rgb(176, 85, 74)",
+            "navBg": "rgb(179, 81, 70)",
             "bandBg": "rgb(185, 74, 63)",
             "colorClose": true,
             "ok": true,
@@ -175,16 +175,16 @@
       "zOk": true,
       "cursors": {
         "mounted": true,
-        "cursorCount": 5,
-        "visibleCursorCount": 5,
+        "cursorCount": 4,
+        "visibleCursorCount": 4,
         "driftDetected": true
       },
       "mainBaseline": 6,
       "expectedVisible": 6,
-      "branchVisible": 5,
-      "branchMounted": 5,
+      "branchVisible": 4,
+      "branchMounted": 4,
       "cursorOk": false,
-      "cursorCountFailure": "cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exact match)",
+      "cursorCountFailure": "cursor-count failure at 768x1024: branch mounted=4, main baseline=6 (768: min 5 and main−1; wider: exact match)",
       "keepOk": true,
       "ok": false
     },
@@ -253,7 +253,7 @@
     "ok": true
   }
 }
-cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exact match)
+cursor-count failure at 768x1024: branch mounted=4, main baseline=6 (768: min 5 and main−1; wider: exact match)
 {
   "stabilityRuns": 1,
   "runReports": [
@@ -316,7 +316,7 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
               "pageAccent": "educator",
               "expectedAccent": "educator",
               "accentMatch": true,
-              "navBg": "rgb(186, 92, 65)",
+              "navBg": "rgb(183, 94, 67)",
               "bandBg": "rgb(216, 161, 42)",
               "colorClose": false,
               "ok": false,
@@ -324,12 +324,12 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
             },
             "after": {
               "ok": true,
-              "settledMs": 129,
+              "settledMs": 134,
               "sample": {
                 "pageAccent": "educator",
                 "expectedAccent": "educator",
                 "accentMatch": true,
-                "navBg": "rgb(204, 133, 51)",
+                "navBg": "rgb(205, 138, 51)",
                 "bandBg": "rgb(216, 161, 42)",
                 "colorClose": true,
                 "ok": true,
@@ -353,7 +353,7 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
             },
             "after": {
               "ok": true,
-              "settledMs": 1,
+              "settledMs": 2,
               "sample": {
                 "pageAccent": "educator",
                 "expectedAccent": "educator",
@@ -374,7 +374,7 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
               "pageAccent": "creator",
               "expectedAccent": "creator",
               "accentMatch": true,
-              "navBg": "rgb(176, 85, 74)",
+              "navBg": "rgb(178, 83, 72)",
               "bandBg": "rgb(185, 74, 63)",
               "colorClose": true,
               "ok": true,
@@ -382,12 +382,12 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
             },
             "after": {
               "ok": true,
-              "settledMs": 4,
+              "settledMs": 2,
               "sample": {
                 "pageAccent": "creator",
                 "expectedAccent": "creator",
                 "accentMatch": true,
-                "navBg": "rgb(176, 85, 74)",
+                "navBg": "rgb(179, 81, 70)",
                 "bandBg": "rgb(185, 74, 63)",
                 "colorClose": true,
                 "ok": true,
@@ -433,16 +433,16 @@ cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exa
           "zOk": true,
           "cursors": {
             "mounted": true,
-            "cursorCount": 5,
-            "visibleCursorCount": 5,
+            "cursorCount": 4,
+            "visibleCursorCount": 4,
             "driftDetected": true
           },
           "mainBaseline": 6,
           "expectedVisible": 6,
-          "branchVisible": 5,
-          "branchMounted": 5,
+          "branchVisible": 4,
+          "branchMounted": 4,
           "cursorOk": false,
-          "cursorCountFailure": "cursor-count failure at 768x1024: branch mounted=5, main baseline=6 (require exact match)",
+          "cursorCountFailure": "cursor-count failure at 768x1024: branch mounted=4, main baseline=6 (768: min 5 and main−1; wider: exact match)",
           "keepOk": true,
           "ok": false
         },
