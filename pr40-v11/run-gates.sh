@@ -12,10 +12,16 @@ for _ in $(seq 1 30); do
 done
 for i in 1 2 3 4 5; do
   MAIN_PREVIEW_URL="$MAIN" PREVIEW_URL="$BR" \
+    PR40_VERIFY_STABILITY_RUNS=1 \
     stdbuf -oL -eL node scripts/dev/verify-pr40-regression.mjs \
     > "$ART/verify-outer-${i}.log" 2>&1
   echo "exit:$?" >> "$ART/verify-outer-${i}.log"
 done
+# One full verify with 5 internal stability loops (motion-on regression bundle).
+MAIN_PREVIEW_URL="$MAIN" PREVIEW_URL="$BR" \
+  stdbuf -oL -eL node scripts/dev/verify-pr40-regression.mjs \
+  > "$ART/verify-5-internal-runs.log" 2>&1
+echo "exit:$?" >> "$ART/verify-5-internal-runs.log"
 for i in 1 2 3 4 5; do
   env -u PR40_ARTIFACTS_DIR \
     PR40_METRICS_FILE=/workspace/scripts/dev/out/layout-metrics.json \
