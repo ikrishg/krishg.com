@@ -5,16 +5,23 @@ import { SAMPLE_NAV_ACCENT_SOURCE } from "./mobile-nav-band-resolve.mjs";
 
 const WIDTHS = [375, 390, 430, 767];
 const VIEWPORT_HEIGHT = 844;
-const COARSE_STEP = 128;
-const FINE_STEP = 32;
+const COARSE_STEP = 64;
+const FINE_STEP = 16;
 const FINE_WINDOW_PX = 900;
-const SCROLL_SETTLE_MS = 100;
+const SCROLL_SETTLE_MS = 160;
 
 async function settleScroll(page, scrollY) {
   if (page.isClosed()) {
     throw new Error("pre-tail nav sweep: page closed before scroll settle");
   }
   await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+  await page
+    .waitForFunction(
+      (target) => Math.abs(window.scrollY - target) <= 1,
+      scrollY,
+      { timeout: 8_000 },
+    )
+    .catch(() => {});
   await page.waitForTimeout(SCROLL_SETTLE_MS);
 }
 
@@ -38,11 +45,10 @@ async function pretailSweep(page, width) {
     };
   });
   const ys = [];
-  for (let y = 0; y < tailTop - 64; ) {
+  for (let y = 0; y <= max; y += y >= tailTop - FINE_WINDOW_PX ? FINE_STEP : COARSE_STEP) {
     ys.push(y);
-    const step = y >= tailTop - FINE_WINDOW_PX ? FINE_STEP : COARSE_STEP;
-    y += step;
   }
+  if (ys.at(-1) !== max) ys.push(max);
   const samples = new Map();
   for (const y of ys) {
     if (y >= tailTop - 64) continue;

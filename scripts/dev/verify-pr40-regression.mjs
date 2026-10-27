@@ -19,7 +19,7 @@ import { runMobileNavStepGate } from "./assert-mobile-nav-step.mjs";
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
 const STABILITY_RUNS = Number(process.env.PR40_VERIFY_STABILITY_RUNS || 5);
-const NAV_STEP_RUNS = Number(process.env.PR40_NAV_STEP_STABILITY_RUNS || 1);
+const NAV_STEP_RUNS = Number(process.env.PR40_NAV_STEP_STABILITY_RUNS || 5);
 
 const VIEWPORTS = CURSOR_VIEWPORTS;
 
