@@ -219,10 +219,10 @@ function buildNarrowStaticKeepOuts(layout: LandscapeLayout, w: number, h: number
     { x: w - layout.gutter, y: 0, w: layout.gutter, h },
   ];
   if (layout.emailRect) {
-    keep.push(padRect(layout.emailRect, 64, 56));
+    keep.push(padRect(layout.emailRect, 96, 80));
   }
   for (const pr of layout.pillRects) {
-    keep.push(padRect(pr, 64, 56));
+    keep.push(padRect(pr, 96, 80));
   }
   return keep;
 }
@@ -423,12 +423,37 @@ function padRect(r: Rect, padX: number, padY: number): Rect {
   };
 }
 
+/** Footer uses `display: contents` on desktop; union email + social when the box is 0×0. */
+function footerMeasureRect(footer: HTMLElement): DOMRect {
+  const fr = footer.getBoundingClientRect();
+  if (fr.width > 2 && fr.height > 2) return fr;
+  const parts = [
+    footer.querySelector<HTMLElement>(".home-footer__email"),
+    footer.querySelector<HTMLElement>(".home-footer__social"),
+  ].filter((el): el is HTMLElement => Boolean(el));
+  if (!parts.length) return fr;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const el of parts) {
+    const r = el.getBoundingClientRect();
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  }
+  if (!Number.isFinite(left)) return fr;
+  return new DOMRect(left, top, right - left, bottom - top);
+}
+
 function readFooterSliceLayout(
   footer: HTMLElement,
   w: number,
   footerH: number,
+  footerOrigin: DOMRect,
 ): FooterSliceLayout {
-  const fr = footer.getBoundingClientRect();
+  const fr = footerOrigin;
   const email = footer.querySelector<HTMLElement>(".home-footer__email");
   const pills = footer.querySelectorAll<HTMLElement>(".home-footer__social-pill");
 
@@ -493,12 +518,12 @@ function readClosingTailLandscape(
   footer: HTMLElement,
 ): LandscapeLayout {
   const tr = tail.getBoundingClientRect();
-  const fr = footer.getBoundingClientRect();
+  const fr = footerMeasureRect(footer);
   const w = Math.max(1, tr.width);
   const h = Math.max(1, tr.height);
   const footerTop = Math.max(0, fr.top - tr.top);
   const footerH = Math.max(1, fr.height);
-  const slice = readFooterSliceLayout(footer, w, footerH);
+  const slice = readFooterSliceLayout(footer, w, footerH, fr);
 
   const offsetY = (r: Rect) => ({ ...r, y: r.y + footerTop });
 
@@ -773,9 +798,9 @@ function motionContentPads(layout: LandscapeLayout, w: number) {
     return { emailX: 22, emailY: 18, pillX: 16, pillY: 14 };
   }
   if (tight) {
-    return { emailX: 36, emailY: 24, pillX: 22, pillY: 18 };
+    return { emailX: 56, emailY: 44, pillX: 40, pillY: 36 };
   }
-  return { emailX: 72, emailY: 48, pillX: 40, pillY: 36 };
+  return { emailX: 104, emailY: 72, pillX: 56, pillY: 48 };
 }
 
 function isStructuralKeepOut(k: Rect, layout: LandscapeLayout, w: number) {
@@ -886,8 +911,8 @@ function buildKeepOuts(
     (el) => {
       const box = padRect(
         toContainerLocal(el.getBoundingClientRect(), tr),
-        52,
-        44,
+        88,
+        72,
       );
       keep.push(box);
       closing.push(box);

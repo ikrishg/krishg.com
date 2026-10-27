@@ -274,6 +274,10 @@ export default function HomeSplashOverlay() {
   const beginFadeOut = useCallback(() => {
     const el = overlayRef.current;
     if (!el || stateRef.current === "idle" || stateRef.current === "hiding") {
+      if (document.documentElement.dataset.homeSplash) {
+        syncHtmlSplash(null);
+        setInk(null);
+      }
       return;
     }
 
@@ -445,7 +449,7 @@ export default function HomeSplashOverlay() {
   const tree = (
     <div
       ref={overlayRef}
-      className="home-splash-overlay pointer-events-none fixed inset-0 z-40 opacity-0"
+      className="home-splash-overlay pointer-events-none fixed inset-0 opacity-0"
       aria-hidden="true"
     >
       {maskMode === "organic" ? (

@@ -33,6 +33,12 @@ import HomeNavbarScroll from "./HomeNavbarScroll.tsx";
     box-shadow: none;
   }
 
+  :global(html[data-page-accent="closing"]) .home-navbar,
+  :global(html[data-page-accent="closing"]) .home-navbar[data-scrolled="true"] {
+    background-color: var(--home-nav-bg);
+    box-shadow: 0 1px 0 color-mix(in srgb, var(--home-nav-fg) 14%, transparent);
+  }
+
   :global(html[data-home-splash]) .home-navbar {
     transition: color 0.2s ease;
   }

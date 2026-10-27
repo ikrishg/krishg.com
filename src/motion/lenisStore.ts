@@ -4,6 +4,16 @@ let lenisInstance: Lenis | null = null;
 
 export function setLenisInstance(instance: Lenis | null) {
   lenisInstance = instance;
+  if (typeof window !== "undefined" && import.meta.env.DEV) {
+    const win = window as Window & { __siteScrollTo?: (y: number) => void };
+    if (instance) {
+      win.__siteScrollTo = (y) => {
+        siteScrollTo(y, { immediate: true });
+      };
+    } else {
+      delete win.__siteScrollTo;
+    }
+  }
 }
 
 export function getLenis(): Lenis | null {
@@ -14,15 +24,29 @@ export function getScrollY(): number {
   return lenisInstance?.scroll ?? window.scrollY;
 }
 
-/** Scroll listeners: Lenis when active, otherwise native `scroll`. */
+/** Scroll listeners: Lenis when active, with native `scroll` fallback. */
 export function subscribeScroll(listener: () => void): () => void {
-  const lenis = lenisInstance;
-  if (lenis) {
-    lenis.on("scroll", listener);
-    return () => lenis.off("scroll", listener);
-  }
-  window.addEventListener("scroll", listener, { passive: true });
-  return () => window.removeEventListener("scroll", listener);
+  let boundLenis: Lenis | null = null;
+
+  const bindLenis = () => {
+    const current = getLenis();
+    if (current === boundLenis) return;
+    if (boundLenis) boundLenis.off("scroll", listener);
+    boundLenis = current;
+    if (boundLenis) boundLenis.on("scroll", listener);
+  };
+
+  const onWindowScroll = () => {
+    bindLenis();
+    listener();
+  };
+
+  bindLenis();
+  window.addEventListener("scroll", onWindowScroll, { passive: true });
+  return () => {
+    if (boundLenis) boundLenis.off("scroll", listener);
+    window.removeEventListener("scroll", onWindowScroll);
+  };
 }
 
 export type LenisScrollToOptions = {

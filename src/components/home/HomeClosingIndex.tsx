@@ -83,16 +83,16 @@ function MobileStack() {
 
 function DesktopIndex() {
   return (
-    <div className="home-closing-desktop relative z-[46] mx-auto flex w-full max-w-[var(--home-content-max)] flex-col items-center">
-      <div className="home-closing-index__stack flex w-full flex-col items-center">
-        <div className="home-closing-index__primary flex w-full flex-col items-center justify-center">
-          <PrimaryRow />
-        </div>
-        <div className="home-closing-index__nav w-full shrink-0">
-          <NavRow />
-        </div>
+    <>
+      <div className="home-closing-index__nav relative z-[46] w-full shrink-0">
+        <NavRow />
       </div>
-    </div>
+      <div
+        className="home-closing-index__primary relative z-[46] flex w-full flex-col items-center justify-center"
+      >
+        <PrimaryRow />
+      </div>
+    </>
   );
 }
 
@@ -159,7 +159,7 @@ export default function HomeClosingIndex() {
     <section
       ref={sectionRef}
       id="home-closing-index"
-      data-home-nav-theme={mobileStack ? "builder" : "closing"}
+      {...(!mobileStack ? { "data-home-nav-theme": "closing" as const } : {})}
       className="home-closing-index relative text-[var(--home-closing-fg)] max-md:px-0 md:px-[var(--gutter)]"
       aria-label="Site index"
     >

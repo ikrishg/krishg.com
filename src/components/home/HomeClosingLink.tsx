@@ -45,6 +45,7 @@ const primaryFitClass =
   "block max-w-full text-[clamp(2.25rem,5.4vw,6rem)] md:max-lg:text-[clamp(1.625rem,4.6vw,2.625rem)] lg:text-[clamp(2.25rem,5.4vw,6rem)]";
 
 const mobileFitClass = "block max-w-full text-[clamp(1.5rem,7.2vw,2rem)]";
+const MOBILE_FIT_MAX_PX = 32;
 
 const navClass =
   "home-closing-link home-closing-link--nav inline-block min-h-11 py-2 font-[family-name:var(--font-inter-tight),system-ui,sans-serif] text-[clamp(1.25rem,2.15vw,2rem)] font-medium lowercase tracking-[-0.02em] underline underline-offset-[0.18em] decoration-[0.07em] transition-[color,opacity] duration-[350ms] ease-[var(--ease-out)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4";
@@ -90,7 +91,7 @@ export default function HomeClosingLink({
           className={mobileFitClass}
           maxLines={1}
           minSize={mobileClampMinPx}
-          maxSize={48}
+          maxSize={Math.max(MOBILE_FIT_MAX_PX, mobileClampMinPx + 1)}
         >
           {link.label}
         </FitText>

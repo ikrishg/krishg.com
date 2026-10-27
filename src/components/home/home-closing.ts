@@ -1,3 +1,5 @@
+import type { PageAccent } from "./hero-types";
+
 /** Splash + link tokens for the homepage closing index. */
 
 export type ClosingSplashKey =
@@ -61,4 +63,14 @@ export const closingMobileInkHex: Record<ClosingSplashKey, string> = {
   about: "#fff9ec",
   now: "#fff9ec",
   sitemap: "#fff9ec",
+};
+
+/** Navbar / theme-color accent while a mobile closing band is under the nav. */
+export const closingMobileNavAccent: Record<ClosingSplashKey, PageAccent> = {
+  building: "builder",
+  creating: "creator",
+  educating: "educator",
+  about: "about",
+  now: "now",
+  sitemap: "sitemap",
 };

@@ -13,7 +13,7 @@ const PRIMARY_FIT_OPTS = {
   maxSize: 160,
 };
 
-const PRIMARY_LINE_HEIGHT = 1.08;
+const PRIMARY_LINE_HEIGHT = 1;
 
 function readGapPx(element: HTMLElement | null) {
   if (!element) return 0;
@@ -26,17 +26,17 @@ function availablePrimaryHeightPx(row: HTMLElement) {
   const tail = row.closest<HTMLElement>(".home-closing-tail");
   if (!tail || tail.clientHeight <= 0) return null;
 
-  const footer = tail.querySelector<HTMLElement>(".home-footer");
-  const footerHeight = footer?.getBoundingClientRect().height ?? 0;
+  const email = tail.querySelector<HTMLElement>(".home-footer__email");
+  const social = tail.querySelector<HTMLElement>(".home-footer__social");
+  const footerHeight =
+    (email?.getBoundingClientRect().height ?? 0) +
+    (social?.getBoundingClientRect().height ?? 0);
   const tailGap = readGapPx(tail);
 
   const nav = tail.querySelector<HTMLElement>(".home-closing-index__nav");
   const navHeight = nav?.getBoundingClientRect().height ?? 0;
 
-  const stack = row.closest<HTMLElement>(".home-closing-index__stack");
-  const stackGap = readGapPx(stack);
-
-  const reserved = footerHeight + tailGap + navHeight + stackGap + 8;
+  const reserved = footerHeight + tailGap + navHeight + 8;
   return Math.max(0, tail.clientHeight - reserved);
 }
 

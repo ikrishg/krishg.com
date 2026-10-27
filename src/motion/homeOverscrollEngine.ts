@@ -19,6 +19,7 @@ let surfacePullingDataset: "true" | "false" | null = null;
 let rootPullingDataset: "true" | "false" | null = null;
 let rootRevealDataset: "true" | undefined;
 let overscrollAccentApplied = false;
+let overscrollWasPulled = false;
 let lastPullCss: string | null = null;
 let lastRevealCss: string | null = null;
 
@@ -90,6 +91,10 @@ function applyPullVisual(value: number) {
   if (!surface) return;
 
   if (value <= 0.35) {
+    if (overscrollWasPulled) {
+      overscrollWasPulled = false;
+      window.dispatchEvent(new CustomEvent("home-overscroll:settled"));
+    }
     if (lastPullCss !== null) {
       root.style.removeProperty("--home-overscroll-pull");
       lastPullCss = null;
@@ -121,6 +126,7 @@ function applyPullVisual(value: number) {
     root.style.setProperty("--home-overscroll-pull", pullCss);
     lastPullCss = pullCss;
   }
+  overscrollWasPulled = true;
   surface.style.transform = `translate3d(0, ${-value}px, 0)`;
   if (surfacePullingDataset !== "true") {
     surface.dataset.overscrollPulling = "true";
@@ -133,6 +139,7 @@ function applyPullVisual(value: number) {
   if (!overscrollAccentApplied) {
     overscrollAccentApplied = true;
     setPageAccent("closing");
+    window.dispatchEvent(new CustomEvent("home-splash:immediate-clear"));
   }
 
   if (value > SPLASH_CLEAR_PULL && !splashClearedForPull) {
