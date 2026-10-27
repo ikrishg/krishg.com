@@ -706,6 +706,11 @@ async function sampleContactKeepHits(page, samples = 40, intervalMs = 100) {
       }
       return { hits: n, measuredRects: cursorParts.length };
     });
+      totalHits += hits.hits;
+      measuredRectsTotal += hits.measuredRects;
+      if (i < samples - 1) {
+        await page.waitForTimeout(intervalMs);
+      }
     } catch (err) {
       if (page.isClosed() || isPageOrTargetClosedError(err)) {
         throw new ProveAssertionError(
@@ -714,9 +719,6 @@ async function sampleContactKeepHits(page, samples = 40, intervalMs = 100) {
       }
       throw err;
     }
-    totalHits += hits.hits;
-    measuredRectsTotal += hits.measuredRects;
-    await page.waitForTimeout(intervalMs);
   }
   return { samples, totalContactKeepHits: totalHits, measuredCursorRects: measuredRectsTotal };
 }
