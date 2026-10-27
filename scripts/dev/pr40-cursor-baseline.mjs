@@ -2,6 +2,10 @@
  * Settled drifting-cursor counts at closing tail (matches verify/prove).
  */
 import { chromium } from "playwright";
+import {
+  ProveAssertionError,
+  waitForPageCondition,
+} from "./pr40-playwright-guard.mjs";
 
 export const CURSOR_VIEWPORTS = [
   { width: 768, height: 1024 },
@@ -11,9 +15,19 @@ export const CURSOR_VIEWPORTS = [
 ];
 
 export async function scrollToClosing(page) {
-  await page.waitForFunction(
+  if (process.env.PR40_PROVE_INJECT_SCROLL_TIMEOUT === "1") {
+    throw new ProveAssertionError(
+      "scrollToClosing:logoMorph: timed out after 3×20000ms — injected harness proof",
+    );
+  }
+  await waitForPageCondition(
+    page,
     () => document.documentElement.dataset.logoMorph !== "pending",
-    { timeout: 20_000 },
+    {
+      timeoutMs: 20_000,
+      retries: 3,
+      label: "scrollToClosing:logoMorph",
+    },
   );
   await page.evaluate(() => {
     document.documentElement.dataset.introSkip = "true";
@@ -129,18 +143,21 @@ export async function measureMountedCursorAt(
     deviceScaleFactor: 1,
   });
   const page = await ctx.newPage();
-  await page.emulateMedia({ reducedMotion });
-  await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
-  await page.evaluate(() => {
-    document.documentElement.dataset.introSkip = "true";
-  });
-  await scrollToClosing(page);
-  await measureStableCursorCount(page);
-  const mounted = await page.evaluate(
-    () => document.querySelectorAll(".home-drifting-cursor").length,
-  );
-  await ctx.close();
-  return mounted;
+  try {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+    await page.evaluate(() => {
+      document.documentElement.dataset.introSkip = "true";
+    });
+    await scrollToClosing(page);
+    await measureStableCursorCount(page);
+    const mounted = await page.evaluate(
+      () => document.querySelectorAll(".home-drifting-cursor").length,
+    );
+    return mounted;
+  } finally {
+    await ctx.close().catch(() => {});
+  }
 }
 
 export async function measureMainMountedBaselines(browser, mainUrl, {
@@ -170,18 +187,21 @@ export async function measureCursorCountAt(
     deviceScaleFactor: 1,
   });
   const page = await ctx.newPage();
-  await page.emulateMedia({ reducedMotion });
-  await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
-  await page.evaluate(() => {
-    document.documentElement.dataset.introSkip = "true";
-  });
-  await scrollToClosing(page);
-  let count = await measureStableCursorCount(page);
-  if (pollTarget != null && count !== pollTarget) {
-    count = await waitForStableCursorCount(page, pollTarget);
+  try {
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+    await page.evaluate(() => {
+      document.documentElement.dataset.introSkip = "true";
+    });
+    await scrollToClosing(page);
+    let count = await measureStableCursorCount(page);
+    if (pollTarget != null && count !== pollTarget) {
+      count = await waitForStableCursorCount(page, pollTarget);
+    }
+    return count;
+  } finally {
+    await ctx.close().catch(() => {});
   }
-  await ctx.close();
-  return count;
 }
 
 export function modeCount(samples) {

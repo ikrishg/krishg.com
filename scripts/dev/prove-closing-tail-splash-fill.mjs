@@ -31,9 +31,24 @@ import { runStackedPrimaryInkGate } from "./assert-stacked-primary-ink.mjs";
 import { runMobileNavStepGate } from "./assert-mobile-nav-step.mjs";
 import { runMobilePretailNavSweepGate } from "./assert-mobile-pretail-nav-sweep.mjs";
 import { RESOLVE_BAND_UNDER_NAV_SOURCE } from "./mobile-nav-band-resolve.mjs";
+import {
+  ProveAssertionError,
+  isPageOrTargetClosedError,
+  waitForPageCondition,
+} from "./pr40-playwright-guard.mjs";
 
 const STABILITY_RUNS = Number(process.env.PR40_PROVE_STABILITY_RUNS || 5);
-const NAV_STEP_RUNS = Number(process.env.PR40_NAV_STEP_STABILITY_RUNS || 5);
+const NAV_STEP_RUNS = Number(
+  process.env.PR40_NAV_STEP_STABILITY_RUNS ?? STABILITY_RUNS,
+);
+const MAIN_MOUNTED_SAMPLES = Number(
+  process.env.PR40_MAIN_MOUNTED_SAMPLES ??
+    (STABILITY_RUNS === 1 ? 1 : 3),
+);
+const CURSOR_KEEPOUT_RUNS = Number(
+  process.env.PR40_CURSOR_KEEPOUT_RUNS ??
+    (STABILITY_RUNS === 1 ? 4 : 16),
+);
 
 const BASE = process.env.PREVIEW_URL || "http://127.0.0.1:4321";
 const MAIN_BASE = process.env.MAIN_PREVIEW_URL || "";
@@ -639,7 +654,14 @@ async function sampleContactKeepHits(page, samples = 40, intervalMs = 100) {
   let totalHits = 0;
   let measuredRectsTotal = 0;
   for (let i = 0; i < samples; i += 1) {
-    const hits = await page.evaluate(() => {
+    if (page.isClosed()) {
+      throw new ProveAssertionError(
+        `cursor-keepout: page closed during contact hit sampling (sample ${i + 1}/${samples})`,
+      );
+    }
+    let hits;
+    try {
+      hits = await page.evaluate(() => {
       const rectsOverlap = (a, b) =>
         a.left < b.right &&
         a.right > b.left &&
@@ -684,6 +706,14 @@ async function sampleContactKeepHits(page, samples = 40, intervalMs = 100) {
       }
       return { hits: n, measuredRects: cursorParts.length };
     });
+    } catch (err) {
+      if (page.isClosed() || isPageOrTargetClosedError(err)) {
+        throw new ProveAssertionError(
+          `cursor-keepout: page or context closed during contact hit sampling (sample ${i + 1}/${samples})`,
+        );
+      }
+      throw err;
+    }
     totalHits += hits.hits;
     measuredRectsTotal += hits.measuredRects;
     await page.waitForTimeout(intervalMs);
@@ -705,17 +735,20 @@ async function runCursorKeepOutGate(browser, baseUrl, runs = 16) {
         deviceScaleFactor: 1,
       });
       const page = await context.newPage();
-      await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
-      await scrollToClosing(page);
-      await waitLayoutSettle(page);
-      let hits = await sampleContactKeepHits(page, 40, 100);
-      for (let attempt = 0; attempt < 20 && hits.totalContactKeepHits > 0; attempt += 1) {
-        await page.waitForTimeout(200);
-        hits = await sampleContactKeepHits(page, 40, 100);
+      try {
+        await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 120_000 });
+        await scrollToClosing(page);
+        await waitLayoutSettle(page);
+        let hits = await sampleContactKeepHits(page, 40, 100);
+        for (let attempt = 0; attempt < 20 && hits.totalContactKeepHits > 0; attempt += 1) {
+          await page.waitForTimeout(200);
+          hits = await sampleContactKeepHits(page, 40, 100);
+        }
+        runHits.push(hits.totalContactKeepHits);
+        if (hits.totalContactKeepHits > 0) ok = false;
+      } finally {
+        await context.close().catch(() => {});
       }
-      runHits.push(hits.totalContactKeepHits);
-      if (hits.totalContactKeepHits > 0) ok = false;
-      await context.close();
     }
     widthRuns.push({
       viewport: `${viewport.width}x${viewport.height}`,
@@ -872,7 +905,8 @@ async function waitForUiSettled(page) {
   await page.evaluate(() => {
     document.documentElement.dataset.introSkip = "1";
   });
-  await page.waitForFunction(
+  await waitForPageCondition(
+    page,
     () => {
       const root = document.documentElement;
       return (
@@ -880,7 +914,11 @@ async function waitForUiSettled(page) {
         (root.dataset.introPhase === "ready" || root.dataset.introSkip === "1")
       );
     },
-    { timeout: 20_000 },
+    {
+      timeoutMs: 20_000,
+      retries: 3,
+      label: "waitForUiSettled",
+    },
   );
 }
 
@@ -1751,15 +1789,18 @@ async function runNegativeSelfTests(browser, baseUrl) {
   return { ok, negatives };
 }
 
-await mkdir(OUT, { recursive: true });
-await mkdir(ARTIFACTS_DIR, { recursive: true });
+async function runProve() {
+  await mkdir(OUT, { recursive: true });
+  if (process.env.PR40_ARTIFACTS_DIR) {
+    await mkdir(ARTIFACTS_DIR, { recursive: true });
+  }
 
-if (!MAIN_BASE) {
-  console.error("MAIN_PREVIEW_URL is required for cursor baseline comparison");
-  process.exit(1);
-}
+  if (!MAIN_BASE) {
+    console.error("MAIN_PREVIEW_URL is required for cursor baseline comparison");
+    process.exit(1);
+  }
 
-const browser = await chromium.launch();
+  const browser = await chromium.launch();
 
 const mainProfile = await collect390NavProfile(browser, MAIN_BASE, "main");
 const branchProfile = await collect390NavProfile(browser, BASE, "branch");
@@ -1787,10 +1828,12 @@ const mobileNavStep = await runMobileNavStepGate(
   MAIN_BASE,
   NAV_STEP_RUNS,
 );
-await writeFile(
-  path.join(ARTIFACTS_DIR, "nav-step-5runs.json"),
-  JSON.stringify(mobileNavStep, null, 2),
-);
+  if (process.env.PR40_ARTIFACTS_DIR) {
+    await writeFile(
+      path.join(ARTIFACTS_DIR, "nav-step-5runs.json"),
+      JSON.stringify(mobileNavStep, null, 2),
+    );
+  }
 const mobileOverscrollNav = await runMobileOverscrollNavGate(browser, BASE);
 
 const mobileGatesOk =
@@ -1817,20 +1860,41 @@ console.log(
   ),
 );
 
-if (!mobileGatesOk) {
-  await browser.close();
-  console.error("prove-closing-tail-splash-fill: FAILED (mobile gates)");
-  process.exit(1);
-}
+  if (!mobileGatesOk) {
+    await browser.close();
+    if (!mobileNavCompare.ok) {
+      console.error("ASSERT: mobile 390 nav profile vs main");
+    }
+    if (!mobileClosingNavBands.ok) {
+      console.error("ASSERT: mobile closing nav bands");
+    }
+    if (!mobilePretailNav.ok) {
+      console.error("ASSERT: mobile pre-tail nav sweep vs main");
+    }
+    if (!mobileNavStep.ok) {
+      console.error("ASSERT: mobile nav step (10px sweep vs main)");
+    }
+    if (!mobileOverscrollNav.ok) {
+      console.error("ASSERT: mobile overscroll nav");
+    }
+    console.error("prove-closing-tail-splash-fill: FAILED (mobile gates)");
+    process.exit(1);
+  }
 
-const stabilityReports = [];
+  const mainBaselines = await measureMainMountedBaselines(browser, MAIN_BASE, {
+    samplesPerViewport: MAIN_MOUNTED_SAMPLES,
+  });
 
-for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
-  const mainBaselines = await measureMainMountedBaselines(browser, MAIN_BASE);
+  const stabilityReports = [];
 
-  const desktopVisibleGaps = await runDesktopVisibleGapGate(browser, BASE);
-  const stackedPrimaryInk = await runStackedPrimaryInkGate(browser, BASE);
-  const cursorKeepOut = await runCursorKeepOutGate(browser, BASE, 16);
+  for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
+    const desktopVisibleGaps = await runDesktopVisibleGapGate(browser, BASE);
+    const stackedPrimaryInk = await runStackedPrimaryInkGate(browser, BASE);
+    const cursorKeepOut = await runCursorKeepOutGate(
+      browser,
+      BASE,
+      CURSOR_KEEPOUT_RUNS,
+    );
   const run1 = await runProvePass(
     browser,
     BASE,
@@ -1931,31 +1995,42 @@ for (let stability = 1; stability <= STABILITY_RUNS; stability += 1) {
   console.log("=== prove run 2 (exit", run2.failed ? 1 : 0, ") ===");
   console.table(run2.table);
 
-  if (failed) {
-    await browser.close();
-    const reportPath = path.join(OUT, "pixel-results.json");
-    await writeFile(
-      reportPath,
-      JSON.stringify({ stabilityReports, failedAt: stability }, null, 2),
-    );
-    for (const row of run1.results ?? []) {
-      if (row.cursorCounts?.cursorCountFailure) {
-        console.error(row.cursorCounts.cursorCountFailure);
+    if (failed) {
+      await browser.close();
+      const reportPath = path.join(OUT, "pixel-results.json");
+      await writeFile(
+        reportPath,
+        JSON.stringify({ stabilityReports, failedAt: stability }, null, 2),
+      );
+      for (const row of run1.results ?? []) {
+        if (row.cursorCounts?.cursorCountFailure) {
+          console.error(row.cursorCounts.cursorCountFailure);
+        }
       }
-    }
-    for (const row of run2.results ?? []) {
-      if (row.cursorCounts?.cursorCountFailure) {
-        console.error(row.cursorCounts.cursorCountFailure);
+      for (const row of run2.results ?? []) {
+        if (row.cursorCounts?.cursorCountFailure) {
+          console.error(row.cursorCounts.cursorCountFailure);
+        }
       }
+      console.error("prove-closing-tail-splash-fill: FAILED");
+      process.exit(1);
     }
-    console.error("prove-closing-tail-splash-fill: FAILED");
-    process.exit(1);
   }
+
+  await browser.close();
+
+  const reportPath = path.join(OUT, "pixel-results.json");
+  await writeFile(reportPath, JSON.stringify({ stabilityReports }, null, 2));
+
+  console.log("prove-closing-tail-splash-fill: OK");
 }
 
-await browser.close();
-
-const reportPath = path.join(OUT, "pixel-results.json");
-await writeFile(reportPath, JSON.stringify({ stabilityReports }, null, 2));
-
-console.log("prove-closing-tail-splash-fill: OK");
+try {
+  await runProve();
+} catch (err) {
+  if (err instanceof ProveAssertionError) {
+    console.error(`ASSERT: ${err.message}`);
+    process.exit(1);
+  }
+  throw err;
+}
